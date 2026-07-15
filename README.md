@@ -9,6 +9,8 @@ This is a starter template for building apps that have **no real server**. Inste
 a Node/Express/etc. backend + a real Postgres database, everything runs **inside the
 user's browser**:
 
+- **React (TSX)** — the UI layer (`src/main.tsx`, `src/App.tsx`), rendered by Vite's
+  `@vitejs/plugin-react`. It only ever talks to the "backend" through `api`.
 - **PGlite** — a full Postgres build compiled to WASM, running in a Web Worker.
 - **Drizzle ORM** — type-safe schema + query builder, talking to that in-browser Postgres.
 - **A Web Worker** (`src/worker/worker.ts`) — hosts the database and a small
@@ -32,9 +34,9 @@ You almost never need anything outside `src/`.
 ```
 ┌─────────────────────────────┐        Comlink RPC        ┌───────────────────────────────┐
 │   Main thread (UI)           │ ────────────────────────▶ │  Web Worker (fake "backend")   │
-│   src/main.ts, src/client.ts │ ◀──────────────────────── │  src/worker/worker.ts          │
-│   (or your framework's       │      (structured clone,   │  - creates PGlite instance      │
-│    components/hooks)         │       all async)           │  - runs migrations once         │
+│   src/main.tsx, src/App.tsx, │ ◀──────────────────────── │  src/worker/worker.ts          │
+│   src/client.ts              │      (structured clone,   │  - creates PGlite instance      │
+│   (React components/hooks)   │       all async)           │  - runs migrations once         │
 └─────────────────────────────┘                            │  - exposes a FLAT api object    │
                                                              │  - delegates to repositories    │
                                                              └───────────────┬────────────────┘
@@ -70,12 +72,13 @@ This boundary is intentional — keep it.
 | `src/worker/migrate.ts` | Runs pending migrations on startup, using file-hash checks to detect edited migrations. | **Rarely — it's generic.** Only touch if you need to change *how* migrations run, not *what* they contain. |
 | `src/worker/repositories/*.repo.ts` | One file per table/domain. All actual Drizzle queries live here. This is your "service/DAL layer". | **Yes — this is the second primary place to add logic.** Add a new file per new table/domain (e.g. `comments.repo.ts`). |
 | `src/client.ts` | Creates the Worker, wraps it with `Comlink.wrap<WorkerApi>()`, exposes `ensureDbReady()`. | **Rarely.** Only touch if you need multiple workers, a different worker path, etc. |
-| `src/main.ts` | Current demo UI (vanilla TS/DOM). | **Yes — replace freely.** This is throwaway demo code, not part of the architecture. Swap in React/Vue/Svelte/whatever the user wants; just keep calling through `api` from `src/client.ts`. |
+| `src/main.tsx` | React entry point. Creates the root and renders `<App />`. | **Rarely.** It should only ever mount `<App />` — don't add DB logic here. |
+| `src/App.tsx` | Current demo UI (React function component). | **Yes — replace/extend freely.** This (and any components you add alongside it, e.g. `src/components/`) is throwaway demo code, not part of the architecture. Add more components, routing, state management, whatever the user wants; just keep calling through `api` from `src/client.ts`, ideally from a small hook (e.g. `useUsers()`) rather than scattering `api.*` calls across every component. |
 | `src/style.css` | Demo styling. | Freely replace/delete. |
 | `src/assets/*` | Demo images (Vite/TS logos, hero image). | Freely replace/delete. |
-| `vite.config.ts` | Vite config — has two settings PGlite *requires* (see below). | **Be careful.** Keep the two PGlite-related settings unless you know why you're removing them. |
+| `vite.config.ts` | Vite config — has the `react()` plugin plus two settings PGlite *requires* (see below). | **Be careful with the PGlite-related settings.** The `react()` plugin itself is ordinary and safe to reconfigure. |
 | `drizzle.config.ts` | Tells `drizzle-kit generate` where the schema is and where to write migration files. The DB URL is a placeholder and is never actually connected to. | Leave as-is unless you move `schema.ts` or the migrations folder. |
-| `tsconfig.json`, `package.json`, `index.html` | Standard Vite project scaffolding. | Edit `package.json` normally to add dependencies; the rest rarely needs changes. |
+| `tsconfig.json`, `package.json`, `index.html` | Standard Vite + React project scaffolding (`tsconfig.json` has `"jsx": "react-jsx"` set; `index.html` loads `src/main.tsx`). | Edit `package.json` normally to add dependencies; the rest rarely needs changes. |
 
 ## The golden workflow: adding a new feature/table
 
@@ -106,10 +109,13 @@ sequence:
    `commentCreate`, `commentRemove` — **not** nested like `comments.list()`. See
    "Why the worker API is flat" below for why this matters.
 
-5. **Call the new methods from the UI** via `import { api } from './client'` (or
-   wherever your UI framework's data layer lives). `api.commentCreate({...})` behaves
-   like a normal `async` function call — Comlink handles the message-passing to the
-   worker transparently.
+5. **Call the new methods from the UI** via `import { api } from './client'` in a
+   React component (e.g. `src/App.tsx`) or a small custom hook (e.g.
+   `useComments()` that wraps `api.commentList` / `api.commentCreate` with
+   `useState`/`useEffect`). `api.commentCreate({...})` behaves like a normal
+   `async` function call — Comlink handles the message-passing to the worker
+   transparently. A typical pattern is: call the mutation, then re-fetch (or
+   optimistically update) the list `useState` and let React re-render.
 
 You almost never need to touch `client.ts`, `migrate.ts`, `vite.config.ts`, or the
 `meta/` files for a normal feature addition.
@@ -176,7 +182,7 @@ object in `client.ts` or a UI-layer hook), not inside the worker.
 | Add a new table/column | `src/db/schema.ts`, then `npx drizzle-kit generate` |
 | Add a query/mutation for an existing table | the matching `*.repo.ts` file |
 | Add a brand-new domain (e.g. "comments", "tags") | new file in `src/worker/repositories/`, new methods in `worker.ts`'s `api` object |
-| Change how the UI looks/behaves | `src/main.ts` (or replace with your framework of choice) — never touches the DB directly |
+| Change how the UI looks/behaves | `src/App.tsx` and any components you add under `src/` (or restructure as you like) — never touches the DB directly |
 | Reset local data during development | change the `dataDir` string in `initDb()`, or clear the browser's IndexedDB for the site |
 | Add an npm dependency | `package.json`, as normal |
 
@@ -184,8 +190,8 @@ object in `client.ts` or a UI-layer hook), not inside the worker.
 
 - No real HTTP server, no REST/GraphQL API, no auth server.
 - No multi-device sync — data lives in one browser's IndexedDB only, per-origin.
-- No server-side rendering.
-- The UI in `src/main.ts` is a minimal vanilla-TS demo, not a design system. Replace it.
+- No server-side rendering (plain client-side React via Vite).
+- The UI in `src/App.tsx` is a minimal React demo, not a design system. Replace it.
 
 If a user asks for "real" backend features (multi-user sync, server-side auth, etc.),
 that's a fundamentally different architecture from what this template provides — flag
