@@ -8,12 +8,6 @@ import react from '@vitejs/plugin-react';
 // framework's Vite plugin if the UI layer changes again).
 export default defineConfig({
   plugins: [react()],
-  // AI agents: the auth module (src/auth/googleAuth.ts) reads
-  // `import.meta.env.PUBLIC_LOGIN_URL` / `PUBLIC_GOOGLE_OAUTH_CLIENT_ID`.
-  // Vite only exposes env vars to client code if their name starts with
-  // this prefix (default is `VITE_`) — keep `PUBLIC_` here, or rename the
-  // vars in both `.env` and `src/auth/googleAuth.ts` together.
-  envPrefix: 'PUBLIC_',
   optimizeDeps: {
     // PGlite bundles its own WASM binary and an internal dynamic worker.
     // Letting esbuild's dependency pre-bundling touch it breaks it at runtime.

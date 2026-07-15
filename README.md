@@ -210,7 +210,7 @@ as the rest of this template, split into three layers:
 └─────────────┘  └──────────────────────┘
 ```
 
-**What the backend does (and doesn't do).** `PUBLIC_LOGIN_URL` points at a page on
+**What the backend does (and doesn't do).** `VITE_LOGIN_URL` points at a page on
 a separate backend whose *only* job is to record a login event, then redirect the
 browser back to this app with a Google ID token in the `credential` query param.
 The frontend never talks to that backend again after that one redirect — there is
@@ -221,7 +221,7 @@ access token, refreshing it before it expires, and any future Drive sync) happen
 
 **Flow:**
 1. UI calls `signIn()` (from `useAuth()`) → redirects to
-   `${PUBLIC_LOGIN_URL}?ori=<current-url>`.
+   `${VITE_LOGIN_URL}?ori=<current-url>`.
 2. Backend logs the event and redirects back to `<current-url>?credential=<jwt>`.
 3. On mount, `useAuth()` calls `consumeLoginRedirect()`
    (`src/auth/googleAuth.ts`), which decodes the JWT into a `GoogleUser`, strips
@@ -237,10 +237,10 @@ access token, refreshing it before it expires, and any future Drive sync) happen
 5. `signOut()` just clears local state (`clearSession()`); there's no backend
    session to invalidate.
 
-**Required env vars** (see `.env.example`, and `envPrefix: 'PUBLIC_'` in
+**Required env vars** (see `.env.example`, and `envPrefix: 'VITE_'` in
 `vite.config.ts` which is what makes these visible to client code):
-- `PUBLIC_LOGIN_URL` — the backend's login-and-redirect-back page.
-- `PUBLIC_GOOGLE_OAUTH_CLIENT_ID` — a Google OAuth 2.0 Web application Client ID,
+- `VITE_LOGIN_URL` — the backend's login-and-redirect-back page.
+- `VITE_GOOGLE_OAUTH_CLIENT_ID` — a Google OAuth 2.0 Web application Client ID,
   used directly by the browser (Google Identity Services) to request Drive
   access tokens. This never goes through the backend.
 
@@ -284,7 +284,7 @@ that clearly rather than silently bolting a real network layer onto the worker.
 ## Commands
 
 ```bash
-cp .env.example .env.local  # fill in PUBLIC_LOGIN_URL and PUBLIC_GOOGLE_OAUTH_CLIENT_ID
+cp .env.example .env.local  # fill in VITE_LOGIN_URL and VITE_GOOGLE_OAUTH_CLIENT_ID
 npm install            # install deps
 npm run dev             # start Vite dev server
 npm run build            # type-check (tsc) + production build

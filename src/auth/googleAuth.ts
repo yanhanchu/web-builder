@@ -4,7 +4,7 @@
 // e.g. a useAuth hook + components). Keep those three concerns separate.
 //
 // Flow this implements (see README.md "Auth module" for the full picture):
-//   1. signIn() redirects the browser to PUBLIC_LOGIN_URL, a backend page
+//   1. signIn() redirects the browser to VITE_LOGIN_URL, a backend page
 //      that exists ONLY to record a login event — it is not a session
 //      server and the frontend never talks to it again after this redirect.
 //   2. That backend redirects back to this app with `credential` (a Google
@@ -24,8 +24,8 @@ const GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 // so callers essentially never observe an expired token.
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
-const loginUrl = import.meta.env.PUBLIC_LOGIN_URL as string | undefined;
-const googleClientId = import.meta.env.PUBLIC_GOOGLE_OAUTH_CLIENT_ID as string | undefined;
+const loginUrl = import.meta.env.VITE_LOGIN_URL as string | undefined;
+const googleClientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID as string | undefined;
 
 declare global {
   interface Window {
@@ -52,7 +52,7 @@ declare global {
  * string — it holds no session and is never contacted again afterwards. */
 export function signIn() {
   if (!loginUrl) {
-    throw new Error('PUBLIC_LOGIN_URL is not configured');
+    throw new Error('VITE_LOGIN_URL is not configured');
   }
   window.location.href = `${loginUrl}?ori=${encodeURIComponent(window.location.href)}`;
 }
@@ -166,7 +166,7 @@ export async function ensureDriveAccessToken(
   userEmailHint?: string
 ): Promise<DriveTokenState> {
   if (!googleClientId) {
-    throw new Error('PUBLIC_GOOGLE_OAUTH_CLIENT_ID is not configured');
+    throw new Error('VITE_GOOGLE_OAUTH_CLIENT_ID is not configured');
   }
 
   const now = Date.now();
