@@ -76,6 +76,8 @@ This boundary is intentional — keep it.
 | `src/App.tsx` | Current demo UI (React function component). | **Yes — replace/extend freely.** This (and any components you add alongside it, e.g. `src/components/`) is throwaway demo code, not part of the architecture. Add more components, routing, state management, whatever the user wants; just keep calling through `api` from `src/client.ts`, ideally from a small hook (e.g. `useUsers()`) rather than scattering `api.*` calls across every component. |
 | `src/style.css` | Demo styling. | Freely replace/delete. |
 | `src/assets/*` | Demo images (Vite/TS logos, hero image). | Freely replace/delete. |
+| `src/auth/*` | Google sign-in + Drive access-token module (data/logic/UI split — see "Auth module" section below). | **Yes** — this is a second, independent "vertical" alongside the DB stack. Extend `types.ts`/`session.ts`/`googleAuth.ts`/`useAuth.ts` as needed; call it only via `useAuth()` from UI code. |
+| `src/components/AuthPanel.tsx` | Demo UI for sign-in/out + requesting a Drive token. | **Yes — replace/extend freely**, same as `App.tsx`. |
 | `vite.config.ts` | Vite config — has the `react()` plugin plus two settings PGlite *requires* (see below). | **Be careful with the PGlite-related settings.** The `react()` plugin itself is ordinary and safe to reconfigure. |
 | `drizzle.config.ts` | Tells `drizzle-kit generate` where the schema is and where to write migration files. The DB URL is a placeholder and is never actually connected to. | Leave as-is unless you move `schema.ts` or the migrations folder. |
 | `tsconfig.json`, `package.json`, `index.html` | Standard Vite + React project scaffolding (`tsconfig.json` has `"jsx": "react-jsx"` set; `index.html` loads `src/main.tsx`). | Edit `package.json` normally to add dependencies; the rest rarely needs changes. |
@@ -175,6 +177,82 @@ object in `client.ts` or a UI-layer hook), not inside the worker.
 - **Always call `ensureDbReady()` (or `api.init()`) before the first data call.**
   It's idempotent (guarded by a memoized promise) and safe to call from multiple places.
 
+## Auth module: Google sign-in + Drive access token
+
+This is a **second, independent vertical** alongside the DB/worker stack described
+above. It has nothing to do with PGlite/Drizzle/Comlink — it's plain browser-side
+auth state. It lives entirely under `src/auth/` (+ a demo UI component in
+`src/components/AuthPanel.tsx`) and follows the same "keep layers separate" spirit
+as the rest of this template, split into three layers:
+
+```
+┌───────────────────────────┐
+│  UI layer                  │   src/components/AuthPanel.tsx (or any component)
+│  (React components)        │   — calls useAuth() only, nothing else in this module
+└──────────────┬──────────────┘
+               │ useAuth()
+               ▼
+┌───────────────────────────┐
+│  Bridge / React hook       │   src/auth/useAuth.ts
+│                             │   — wires data + logic together, holds React state
+└──────┬───────────────┬─────┘
+       │                │
+       ▼                ▼
+┌─────────────┐  ┌──────────────────────┐
+│ Data layer    │  │ Logic layer           │
+│ src/auth/       │  │ src/auth/googleAuth.ts │
+│ session.ts      │  │ - redirect to backend  │
+│ types.ts        │  │   login page            │
+│ - AuthSession    │  │ - decode ID token JWT   │
+│   shape          │  │ - request/refresh Drive │
+│ - localStorage   │  │   access token via GIS  │
+│   read/write     │  │   (Google Identity Svc) │
+└─────────────┘  └──────────────────────┘
+```
+
+**What the backend does (and doesn't do).** `PUBLIC_LOGIN_URL` points at a page on
+a separate backend whose *only* job is to record a login event, then redirect the
+browser back to this app with a Google ID token in the `credential` query param.
+The frontend never talks to that backend again after that one redirect — there is
+no session cookie, no "logout" call, no server-brokered token refresh. Everything
+after the initial redirect (decoding the ID token, requesting a Google Drive
+access token, refreshing it before it expires, and any future Drive sync) happens
+**entirely in the browser**, talking directly to Google.
+
+**Flow:**
+1. UI calls `signIn()` (from `useAuth()`) → redirects to
+   `${PUBLIC_LOGIN_URL}?ori=<current-url>`.
+2. Backend logs the event and redirects back to `<current-url>?credential=<jwt>`.
+3. On mount, `useAuth()` calls `consumeLoginRedirect()`
+   (`src/auth/googleAuth.ts`), which decodes the JWT into a `GoogleUser`, strips
+   the query params from the URL, and persists the result via `saveSession()`
+   (`src/auth/session.ts`, backed by `localStorage`) so it survives reloads.
+4. When the app needs to talk to Google Drive, UI calls `getDriveAccessToken()`
+   (from `useAuth()`) → `ensureDriveAccessToken()` in `googleAuth.ts` either
+   reuses the still-valid cached token or requests/refreshes one via **Google
+   Identity Services' token client**, loaded client-side from
+   `accounts.google.com/gsi/client`. A silent (no-prompt) request is used when a
+   token was previously granted; otherwise the user sees Google's consent screen.
+   The resulting token + expiry are persisted the same way as the user profile.
+5. `signOut()` just clears local state (`clearSession()`); there's no backend
+   session to invalidate.
+
+**Required env vars** (see `.env.example`, and `envPrefix: 'PUBLIC_'` in
+`vite.config.ts` which is what makes these visible to client code):
+- `PUBLIC_LOGIN_URL` — the backend's login-and-redirect-back page.
+- `PUBLIC_GOOGLE_OAUTH_CLIENT_ID` — a Google OAuth 2.0 Web application Client ID,
+  used directly by the browser (Google Identity Services) to request Drive
+  access tokens. This never goes through the backend.
+
+**Extending this module:**
+- New persisted fields (e.g. a Drive `syncCursor`) → add to `AuthSession` in
+  `src/auth/types.ts`, read/write via `session.ts`.
+- New Google/OAuth mechanics (e.g. a wider Drive scope, a different Google API)
+  → add to `googleAuth.ts`, keep it framework-agnostic (no React/DOM state beyond
+  what it needs to talk to `window.google`).
+- New UI → new components under `src/components/`, calling `useAuth()` only.
+  Never import `session.ts` or `googleAuth.ts` directly from a component.
+
 ## Common tasks and where they land
 
 | Task | Where |
@@ -185,10 +263,16 @@ object in `client.ts` or a UI-layer hook), not inside the worker.
 | Change how the UI looks/behaves | `src/App.tsx` and any components you add under `src/` (or restructure as you like) — never touches the DB directly |
 | Reset local data during development | change the `dataDir` string in `initDb()`, or clear the browser's IndexedDB for the site |
 | Add an npm dependency | `package.json`, as normal |
+| Add/change what's stored about the signed-in user or Drive token | `src/auth/types.ts` (shape) + `src/auth/session.ts` (persistence) |
+| Change how sign-in/token requests work | `src/auth/googleAuth.ts` |
+| Use auth state or request a Drive token from a component | `useAuth()` from `src/auth` (see `src/components/AuthPanel.tsx` for an example) |
 
 ## Non-goals / things this template deliberately does not have
 
-- No real HTTP server, no REST/GraphQL API, no auth server.
+- No real HTTP server, no REST/GraphQL API, no session/auth server. (The optional
+  `src/auth/` module redirects to a backend URL only to log a login event and get
+  a Google ID token back — that backend holds no session and is never contacted
+  again. See "Auth module" above.)
 - No multi-device sync — data lives in one browser's IndexedDB only, per-origin.
 - No server-side rendering (plain client-side React via Vite).
 - The UI in `src/App.tsx` is a minimal React demo, not a design system. Replace it.
@@ -200,6 +284,7 @@ that clearly rather than silently bolting a real network layer onto the worker.
 ## Commands
 
 ```bash
+cp .env.example .env.local  # fill in PUBLIC_LOGIN_URL and PUBLIC_GOOGLE_OAUTH_CLIENT_ID
 npm install            # install deps
 npm run dev             # start Vite dev server
 npm run build            # type-check (tsc) + production build

@@ -8,6 +8,7 @@
 // from anywhere other than through `api`.
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ensureDbReady } from './client';
+import AuthPanel from './components/AuthPanel';
 
 type User = Awaited<ReturnType<typeof api.userList>>[number];
 
@@ -46,6 +47,8 @@ export default function App() {
     <div className="wrap">
       <h1>PGlite + Drizzle + Worker + Comlink Demo</h1>
       <p id="status">{status}</p>
+
+      <AuthPanel />
 
       <section>
         <h2>Add User</h2>
