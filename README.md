@@ -1,93 +1,202 @@
-# chelsa_web
+# pglite-app — Frontend-Only "Fake Backend" Starter Template
 
+> **You are an AI coding agent.** This repository is a *template*, not a finished app.
+> Read this whole file before you write or change any code.
 
+## What this project actually is
 
-## Getting started
+This is a starter template for building apps that have **no real server**. Instead of
+a Node/Express/etc. backend + a real Postgres database, everything runs **inside the
+user's browser**:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **PGlite** — a full Postgres build compiled to WASM, running in a Web Worker.
+- **Drizzle ORM** — type-safe schema + query builder, talking to that in-browser Postgres.
+- **A Web Worker** (`src/worker/worker.ts`) — hosts the database and a small
+  repository layer. This worker *is* your "backend". It never talks to the network.
+- **Comlink** — turns the worker's exposed functions into something the main thread
+  can call with plain `await api.userList()`, as if it were calling a REST API.
+- **IndexedDB** (via PGlite's `dataDir: 'idb://...'`) — where the Postgres data
+  actually lives, so it survives page reloads. This is the app's only "storage server".
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+There is no HTTP API, no auth server, no cloud database. When a user says "save this",
+you write it to this in-browser Postgres via Drizzle. When they reload the page, the
+data is still there because it's in IndexedDB, not memory.
 
-## Add your files
+**Your job when extending this app:** add tables to the schema, add repository
+methods in the worker, expose them on the worker's flat API object, and call them
+from the main thread (or from whatever UI framework the user has you adopt/bring in).
+You almost never need anything outside `src/`.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Architecture at a glance
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/chelsea1728530/chelsa_web.git
-git branch -M main
-git push -uf origin main
+┌─────────────────────────────┐        Comlink RPC        ┌───────────────────────────────┐
+│   Main thread (UI)           │ ────────────────────────▶ │  Web Worker (fake "backend")   │
+│   src/main.ts, src/client.ts │ ◀──────────────────────── │  src/worker/worker.ts          │
+│   (or your framework's       │      (structured clone,   │  - creates PGlite instance      │
+│    components/hooks)         │       all async)           │  - runs migrations once         │
+└─────────────────────────────┘                            │  - exposes a FLAT api object    │
+                                                             │  - delegates to repositories    │
+                                                             └───────────────┬────────────────┘
+                                                                             │
+                                                                             ▼
+                                                             ┌───────────────────────────────┐
+                                                             │  src/worker/repositories/*.ts   │
+                                                             │  (one file per table/domain)     │
+                                                             │  - Drizzle queries only          │
+                                                             │  - this is your "service layer"  │
+                                                             └───────────────┬────────────────┘
+                                                                             │
+                                                                             ▼
+                                                             ┌───────────────────────────────┐
+                                                             │  PGlite (Postgres in WASM)       │
+                                                             │  persisted to IndexedDB          │
+                                                             │  schema defined in src/db/schema.ts │
+                                                             └───────────────────────────────┘
 ```
 
-## Integrate with your tools
+The main thread **never imports PGlite, Drizzle, or the schema's query builder
+directly**. It only ever imports `api` from `src/client.ts` and calls methods on it.
+This boundary is intentional — keep it.
 
-* [Set up project integrations](https://gitlab.com/chelsea1728530/chelsa_web/-/settings/integrations)
+## File-by-file guide (where to work, what not to touch)
 
-## Collaborate with your team
+| Path | What it is | Should the AI edit it? |
+|---|---|---|
+| `src/db/schema.ts` | Drizzle table definitions + relations + exported TS types (`User`, `NewUser`, ...). | **Yes — this is the primary place to add/change tables.** |
+| `src/db/migrations/*.sql` | Generated SQL migration files. | **No — never hand-write or hand-edit.** Generate with `npx drizzle-kit generate` after changing `schema.ts`. |
+| `src/db/migrations/meta/*` | Drizzle-kit's internal bookkeeping (`_journal.json`, `*_snapshot.json`). | **No — fully auto-generated.** Never edit by hand. |
+| `src/worker/worker.ts` | The Comlink-exposed "backend" entrypoint. Owns the single PGlite instance and calls into repositories. | **Yes — add one method per new operation, keep the object flat (see below).** |
+| `src/worker/migrate.ts` | Runs pending migrations on startup, using file-hash checks to detect edited migrations. | **Rarely — it's generic.** Only touch if you need to change *how* migrations run, not *what* they contain. |
+| `src/worker/repositories/*.repo.ts` | One file per table/domain. All actual Drizzle queries live here. This is your "service/DAL layer". | **Yes — this is the second primary place to add logic.** Add a new file per new table/domain (e.g. `comments.repo.ts`). |
+| `src/client.ts` | Creates the Worker, wraps it with `Comlink.wrap<WorkerApi>()`, exposes `ensureDbReady()`. | **Rarely.** Only touch if you need multiple workers, a different worker path, etc. |
+| `src/main.ts` | Current demo UI (vanilla TS/DOM). | **Yes — replace freely.** This is throwaway demo code, not part of the architecture. Swap in React/Vue/Svelte/whatever the user wants; just keep calling through `api` from `src/client.ts`. |
+| `src/style.css` | Demo styling. | Freely replace/delete. |
+| `src/assets/*` | Demo images (Vite/TS logos, hero image). | Freely replace/delete. |
+| `vite.config.ts` | Vite config — has two settings PGlite *requires* (see below). | **Be careful.** Keep the two PGlite-related settings unless you know why you're removing them. |
+| `drizzle.config.ts` | Tells `drizzle-kit generate` where the schema is and where to write migration files. The DB URL is a placeholder and is never actually connected to. | Leave as-is unless you move `schema.ts` or the migrations folder. |
+| `tsconfig.json`, `package.json`, `index.html` | Standard Vite project scaffolding. | Edit `package.json` normally to add dependencies; the rest rarely needs changes. |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## The golden workflow: adding a new feature/table
 
-## Test and Deploy
+When a user asks for a new feature (say, "add comments on posts"), follow this exact
+sequence:
 
-Use the built-in continuous integration in GitLab.
+1. **Add the table to `src/db/schema.ts`.**
+   Define columns, add `relations()` if it references another table, and export
+   `type Comment = typeof comments.$inferSelect` / `NewComment = typeof comments.$inferInsert`.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+2. **Generate the migration.** Run:
+   ```bash
+   npx drizzle-kit generate
+   ```
+   This writes a new `.sql` file into `src/db/migrations/` and updates
+   `src/db/migrations/meta/_journal.json` automatically. Do not write this SQL by hand —
+   `src/worker/migrate.ts` hashes each migration file's contents and will throw a hard
+   error at runtime if a previously-applied migration's content changes. If you need to
+   change a table that has already shipped, **add a new migration**, never edit an old one.
 
-***
+3. **Add a repository file** under `src/worker/repositories/` (e.g. `comments.repo.ts`),
+   following the existing pattern in `users.repo.ts` / `posts.repo.ts`: a factory function
+   `createXRepo(db)` returning an object of async methods that use Drizzle's query API
+   (`db.query.x.findMany(...)`, `db.insert(...)`, `db.update(...)`, `db.delete(...)`).
 
-# Editing this README
+4. **Expose new methods on the worker's `api` object** in `src/worker/worker.ts`.
+   Follow the naming convention already used: `<entity><Action>`, e.g. `commentList`,
+   `commentCreate`, `commentRemove` — **not** nested like `comments.list()`. See
+   "Why the worker API is flat" below for why this matters.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+5. **Call the new methods from the UI** via `import { api } from './client'` (or
+   wherever your UI framework's data layer lives). `api.commentCreate({...})` behaves
+   like a normal `async` function call — Comlink handles the message-passing to the
+   worker transparently.
 
-## Suggestions for a good README
+You almost never need to touch `client.ts`, `migrate.ts`, `vite.config.ts`, or the
+`meta/` files for a normal feature addition.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Why the worker API is flat (don't "clean this up" into nested objects)
 
-## Name
-Choose a self-explaining name for your project.
+`src/worker/worker.ts` exposes a single flat object:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```ts
+const api = {
+  async userList() { ... },
+  async userCreate(input) { ... },
+  async postList() { ... },
+  // ...
+};
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+This looks unergonomic compared to `{ users: { list, create }, posts: { list } }`, but
+it's **deliberate**, not an oversight. Comlink's type system (`RemoteProperty<T>`) only
+recursively converts *functions* into remote, awaitable functions. A plain nested object
+gets wrapped as a whole (via a `Promise`-returning proxy get), not recursed into — so
+`Comlink.wrap<WorkerApi>()` would not give you the ergonomic `await api.users.list()`
+call you'd expect; the types and the runtime behavior would diverge. Keep the API
+surface flat. If you want a nicer call-site grouping, do that in a thin wrapper on the
+main-thread side (e.g. a `usersApi = { list: api.userList, create: api.userCreate }`
+object in `client.ts` or a UI-layer hook), not inside the worker.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Key constraints that must be preserved
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- **`vite.config.ts` must keep:**
+  - `optimizeDeps.exclude: ['@electric-sql/pglite']` — PGlite bundles WASM and its own
+    dynamic worker internally; letting esbuild's dependency pre-bundling touch it breaks
+    it. Native ESM handling must be left to the browser.
+  - `worker: { format: 'es' }` — the worker uses `import`/`export`, so it must be built
+    as an ES module worker, not the legacy classic worker format.
+- **Migrations are one-way and hash-checked.** Never hand-edit a file in
+  `src/db/migrations/*.sql` or `src/db/migrations/meta/*` after it's been generated.
+  If schema needs to change, edit `schema.ts` and re-run `drizzle-kit generate` to
+  produce a *new* migration.
+- **`src/worker/migrate.ts` auto-discovers migration files** via
+  `import.meta.glob('../db/migrations/*.sql', { eager: true })` and orders them using
+  `_journal.json`. You never need to manually import a new migration file — generating
+  it with drizzle-kit is enough.
+- **There is exactly one PGlite instance**, created lazily on the first `api.init()`
+  call and memoized in the worker's module scope (`dbReady`). Don't create additional
+  `new PGlite(...)` instances elsewhere — route all DB access through this worker.
+- **Data persistence is controlled by `dataDir` in `initDb()`** (`src/worker/worker.ts`).
+  - `dataDir: 'idb://my-app-db'` (current default) → persists to IndexedDB, survives
+    reloads. Rename the string if you want a fresh persisted database (e.g. after an
+    incompatible schema change during early development, before you care about real
+    migrations).
+  - Omit `dataDir` entirely → pure in-memory database, wiped on every reload. Useful
+    for tests or ephemeral demos.
+- **The main thread must never import `@electric-sql/pglite` or `drizzle-orm` directly.**
+  All DB access goes through `src/client.ts`'s `api`. This keeps the WASM/DB code out
+  of the main bundle and out of the main thread entirely.
+- **Always call `ensureDbReady()` (or `api.init()`) before the first data call.**
+  It's idempotent (guarded by a memoized promise) and safe to call from multiple places.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Common tasks and where they land
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+| Task | Where |
+|---|---|
+| Add a new table/column | `src/db/schema.ts`, then `npx drizzle-kit generate` |
+| Add a query/mutation for an existing table | the matching `*.repo.ts` file |
+| Add a brand-new domain (e.g. "comments", "tags") | new file in `src/worker/repositories/`, new methods in `worker.ts`'s `api` object |
+| Change how the UI looks/behaves | `src/main.ts` (or replace with your framework of choice) — never touches the DB directly |
+| Reset local data during development | change the `dataDir` string in `initDb()`, or clear the browser's IndexedDB for the site |
+| Add an npm dependency | `package.json`, as normal |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Non-goals / things this template deliberately does not have
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- No real HTTP server, no REST/GraphQL API, no auth server.
+- No multi-device sync — data lives in one browser's IndexedDB only, per-origin.
+- No server-side rendering.
+- The UI in `src/main.ts` is a minimal vanilla-TS demo, not a design system. Replace it.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+If a user asks for "real" backend features (multi-user sync, server-side auth, etc.),
+that's a fundamentally different architecture from what this template provides — flag
+that clearly rather than silently bolting a real network layer onto the worker.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Commands
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+npm install            # install deps
+npm run dev             # start Vite dev server
+npm run build            # type-check (tsc) + production build
+npm run preview          # preview the production build
+npx drizzle-kit generate # generate a new SQL migration after editing schema.ts
+```

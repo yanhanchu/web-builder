@@ -2,13 +2,20 @@ import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { sql } from 'drizzle-orm';
 import journal from '../db/migrations/meta/_journal.json';
 
-// --- 自動掃描 migrations 資料夾 ---
-// import.meta.glob 是 Vite 的功能:在 build time 掃描符合 pattern 的檔案,
-// 用 `?raw` 讓每個檔案內容變成字串,`eager: true` 讓它們直接被打包進 bundle
-// (不是 lazy code-splitting,因為初始化資料庫本來就需要全部 migration)。
+// AI agents: this file is generic migration-runner plumbing. You should rarely
+// need to edit it — it auto-discovers and runs whatever .sql files exist under
+// ../db/migrations, in the order recorded by _journal.json. To add a migration,
+// edit ../db/schema.ts and run `npx drizzle-kit generate`; you never need to
+// touch this file or manually register a new migration.
+
+// --- Auto-scan the migrations folder ---
+// import.meta.glob is a Vite feature: it scans for files matching a pattern at
+// build time. `?raw` turns each file's contents into a string, and `eager: true`
+// bundles them directly (not lazy code-split, since DB init needs every
+// migration up front anyway).
 //
-// 好處:新增 migration 時只需要跑 `drizzle-kit generate`,
-// 不用手動回來這個檔案裡加一行 import。
+// Benefit: adding a migration only requires running `drizzle-kit generate` —
+// no need to come back here and manually add an import line.
 const sqlModules = import.meta.glob('../db/migrations/*.sql', {
   query: '?raw',
   import: 'default',
@@ -20,21 +27,23 @@ type MigrationEntry = { idx: number; tag: string; when: number };
 function loadMigrationsInOrder(): { tag: string; sql: string }[] {
   const entries = (journal as { entries: MigrationEntry[] }).entries;
 
-  // journal.json 的 entries 順序就是正確的執行順序 (idx 遞增),
-  // 這裡明確 sort 一次,避免未來 journal 格式或掃描順序有變化時出錯。
+  // journal.json's entries are already in the correct execution order (idx
+  // ascending); we sort explicitly anyway as a safety net in case the journal
+  // format or scan order ever changes.
   const sorted = [...entries].sort((a, b) => a.idx - b.idx);
 
   return sorted.map((entry) => {
-    // glob 的 key 會是相對路徑,例如 '../db/migrations/0000_worthless_ben_grimm.sql'
+    // glob keys are relative paths, e.g. '../db/migrations/0000_worthless_ben_grimm.sql'
     const matchKey = Object.keys(sqlModules).find((k) =>
       k.endsWith(`${entry.tag}.sql`)
     );
 
     if (!matchKey) {
-      // 這種情況代表 journal.json 講的檔案實際上不存在——
-      // 通常是有人手動刪了 .sql 檔但沒有清 journal,寧可直接炸掉也不要悄悄跳過。
+      // This means journal.json references a migration file that doesn't
+      // actually exist — usually because someone deleted a .sql file by hand
+      // without cleaning up the journal. Fail loudly rather than silently skip it.
       throw new Error(
-        `[migrate] journal.json 記錄了 migration "${entry.tag}",但找不到對應的 .sql 檔案`
+        `[migrate] journal.json references migration "${entry.tag}", but no matching .sql file was found`
       );
     }
 
@@ -45,15 +54,18 @@ function loadMigrationsInOrder(): { tag: string; sql: string }[] {
 const MIGRATIONS = loadMigrationsInOrder();
 
 /**
- * 執行所有尚未套用的 migration。
+ * Runs every migration that hasn't been applied yet.
  *
- * 安全性設計:
- * 1. 每個 migration 用單一 transaction 包住——裡面任何一句 SQL 失敗,
- *    整個 migration 全部 rollback,不會留下「半套用」的表。
- * 2. 用 SHA-256 hash 記錄每個 migration 實際執行過的內容——
- *    如果本地已標記為「跑過」,但檔案內容跟當初執行時不一樣了
- *    (例如有人事後修改了已發布的 migration 檔),直接拋錯,
- *    而不是悄悄忽略這個不一致。
+ * Safety design:
+ * 1. Each migration runs inside a single transaction — if any statement in it
+ *    fails, the whole migration rolls back, so no table is left half-applied.
+ * 2. Each migration's actual executed content is recorded via a SHA-256 hash.
+ *    If a migration is already marked as applied locally but its file content
+ *    no longer matches what was originally run (e.g. someone edited an
+ *    already-shipped migration file), this throws immediately instead of
+ *    silently ignoring the mismatch. AI agents: this is why you must never
+ *    hand-edit an existing file under db/migrations/*.sql — always generate a
+ *    new migration instead (see README.md).
  */
 export async function runMigrations(db: PgliteDatabase<any>) {
   await db.execute(`
@@ -76,22 +88,22 @@ export async function runMigrations(db: PgliteDatabase<any>) {
       const previousHash = applied.rows[0].hash;
       if (previousHash !== hash) {
         throw new Error(
-          `[migrate] migration "${m.tag}" 的內容與先前套用時不一致 (hash mismatch)。` +
-            ` 已發布的 migration 不應該被修改——請新增一個新的 migration 來調整 schema。`
+          `[migrate] migration "${m.tag}" content does not match what was previously applied (hash mismatch). ` +
+            `Already-shipped migrations must never be edited — add a new migration to change the schema instead.`
         );
       }
-      continue; // 已套用且內容一致,跳過
+      continue; // already applied with matching content, skip
     }
 
-    console.log(`[migrate] 執行 migration: ${m.tag}`);
+    console.log(`[migrate] running migration: ${m.tag}`);
 
     const statements = m.sql
       .split('--> statement-breakpoint')
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // PGlite 支援 db.transaction(),失敗會自動 rollback,
-    // 確保「一個 migration 檔案」在資料庫層面是不可分割的單位。
+    // PGlite supports db.transaction(), which rolls back automatically on
+    // failure, making each migration file an atomic unit at the DB level.
     await db.transaction(async (tx) => {
       for (const statement of statements) {
         await tx.execute(statement);
@@ -102,10 +114,11 @@ export async function runMigrations(db: PgliteDatabase<any>) {
     });
   }
 
-  console.log('[migrate] 所有 migration 完成');
+  console.log('[migrate] all migrations complete');
 }
 
-// 瀏覽器 / worker 環境都有 Web Crypto API (crypto.subtle),不需要額外套件。
+// Both browser and worker environments have the Web Crypto API (crypto.subtle),
+// so no extra package is needed for hashing.
 async function sha256(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest('SHA-256', data);

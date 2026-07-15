@@ -1,3 +1,9 @@
+// AI agents: this file is a throwaway demo UI, NOT part of the app's core
+// architecture. It's plain vanilla TS/DOM just to prove the PGlite + Drizzle +
+// Worker + Comlink stack works end-to-end. Feel free to delete/replace this
+// entire file's contents with React/Vue/Svelte/whatever the user wants — just
+// keep importing `api` and `ensureDbReady` from './client' as the only way to
+// talk to the database. Never import PGlite or Drizzle directly here.
 import './style.css';
 import { api, ensureDbReady } from './client';
 
@@ -6,19 +12,19 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="wrap">
     <h1>PGlite + Drizzle + Worker + Comlink Demo</h1>
-    <p id="status">初始化資料庫中...</p>
+    <p id="status">Initializing database...</p>
 
     <section>
-      <h2>新增使用者</h2>
+      <h2>Add User</h2>
       <form id="user-form">
-        <input name="name" placeholder="姓名" required />
+        <input name="name" placeholder="Name" required />
         <input name="email" type="email" placeholder="Email" required />
-        <button type="submit">新增</button>
+        <button type="submit">Add</button>
       </form>
     </section>
 
     <section>
-      <h2>使用者列表</h2>
+      <h2>User List</h2>
       <ul id="user-list"></ul>
     </section>
   </div>
@@ -35,7 +41,7 @@ async function refreshUsers() {
       (u) => `
       <li>
         <strong>${u.name}</strong> (${u.email})
-        <button data-remove="${u.id}">刪除</button>
+        <button data-remove="${u.id}">Delete</button>
       </li>`
     )
     .join('');
@@ -63,7 +69,7 @@ userListEl.addEventListener('click', async (e) => {
 
 async function bootstrap() {
   await ensureDbReady();
-  statusEl.textContent = '資料庫已就緒 ✅ (資料存在瀏覽器 IndexedDB,重新整理不會消失)';
+  statusEl.textContent = 'Database ready ✅ (data is stored in the browser via IndexedDB and survives reloads)';
   await refreshUsers();
 }
 

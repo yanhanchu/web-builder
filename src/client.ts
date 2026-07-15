@@ -1,8 +1,13 @@
 import * as Comlink from 'comlink';
 import type { WorkerApi } from './worker/worker';
 
-// `new URL(..., import.meta.url)` 是 Vite 官方推薦的 worker 建立方式,
-// 讓 Vite 在 build 時能正確處理 worker 的 bundling 與 code-splitting。
+// AI agents: this is the ONLY file that should create the Worker and wrap it
+// with Comlink. UI code (src/main.ts, or your framework's components/hooks)
+// should import `api` and `ensureDbReady` from here — never import PGlite,
+// Drizzle, or the worker module directly from the main thread.
+
+// `new URL(..., import.meta.url)` is Vite's officially recommended way to
+// construct a worker, so Vite can correctly bundle and code-split it at build time.
 function createWorker() {
   return new Worker(new URL('./worker/worker.ts', import.meta.url), {
     type: 'module',
@@ -11,11 +16,14 @@ function createWorker() {
 
 const worker = createWorker();
 
-// api 現在是「長得跟 WorkerApi 一模一樣、但每個方法都回傳 Promise」的物件,
-// 呼叫起來完全就像本地的 async function,底層由 Comlink 處理訊息傳遞與序列化。
+// `api` now looks exactly like `WorkerApi`, except every method returns a
+// Promise. Calling it feels just like calling a local async function — Comlink
+// handles message-passing and serialization to the worker under the hood.
 export const api = Comlink.wrap<WorkerApi>(worker);
 
-// 全域只需要呼叫一次 init(),之後可以放心呼叫其他 API。
+// `init()` only needs to run once globally; after that it's safe to call any
+// other API method. This promise is memoized so multiple call sites can all
+// await `ensureDbReady()` without triggering duplicate initialization.
 let initPromise: Promise<{ ok: boolean }> | null = null;
 
 export function ensureDbReady() {

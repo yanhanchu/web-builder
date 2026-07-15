@@ -1,12 +1,16 @@
 import { defineConfig } from 'vite';
 
+// AI agents: do not remove or "simplify" these two settings — see README.md
+// "Key constraints that must be preserved" for the full explanation.
 export default defineConfig({
   optimizeDeps: {
-    // PGlite 內含 WASM 與動態 worker,讓 esbuild 預先 bundle 反而會壞掉,
-    // 這裡明確排除,交給瀏覽器原生 ESM 處理。
+    // PGlite bundles its own WASM binary and an internal dynamic worker.
+    // Letting esbuild's dependency pre-bundling touch it breaks it at runtime.
+    // Excluding it here lets the browser handle it as native ESM instead.
     exclude: ['@electric-sql/pglite'],
   },
   worker: {
-    format: 'es', // worker 內要能用 import/export,必須是 module worker
+    format: 'es', // our worker (src/worker/worker.ts) uses import/export,
+    // so it must be built as an ES module worker, not the legacy classic worker.
   },
 });
