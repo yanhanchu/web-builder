@@ -13,11 +13,11 @@ database, everything runs **inside the browser**:
 - **PGlite** — a full Postgres build compiled to WASM, running in a Web Worker.
 - **Drizzle ORM** — type-safe schema + query builder, talking to that in-browser Postgres.
 - **A Web Worker** (`src/worker/worker.ts`) — hosts the database and a small
-  repository layer. This worker *is* your "backend". It never talks to the network.
+repository layer. This worker *is* your "backend". It never talks to the network.
 - **Comlink** — turns the worker's exposed functions into something the main
-  thread can call with plain `await api.userList()`, as if it were a REST API.
+thread can call with plain `await api.userList()`, as if it were a REST API.
 - **IndexedDB** (via PGlite's `dataDir: 'idb://...'`) — where the data
-  actually lives, so it survives page reloads.
+actually lives, so it survives page reloads.
 
 There is no HTTP API, no auth server, no cloud database. Saving data means
 writing to this in-browser Postgres via Drizzle; it survives reloads because
@@ -46,23 +46,27 @@ Full diagram, file-by-file table, and non-goals → [docs/architecture.md](./doc
 
 ## Where to look for what
 
-| Need to... | Read |
-|---|---|
-| Understand the layers and which file does what | [docs/architecture.md](./docs/architecture.md) |
-| Add a new table/feature (the step-by-step recipe) | [docs/workflow.md](./docs/workflow.md) |
-| Understand `worker.ts`'s flat API design, `client.ts`, `migrate.ts` | [docs/worker-api.md](./docs/worker-api.md) |
-| Work on Google sign-in / Drive access token | [docs/auth-module.md](./docs/auth-module.md) |
-| Know what must never be changed (Vite config, migrations, etc.) | [docs/constraints.md](./docs/constraints.md) |
+
+| Need to...                                                          | Read                                           |
+| ------------------------------------------------------------------- | ---------------------------------------------- |
+| Understand the layers and which file does what                      | [docs/architecture.md](./docs/architecture.md) |
+| Add a new table/feature (the step-by-step recipe)                   | [docs/workflow.md](./docs/workflow.md)         |
+| Understand `worker.ts`'s flat API design, `client.ts`, `migrate.ts` | [docs/worker-api.md](./docs/worker-api.md)     |
+| Work on Google sign-in / Drive access token                         | [docs/auth-module.md](./docs/auth-module.md)   |
+| Know what must never be changed (Vite config, migrations, etc.)     | [docs/constraints.md](./docs/constraints.md)   |
+
+
+
 
 ## Commands
 
 ```bash
 cp .env.example .env.local   # fill in VITE_LOGIN_URL and VITE_GOOGLE_OAUTH_CLIENT_ID
-npm install                  # install deps
-npm run dev                  # start Vite dev server
-npm run build                # type-check (tsc) + production build
-npm run preview              # preview the production build
-npm run db:generate          # generate a new SQL migration after editing src/db/schema.ts
+pnpm install                  # install deps
+pnpm run dev                  # start Vite dev server
+pnpm run build                # type-check (tsc) + production build
+pnpm run preview              # preview the production build
+pnpm run db:generate          # generate a new SQL migration after editing src/db/schema.ts
 ```
 
 `db:generate` runs `drizzle-kit generate` — see [docs/workflow.md](./docs/workflow.md)
