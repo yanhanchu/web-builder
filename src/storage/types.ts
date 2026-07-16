@@ -20,7 +20,7 @@
 /** Which flavor of S3-compatible endpoint we're talking to. Only affects
  * how the request URL/host is built (path-style vs virtual-hosted-style),
  * not the signing algorithm, which is identical for all three. */
-export type StorageProviderKind = 'custom' | 'r2' | 'aws';
+export type StorageProviderKind = "custom" | "r2" | "aws";
 
 export interface StorageConfig {
   /** Provider flavor — controls URL shape only. Kept here for display /
@@ -28,6 +28,14 @@ export interface StorageConfig {
    * itself anymore (the worker/backend does, when presigning). */
   kind: StorageProviderKind;
   bucket: string;
+  /** Client-side copy of the same limits enforced (authoritatively) by the
+   * worker in `storagePresignPutUrl()` — see `src/storage/validation.ts`.
+   * Used only for instant UI feedback in `useS3Upload.addFiles()`, so a
+   * bad file never even reaches the presign RPC. Not a security boundary:
+   * it's plain JS in the main bundle and can be bypassed, which is exactly
+   * why the worker re-checks the same limits before signing. */
+  maxFileSizeBytes?: number;
+  allowedMimeTypes?: string[];
 }
 
 /** Response shape for the simulated `POST /api/presign` call.
@@ -49,7 +57,12 @@ export interface UploadItem {
   error?: string;
 }
 
-export type UploadStatus = 'queued' | 'uploading' | 'done' | 'error' | 'canceled';
+export type UploadStatus =
+  | "queued"
+  | "uploading"
+  | "done"
+  | "error"
+  | "canceled";
 
 export interface UploadResult {
   key: string;
@@ -59,8 +72,9 @@ export interface UploadResult {
 }
 
 export class StorageError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(message: string, cause?: unknown) {
     super(message);
-    this.name = 'StorageError';
+    this.name = "StorageError";
+    console.error(cause);
   }
 }

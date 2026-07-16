@@ -100,6 +100,9 @@ See `.env.example`. Two different files read different subsets now:
 | `VITE_S3_REGION` | `src/worker/presign.ts` only | SigV4 region string. S2 accepts `us-east-1` as a safe default even though it's not "in" any AWS region. |
 | `VITE_S3_ACCESS_KEY_ID` / `VITE_S3_SECRET_ACCESS_KEY` | `src/worker/presign.ts` **only** | Credentials. See the caveat above — never imported by main-thread code. |
 | `VITE_S3_FORCE_PATH_STYLE` | `src/worker/presign.ts` only | Optional override; defaults to path-style for `custom`/`aws`, virtual-hosted for `r2`. |
+| `VITE_S3_MAX_FILE_SIZE_MB` | `src/storage/config.ts` (UX only) **and** `src/worker/worker.ts` (authoritative) | Optional max upload size in MB. Unset/0 = no limit. |
+| `VITE_S3_ALLOWED_MIME_TYPES` | `src/storage/config.ts` (UX only) **and** `src/worker/worker.ts` (authoritative) | Optional comma-separated content-type allowlist, e.g. `image/*,application/pdf`. Unset/empty = no restriction. |
+| `VITE_S3_PRESIGN_EXPIRES_SECONDS` | `src/worker/presign.ts` only | Optional override for presigned URL lifetime. Unset = 900 (15 minutes). |
 
 ## Switching providers later (e.g. to Cloudflare R2)
 
@@ -142,12 +145,15 @@ that's an out-of-band `mc` / S2 console step.
    sequentially (see the comment there for switching to concurrent uploads),
    calling `uploadObject()` from `s3Client.ts` for each.
 3. `uploadObject()` calls `requestPresignedUrl()` (`presign.ts`), which
-   calls `api.storagePresignPutUrl(key, contentType)` over the existing
-   Comlink RPC channel — the same channel used for all the DB calls, just
-   a different flat method on the worker's `api` object (see
+   calls `api.storagePresignPutUrl(key, contentType, size)` over the
+   existing Comlink RPC channel — the same channel used for all the DB
+   calls, just a different flat method on the worker's `api` object (see
    [worker-api.md](./worker-api.md)).
-4. The worker (`src/worker/worker.ts` → `src/worker/presign.ts`) signs a
-   query-string SigV4 URL valid for 15 minutes and returns
+4. The worker (`src/worker/worker.ts` → `src/worker/presign.ts`) validates
+   the file (size/type, if `VITE_S3_MAX_FILE_SIZE_MB` /
+   `VITE_S3_ALLOWED_MIME_TYPES` are set), then signs a query-string SigV4
+   URL valid for 15 minutes by default (configurable, see
+   `VITE_S3_PRESIGN_EXPIRES_SECONDS` below) and returns
    `{ url, expiresAt, key }`. This is the only place the secret key is
    touched.
 5. `uploadObject()` performs a plain `PUT` via XHR straight to that URL,
@@ -182,27 +188,38 @@ that's an out-of-band `mc` / S2 console step.
 
 ---
 
-## Deferred / out of scope for this round
-
-These were flagged in the original handoff note and intentionally **not**
-implemented in this pass, per explicit instruction to keep this round
-focused on the presigned-URL flow itself. Left here as English notes for
-whoever picks this up next:
+## Deferred
 
 - **Multipart upload for large files.** A single presigned PUT URL only
   covers a normal single-request upload. If files may exceed roughly
   100MB, a presigned *multipart* upload flow is needed instead (separate
   `CreateMultipartUpload` / per-part presigned URLs / `CompleteMultipartUpload`
-  calls). Meaningfully more complex than this round's scope — treat as a
-  follow-up.
-- **File type / size validation, allowlist.** Neither the frontend nor the
-  worker "backend" currently enforce any restriction on what can be
-  uploaded (no MIME allowlist, no max-size check, no extension check).
-  `storagePresignPutUrl()` in `src/worker/worker.ts` is the natural place
-  to add this later — validate `key` prefix and `contentType`/size before
-  calling `createPresignedPutUrl()`, and reject with an error the UI can
-  surface.
-- **Presigned URL expiry tuning.** Currently hardcoded to 15 minutes
-  (`DEFAULT_EXPIRES_SECONDS` in `src/worker/presign.ts`). Fine as a
-  starting point; revisit if real-world upload times (slow networks, large
-  files) start exceeding it.
+  calls). Meaningfully more complex than this round's scope — still a
+  follow-up. In the meantime, `VITE_S3_MAX_FILE_SIZE_MB` (below) at least
+  lets you cap uploads below whatever size you're comfortable doing as a
+  single PUT.
+
+### Implemented this round
+
+- **File type / size validation, allowlist.** `src/storage/validation.ts`
+  is a small pure module (`validateUpload()`, `mimeTypeMatches()`, plus the
+  env parsers) shared by both sides:
+  - `src/storage/useS3Upload.ts` (`addFiles()`) runs it client-side for
+    instant feedback — a bad file is marked `status: 'error'` before it
+    ever reaches the presign RPC.
+  - `src/worker/presign.ts` (`createPresignedPutUrl()`) runs the same
+    check authoritatively — this is the one that can't be bypassed from
+    devtools, since it's the only place with the secret key. It throws
+    before signing anything if the file fails validation, and the message
+    propagates back through Comlink to the UI (see `requestPresignedUrl()`
+    in `src/storage/presign.ts`).
+  - Configured via `VITE_S3_MAX_FILE_SIZE_MB` and
+    `VITE_S3_ALLOWED_MIME_TYPES` (see the env var table above). Both unset
+    by default, i.e. no restriction — opt in per deployment.
+  - This checks `contentType`/size only, not `key` prefix — a prefix
+    allowlist (e.g. restricting uploads to `uploads/<userId>/...`) would
+    still be a reasonable follow-up if you need per-user isolation.
+- **Presigned URL expiry tuning.** No longer hardcoded — `presignExpiresSeconds`
+  on `WorkerStorageConfig` overrides `DEFAULT_EXPIRES_SECONDS` in
+  `src/worker/presign.ts` when `VITE_S3_PRESIGN_EXPIRES_SECONDS` is set.
+  Still defaults to 15 minutes if unset.

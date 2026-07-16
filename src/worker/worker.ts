@@ -7,6 +7,7 @@ import { runMigrations } from './migrate';
 import { createUsersRepo } from './repositories/users.repo';
 import { createPostsRepo } from './repositories/posts.repo';
 import { createPresignedPutUrl, type WorkerStorageConfig } from './presign';
+import { parseAllowedMimeTypes, parseMaxFileSizeBytes } from '../storage/validation';
 
 /**
  * Worker-only storage config for the presign "backend" simulation. Reads
@@ -28,6 +29,12 @@ function loadWorkerStorageConfig(): WorkerStorageConfig {
     forcePathStyle: import.meta.env.VITE_S3_FORCE_PATH_STYLE
       ? import.meta.env.VITE_S3_FORCE_PATH_STYLE === 'true'
       : (import.meta.env.VITE_S3_KIND ?? 'custom') !== 'r2',
+    // Deferred items from docs/storage-module.md, now implemented:
+    maxFileSizeBytes: parseMaxFileSizeBytes(import.meta.env.VITE_S3_MAX_FILE_SIZE_MB),
+    allowedMimeTypes: parseAllowedMimeTypes(import.meta.env.VITE_S3_ALLOWED_MIME_TYPES),
+    presignExpiresSeconds: import.meta.env.VITE_S3_PRESIGN_EXPIRES_SECONDS
+      ? Number(import.meta.env.VITE_S3_PRESIGN_EXPIRES_SECONDS)
+      : undefined,
   };
 }
 
@@ -104,9 +111,9 @@ const api = {
    * thread never sees it; it only gets back a time-limited signed URL
    * for this one object key.
    */
-  async storagePresignPutUrl(key: string, contentType: string) {
+  async storagePresignPutUrl(key: string, contentType: string, size: number) {
     const config = loadWorkerStorageConfig();
-    return createPresignedPutUrl(config, key, contentType);
+    return createPresignedPutUrl(config, key, contentType, size);
   },
 };
 

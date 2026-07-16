@@ -26,7 +26,7 @@ export async function uploadObject(
   options: UploadObjectOptions = {},
 ): Promise<UploadResult> {
   const contentType = file.type || 'application/octet-stream';
-  const presigned = await requestPresignedUrl(key, contentType);
+  const presigned = await requestPresignedUrl(key, contentType, file.size);
 
   if (presigned.expiresAt <= Date.now()) {
     // Defensive check only — in practice the worker just issued this URL,

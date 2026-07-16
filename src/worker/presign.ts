@@ -13,6 +13,8 @@
  * `POST /api/presign` — see docs/storage-module.md for the full writeup.
  */
 
+import { validateUpload, type UploadLimits } from '../storage/validation';
+
 const encoder = new TextEncoder();
 
 async function sha256Hex(data: string): Promise<string> {
@@ -54,7 +56,7 @@ function encodeQueryComponent(value: string): string {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
 }
 
-export interface WorkerStorageConfig {
+export interface WorkerStorageConfig extends UploadLimits {
   kind: 'custom' | 'r2' | 'aws';
   endpoint?: string;
   region: string;
@@ -62,6 +64,9 @@ export interface WorkerStorageConfig {
   accessKeyId: string;
   secretAccessKey: string;
   forcePathStyle?: boolean;
+  /** Overrides DEFAULT_EXPIRES_SECONDS below when set — see
+   * VITE_S3_PRESIGN_EXPIRES_SECONDS in .env.example / docs/storage-module.md. */
+  presignExpiresSeconds?: number;
 }
 
 /** Same URL-shape logic as the old `resolveHostAndPath()` in s3Client.ts —
@@ -112,9 +117,21 @@ export async function createPresignedPutUrl(
   config: WorkerStorageConfig,
   key: string,
   contentType: string,
-  expiresSeconds: number = DEFAULT_EXPIRES_SECONDS,
+  size: number,
+  expiresSeconds: number = config.presignExpiresSeconds ?? DEFAULT_EXPIRES_SECONDS,
 ): Promise<PresignedPutUrl> {
-  void contentType; // not part of the signature for a presigned PUT URL (SignedHeaders=host only); kept in signature for future use (e.g. enforcing content-type server-side)
+  // Authoritative validation — see docs/storage-module.md, "File type /
+  // size validation, allowlist". This is the one check that can't be
+  // bypassed from devtools, since the secret key (and thus the ability to
+  // actually sign a URL) never leaves this module. The main thread does
+  // the same check in useS3Upload.addFiles() only for instant UX feedback.
+  const validationError = validateUpload({ size, contentType }, config);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  // contentType participates in validation above but is not part of the
+  // SigV4 signature for a presigned PUT URL (SignedHeaders=host only).
   const { host, path, origin } = resolveHostAndPath(config, key);
   const now = new Date();
   const { amzDate: xAmzDate, dateStamp } = amzDate(now);

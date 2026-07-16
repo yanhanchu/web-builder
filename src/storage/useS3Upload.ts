@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { loadStorageConfig, isStorageConfigured } from './config';
 import { uploadObject } from './s3Client';
+import { validateUpload } from './validation';
 import type { UploadItem, UploadResult } from './types';
 
 /**
@@ -39,16 +40,31 @@ export function useS3Upload(): UseS3UploadResult {
   const isConfigured = useMemo(() => isStorageConfigured(config), [config]);
   const abortControllers = useRef(new Map<string, AbortController>());
 
-  const addFiles = useCallback((files: FileList | File[]) => {
-    const newItems: UploadItem[] = Array.from(files).map((file) => ({
-      id: makeId(),
-      file,
-      key: defaultKeyFor(file),
-      status: 'queued',
-      progress: 0,
-    }));
-    setItems((prev) => [...prev, ...newItems]);
-  }, []);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newItems: UploadItem[] = Array.from(files).map((file) => {
+        // Instant client-side check so an obviously-bad file (too big,
+        // wrong type) never even makes it to the presign RPC. This is
+        // UX only, not enforcement — see validateUpload()'s doc comment
+        // and the matching check in src/worker/worker.ts, which is the
+        // one that actually can't be bypassed from devtools.
+        const validationError = validateUpload(
+          { size: file.size, contentType: file.type || 'application/octet-stream' },
+          config,
+        );
+        return {
+          id: makeId(),
+          file,
+          key: defaultKeyFor(file),
+          status: validationError ? 'error' : 'queued',
+          progress: 0,
+          error: validationError ?? undefined,
+        };
+      });
+      setItems((prev) => [...prev, ...newItems]);
+    },
+    [config],
+  );
 
   const removeItem = useCallback((id: string) => {
     abortControllers.current.get(id)?.abort();

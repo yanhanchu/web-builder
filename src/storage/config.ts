@@ -1,4 +1,5 @@
 import type { StorageConfig, StorageProviderKind } from './types';
+import { parseAllowedMimeTypes, parseMaxFileSizeBytes } from './validation';
 
 /**
  * Main-thread storage config. As of the presigned-URL migration (see
@@ -14,6 +15,10 @@ export function loadStorageConfig(): StorageConfig {
   return {
     kind,
     bucket: import.meta.env.VITE_S3_BUCKET ?? '',
+    // Display/UX-only copy of the limits the worker enforces for real —
+    // see the comment on StorageConfig in ./types.ts.
+    maxFileSizeBytes: parseMaxFileSizeBytes(import.meta.env.VITE_S3_MAX_FILE_SIZE_MB),
+    allowedMimeTypes: parseAllowedMimeTypes(import.meta.env.VITE_S3_ALLOWED_MIME_TYPES),
   };
 }
 

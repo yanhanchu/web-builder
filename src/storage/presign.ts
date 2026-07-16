@@ -13,11 +13,19 @@ import { StorageError, type PresignedPutUrl } from './types';
  * look like too — swapping this body for a `fetch('/api/presign', ...)`
  * call later should not require changing any caller.
  */
-export async function requestPresignedUrl(key: string, contentType: string): Promise<PresignedPutUrl> {
+export async function requestPresignedUrl(
+  key: string,
+  contentType: string,
+  size: number,
+): Promise<PresignedPutUrl> {
   await ensureDbReady(); // worker must be initialized before any RPC call, same as DB calls
   try {
-    return await api.storagePresignPutUrl(key, contentType);
+    return await api.storagePresignPutUrl(key, contentType, size);
   } catch (error) {
-    throw new StorageError('Failed to obtain a presigned upload URL', error);
+    // Re-throws the worker's validation message (e.g. "File is too large...")
+    // as-is when present, so the UI can show something actionable instead of
+    // a generic failure — see validateUpload() in src/storage/validation.ts.
+    const message = error instanceof Error ? error.message : 'Failed to obtain a presigned upload URL';
+    throw new StorageError(message, error);
   }
 }
