@@ -1,6 +1,3 @@
-// AI agents: pure UI. It only calls the `useAuth()` hook from '../auth' —
-// it never touches session.ts, googleAuth.ts, or localStorage directly.
-// This is the demo counterpart to src/App.tsx: replace/restyle freely.
 import { useState } from 'react';
 import { useAuth } from '../auth';
 

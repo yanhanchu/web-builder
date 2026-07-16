@@ -1,27 +1,7 @@
-// AI agents: this file is the "logic" layer for auth — all the actual
-// Google/OAuth mechanics live here. It has no React and no localStorage
-// access (that's session.ts) and renders nothing (that's the UI layer,
-// e.g. a useAuth hook + components). Keep those three concerns separate.
-//
-// Flow this implements (see README.md "Auth module" for the full picture):
-//   1. signIn() redirects the browser to VITE_LOGIN_URL, a backend page
-//      that exists ONLY to record a login event — it is not a session
-//      server and the frontend never talks to it again after this redirect.
-//   2. That backend redirects back to this app with `credential` (a Google
-//      ID token / JWT) in the query string.
-//   3. consumeLoginRedirect() reads and decodes that JWT into a GoogleUser,
-//      then strips the query params from the URL.
-//   4. ensureDriveAccessToken() lazily requests (and silently refreshes) a
-//      Google Drive OAuth access token directly from Google Identity
-//      Services, entirely in the browser. The backend is never involved in
-//      obtaining or refreshing this token.
 import type { GoogleTokenResponse, GoogleUser } from './types';
 
 const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
-
-// Refresh proactively once fewer than this many ms remain on the token,
-// so callers essentially never observe an expired token.
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
 const loginUrl = import.meta.env.VITE_LOGIN_URL as string | undefined;
@@ -47,9 +27,6 @@ declare global {
   }
 }
 
-/** Redirects to the backend's login page. The backend only logs the login
- * event and bounces the browser back here with `credential` in the query
- * string — it holds no session and is never contacted again afterwards. */
 export function signIn() {
   if (!loginUrl) {
     throw new Error('VITE_LOGIN_URL is not configured');
@@ -57,11 +34,7 @@ export function signIn() {
   window.location.href = `${loginUrl}?ori=${encodeURIComponent(window.location.href)}`;
 }
 
-/**
- * Reads the query string produced by the backend's login-redirect for a
- * `credential` (Google ID token JWT), decodes it, and cleans the URL.
- * Returns null if there's no credential in the current URL.
- */
+/** Reads `?credential=` from the login redirect, decodes the JWT, and cleans the URL. */
 export function consumeLoginRedirect(): GoogleUser | null {
   const params = new URLSearchParams(window.location.search);
   const credential = params.get('credential');
@@ -74,7 +47,6 @@ export function consumeLoginRedirect(): GoogleUser | null {
     console.error('Failed to decode Google ID token from login redirect', error);
   }
 
-  // Strip auth params so they don't linger in the URL / browser history.
   params.delete('credential');
   const newQuery = params.toString();
   window.history.replaceState({}, '', window.location.pathname + (newQuery ? `?${newQuery}` : ''));
@@ -103,7 +75,6 @@ function decodeIdToken(idToken: string): GoogleUser | null {
 
 let gisLoadPromise: Promise<void> | null = null;
 
-/** Loads Google Identity Services' script exactly once. */
 function loadGoogleIdentityServices(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
   if (gisLoadPromise) return gisLoadPromise;
@@ -120,12 +91,6 @@ function loadGoogleIdentityServices(): Promise<void> {
   return gisLoadPromise;
 }
 
-/**
- * Requests a Drive appdata-scoped access token directly from Google
- * Identity Services (GIS), entirely client-side.
- * `silent: true` attempts to reuse an existing Google session (no consent
- * prompt); if that's not possible the caller should retry with `silent: false`.
- */
 async function requestDriveAccessToken(
   clientId: string,
   hint?: string,
@@ -154,13 +119,7 @@ export interface DriveTokenState {
   driveAccessTokenExpiresAt: number | null;
 }
 
-/**
- * Returns a valid Drive access token, reusing `current` if it still has
- * enough life left, otherwise requesting a fresh one from Google (silently
- * when we already have a token — i.e. a refresh — and with a consent
- * prompt on first grant). This is the ONLY place Drive tokens are obtained
- * or refreshed; it never talks to the backend.
- */
+/** Returns a valid Drive token, refreshing via GIS when near expiry. See docs/auth-module.md */
 export async function ensureDriveAccessToken(
   current: DriveTokenState,
   userEmailHint?: string

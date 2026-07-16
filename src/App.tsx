@@ -1,11 +1,3 @@
-// AI agents: this file (and any components you add alongside it) is a
-// throwaway demo UI, NOT part of the app's core architecture. It's a minimal
-// React component just to prove the PGlite + Drizzle + Worker + Comlink stack
-// works end-to-end. Feel free to delete/replace this entire file's contents
-// with your own components/hooks — just keep importing `api` and
-// `ensureDbReady` from './client' as the only way to talk to the database.
-// Never import PGlite or Drizzle directly here, and never call the worker
-// from anywhere other than through `api`.
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ensureDbReady } from './client';
 import AuthPanel from './components/AuthPanel';
