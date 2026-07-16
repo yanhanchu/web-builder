@@ -82,3 +82,12 @@ export function parseMaxFileSizeBytes(raw: string | undefined): number | undefin
   if (!Number.isFinite(mb) || mb <= 0) return undefined;
   return Math.round(mb * 1024 * 1024);
 }
+
+/** Generic "N MB env var" parser with a required fallback — used for the
+ * multipart threshold/part-size vars, which (unlike the max-size limit
+ * above) always need *some* value to operate with. */
+export function parseSizeMbWithDefault(raw: string | undefined, defaultMb: number): number {
+  const mb = raw ? Number(raw) : NaN;
+  const resolvedMb = Number.isFinite(mb) && mb > 0 ? mb : defaultMb;
+  return Math.round(resolvedMb * 1024 * 1024);
+}

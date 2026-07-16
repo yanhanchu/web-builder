@@ -103,6 +103,8 @@ See `.env.example`. Two different files read different subsets now:
 | `VITE_S3_MAX_FILE_SIZE_MB` | `src/storage/config.ts` (UX only) **and** `src/worker/worker.ts` (authoritative) | Optional max upload size in MB. Unset/0 = no limit. |
 | `VITE_S3_ALLOWED_MIME_TYPES` | `src/storage/config.ts` (UX only) **and** `src/worker/worker.ts` (authoritative) | Optional comma-separated content-type allowlist, e.g. `image/*,application/pdf`. Unset/empty = no restriction. |
 | `VITE_S3_PRESIGN_EXPIRES_SECONDS` | `src/worker/presign.ts` only | Optional override for presigned URL lifetime. Unset = 900 (15 minutes). |
+| `VITE_S3_MULTIPART_THRESHOLD_MB` | `src/storage/config.ts` only | Files at/above this size use the multipart flow instead of a single PUT. Unset = 100. |
+| `VITE_S3_MULTIPART_PART_SIZE_MB` | `src/storage/config.ts` only | Size of each part in the multipart flow. Unset = 8; always clamped up to S3's 5MB-per-part minimum. |
 
 ## Switching providers later (e.g. to Cloudflare R2)
 
@@ -133,6 +135,24 @@ enough. Without CORS, uploads will fail in the browser console with an
 opaque network/CORS error even though the signature itself is correct.
 This template does not attempt to configure the S2 server's CORS policy —
 that's an out-of-band `mc` / S2 console step.
+
+**If you use multipart uploads** (see below), the browser also makes
+direct `POST` (initiate, complete) and `DELETE` (abort) requests to the
+endpoint, so the CORS config needs to allow those methods too, not just
+`PUT`. A `Content-Type` header is sent on the initiate/complete calls, so
+allow that request header as well if your CORS policy is method-scoped
+rather than wide open.
+
+**Also for multipart specifically:** your CORS config must set
+`Access-Control-Expose-Headers: ETag` (or wider) on the bucket/endpoint.
+Browsers hide response headers on cross-origin requests unless the server
+explicitly exposes them, so without this, `xhr.getResponseHeader('ETag')`
+comes back `null` after a perfectly successful part PUT — and
+`uploadObjectMultipart()` treats a missing part ETag as a hard failure
+(it can't build a valid `CompleteMultipartUpload` request without one),
+aborting the whole upload. The single-PUT path has the same
+`getResponseHeader('ETag')` call but doesn't depend on it succeeding, so
+this only bites you once you're on the multipart path.
 
 ## Flow
 
@@ -190,17 +210,52 @@ that's an out-of-band `mc` / S2 console step.
 
 ## Deferred
 
-- **Multipart upload for large files.** A single presigned PUT URL only
-  covers a normal single-request upload. If files may exceed roughly
-  100MB, a presigned *multipart* upload flow is needed instead (separate
-  `CreateMultipartUpload` / per-part presigned URLs / `CompleteMultipartUpload`
-  calls). Meaningfully more complex than this round's scope — still a
-  follow-up. In the meantime, `VITE_S3_MAX_FILE_SIZE_MB` (below) at least
-  lets you cap uploads below whatever size you're comfortable doing as a
-  single PUT.
+Nothing left from the original scope. If upload needs grow, the natural
+next steps are: **concurrent part uploads** (the multipart flow below is
+deliberately sequential), **resuming a multipart upload across a page
+reload** (currently a retry always starts over from part 1, since the
+`UploadId` only lives in memory), and a **`key`-prefix allowlist** in
+`storagePresignPutUrl()` / the multipart initiate call, for per-user
+upload isolation (currently only `contentType`/size are checked, not the
+key itself).
 
 ### Implemented this round
 
+- **Multipart upload for large files.** Files at/above
+  `VITE_S3_MULTIPART_THRESHOLD_MB` (default 100MB) go through
+  `uploadObjectMultipart()` in `src/storage/s3Client.ts` instead of a
+  single PUT:
+  1. `requestMultipartInitiate()` asks the worker for a presigned `POST
+     ?uploads` URL; the browser POSTs it and parses the XML response for
+     the `UploadId`.
+  2. For each `VITE_S3_MULTIPART_PART_SIZE_MB`-sized chunk (default 8MB,
+     via `file.slice()`), `requestMultipartPartUrl()` gets a presigned
+     `PUT ?partNumber=N&uploadId=...` URL and the chunk is PUT to it,
+     same XHR-with-progress mechanics as the single-file path. Parts are
+     uploaded **sequentially, not in parallel** — kept simple on purpose,
+     see "Deferred" above if you want to speed this up.
+  3. Once every part has an ETag, `requestMultipartComplete()` gets a
+     presigned `POST ?uploadId=...` URL and the browser POSTs an XML body
+     listing every part's number + ETag.
+  4. If any step fails or the upload is canceled, a best-effort
+     `requestMultipartAbort()` (`DELETE ?uploadId=...`) cleans up the
+     in-progress upload so the bucket doesn't accumulate orphaned parts;
+     cleanup failure doesn't mask the original error.
+  - `src/worker/presign.ts` generalizes the single `createPresignedPutUrl()`
+    signer into a shared `signPresignedUrl(config, method, key, extraQuery,
+    expiresSeconds)` core, since every multipart action is still the same
+    query-string SigV4 signing, just with a different HTTP method and
+    action-specific query params. `createMultipartInitiateUrl()` /
+    `createMultipartPartUrl()` / `createMultipartCompleteUrl()` /
+    `createMultipartAbortUrl()` are thin wrappers around it.
+  - The size validation in `createMultipartInitiateUrl()` deliberately
+    only checks `contentType`, not `VITE_S3_MAX_FILE_SIZE_MB` — that limit
+    exists to cap single-PUT uploads; multipart is exactly how you go
+    above it.
+  - **Not implemented**: parallel part uploads, resuming after a page
+    reload, and part-level retry (a failed part currently fails and aborts
+    the whole upload rather than retrying just that part). See "Deferred"
+    above.
 - **File type / size validation, allowlist.** `src/storage/validation.ts`
   is a small pure module (`validateUpload()`, `mimeTypeMatches()`, plus the
   env parsers) shared by both sides:
@@ -216,9 +271,8 @@ that's an out-of-band `mc` / S2 console step.
   - Configured via `VITE_S3_MAX_FILE_SIZE_MB` and
     `VITE_S3_ALLOWED_MIME_TYPES` (see the env var table above). Both unset
     by default, i.e. no restriction — opt in per deployment.
-  - This checks `contentType`/size only, not `key` prefix — a prefix
-    allowlist (e.g. restricting uploads to `uploads/<userId>/...`) would
-    still be a reasonable follow-up if you need per-user isolation.
+  - This checks `contentType`/size only, not `key` prefix — see "Deferred"
+    above.
 - **Presigned URL expiry tuning.** No longer hardcoded — `presignExpiresSeconds`
   on `WorkerStorageConfig` overrides `DEFAULT_EXPIRES_SECONDS` in
   `src/worker/presign.ts` when `VITE_S3_PRESIGN_EXPIRES_SECONDS` is set.

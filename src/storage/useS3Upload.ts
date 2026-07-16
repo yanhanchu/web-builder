@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { loadStorageConfig, isStorageConfigured } from './config';
-import { uploadObject } from './s3Client';
+import { uploadObject, uploadObjectMultipart } from './s3Client';
 import { validateUpload } from './validation';
 import type { UploadItem, UploadResult } from './types';
 
@@ -48,9 +48,14 @@ export function useS3Upload(): UseS3UploadResult {
         // UX only, not enforcement — see validateUpload()'s doc comment
         // and the matching check in src/worker/worker.ts, which is the
         // one that actually can't be bypassed from devtools.
+        //
+        // Files at/above the multipart threshold skip the max-size check
+        // here (same as the worker's createMultipartInitiateUrl) — that
+        // limit exists to cap single-PUT uploads, not multipart ones.
+        const usesMultipart = file.size >= config.multipartThresholdBytes;
         const validationError = validateUpload(
           { size: file.size, contentType: file.type || 'application/octet-stream' },
-          config,
+          usesMultipart ? { allowedMimeTypes: config.allowedMimeTypes } : config,
         );
         return {
           id: makeId(),
@@ -87,12 +92,19 @@ export function useS3Upload(): UseS3UploadResult {
       updateItem(item.id, { status: 'uploading', progress: 0, error: undefined });
 
       try {
-        const result = await uploadObject(item.key, item.file, {
+        const usesMultipart = item.file.size >= config.multipartThresholdBytes;
+        const uploadOptions = {
           signal: controller.signal,
-          onProgress: (loaded, total) => {
+          onProgress: (loaded: number, total: number) => {
             updateItem(item.id, { progress: total > 0 ? Math.round((loaded / total) * 100) : 0 });
           },
-        });
+        };
+        const result = usesMultipart
+          ? await uploadObjectMultipart(item.key, item.file, {
+              ...uploadOptions,
+              partSizeBytes: config.multipartPartSizeBytes,
+            })
+          : await uploadObject(item.key, item.file, uploadOptions);
         updateItem(item.id, { status: 'done', progress: 100 });
         return result;
       } catch (error) {

@@ -108,6 +108,81 @@ const SERVICE = 's3';
 const DEFAULT_EXPIRES_SECONDS = 15 * 60; // 15 minutes — see docs/storage-module.md
 
 /**
+ * Core SigV4 query-string signer, generalized over HTTP method and extra
+ * query params (S3 uses query params as the "action" for multipart calls:
+ * `?uploads`, `?partNumber=N&uploadId=X`, `?uploadId=X`). Every query
+ * param — auth-related or not — must be part of the signed canonical
+ * query string, so callers pass their action params in via `extraQuery`
+ * rather than appending them to the returned URL afterwards.
+ *
+ * Shared by `createPresignedPutUrl()` (single-shot upload) and the
+ * multipart functions below it. All of them stay UNSIGNED-PAYLOAD /
+ * SignedHeaders=host, same as before — nothing about the security
+ * properties described in docs/storage-module.md changes.
+ */
+async function signPresignedUrl(
+  config: WorkerStorageConfig,
+  method: string,
+  key: string,
+  extraQuery: Record<string, string>,
+  expiresSeconds: number,
+): Promise<{ url: string; expiresAt: number }> {
+  const { host, path, origin } = resolveHostAndPath(config, key);
+  const now = new Date();
+  const { amzDate: xAmzDate, dateStamp } = amzDate(now);
+  const credentialScope = `${dateStamp}/${config.region}/${SERVICE}/aws4_request`;
+  const credential = `${config.accessKeyId}/${credentialScope}`;
+
+  const queryParams: Record<string, string> = {
+    ...extraQuery,
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': xAmzDate,
+    'X-Amz-Expires': String(expiresSeconds),
+    'X-Amz-SignedHeaders': 'host',
+  };
+
+  const canonicalQueryString = Object.keys(queryParams)
+    .sort()
+    .map((k) => `${encodeQueryComponent(k)}=${encodeQueryComponent(queryParams[k])}`)
+    .join('&');
+
+  const canonicalHeaders = `host:${host}\n`;
+  const signedHeaders = 'host';
+
+  // UNSIGNED-PAYLOAD throughout: for the single PUT and per-part PUTs we
+  // don't have the bytes yet at presign time; for POST (init/complete) and
+  // DELETE (abort) there's no meaningful body to hash either — S3 accepts
+  // UNSIGNED-PAYLOAD for all of these presigned-URL cases.
+  const canonicalRequest = [
+    method,
+    encodePath(path),
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    xAmzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join('\n');
+
+  const kDate = await hmac(encoder.encode(`AWS4${config.secretAccessKey}`), dateStamp);
+  const kRegion = await hmac(kDate, config.region);
+  const kService = await hmac(kRegion, SERVICE);
+  const kSigning = await hmac(kService, 'aws4_request');
+  const signature = toHex(await hmac(kSigning, stringToSign));
+
+  const finalQuery = `${canonicalQueryString}&X-Amz-Signature=${signature}`;
+  const url = `${origin}${encodePath(path)}?${finalQuery}`;
+
+  return { url, expiresAt: now.getTime() + expiresSeconds * 1000 };
+}
+
+/**
  * Produces a presigned PUT URL for a single object key, valid for
  * `expiresSeconds` (default 15 minutes). Query-string SigV4, so the
  * browser needs no extra headers (no Authorization header, no secret) —
@@ -132,59 +207,85 @@ export async function createPresignedPutUrl(
 
   // contentType participates in validation above but is not part of the
   // SigV4 signature for a presigned PUT URL (SignedHeaders=host only).
-  const { host, path, origin } = resolveHostAndPath(config, key);
-  const now = new Date();
-  const { amzDate: xAmzDate, dateStamp } = amzDate(now);
-  const credentialScope = `${dateStamp}/${config.region}/${SERVICE}/aws4_request`;
-  const credential = `${config.accessKeyId}/${credentialScope}`;
+  const { url, expiresAt } = await signPresignedUrl(config, 'PUT', key, {}, expiresSeconds);
+  return { url, expiresAt, key };
+}
 
-  // Query params that participate in the signature (must be sorted before signing).
-  const queryParams: Record<string, string> = {
-    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-    'X-Amz-Credential': credential,
-    'X-Amz-Date': xAmzDate,
-    'X-Amz-Expires': String(expiresSeconds),
-    'X-Amz-SignedHeaders': 'host',
-  };
+/* ------------------------------------------------------------------ *
+ * Multipart upload — see docs/storage-module.md, "Multipart upload for
+ * large files". Kept intentionally simple: sequential parts, no resume
+ * across page reloads, no concurrency tuning. Each step just asks this
+ * module for one presigned URL for one S3 multipart action; the browser
+ * (src/storage/s3Client.ts) does the actual HTTP calls and XML
+ * parsing, same division of labor as the single-PUT flow.
+ * ------------------------------------------------------------------ */
 
-  const canonicalQueryString = Object.keys(queryParams)
-    .sort()
-    .map((k) => `${encodeQueryComponent(k)}=${encodeQueryComponent(queryParams[k])}`)
-    .join('&');
+export interface PresignedMultipartUrl {
+  url: string;
+  expiresAt: number;
+}
 
-  const canonicalHeaders = `host:${host}\n`;
-  const signedHeaders = 'host';
+/** `?uploads` — presigned POST that starts a multipart upload. The
+ * response body (parsed by the browser) contains the `UploadId` every
+ * later step needs. Only content-type is validated here — size isn't
+ * known/limited yet (that's the point of multipart: bypassing the
+ * single-PUT size ceiling), so `VITE_S3_MAX_FILE_SIZE_MB` deliberately
+ * doesn't apply to this path. */
+export async function createMultipartInitiateUrl(
+  config: WorkerStorageConfig,
+  key: string,
+  contentType: string,
+  expiresSeconds: number = config.presignExpiresSeconds ?? DEFAULT_EXPIRES_SECONDS,
+): Promise<PresignedMultipartUrl> {
+  const validationError = validateUpload(
+    { size: 0, contentType },
+    { allowedMimeTypes: config.allowedMimeTypes },
+  );
+  if (validationError) {
+    throw new Error(validationError);
+  }
+  return signPresignedUrl(config, 'POST', key, { uploads: '' }, expiresSeconds);
+}
 
-  // Presigned URLs use UNSIGNED-PAYLOAD — the body isn't hashed since we
-  // don't have it yet at presign time (the browser hasn't read the file).
-  const canonicalRequest = [
+/** `?partNumber=N&uploadId=X` — presigned PUT for one part's bytes.
+ * `partNumber` is 1-based, per the S3 API. */
+export async function createMultipartPartUrl(
+  config: WorkerStorageConfig,
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  expiresSeconds: number = config.presignExpiresSeconds ?? DEFAULT_EXPIRES_SECONDS,
+): Promise<PresignedMultipartUrl> {
+  return signPresignedUrl(
+    config,
     'PUT',
-    encodePath(path),
-    canonicalQueryString,
-    canonicalHeaders,
-    signedHeaders,
-    'UNSIGNED-PAYLOAD',
-  ].join('\n');
-
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    xAmzDate,
-    credentialScope,
-    await sha256Hex(canonicalRequest),
-  ].join('\n');
-
-  const kDate = await hmac(encoder.encode(`AWS4${config.secretAccessKey}`), dateStamp);
-  const kRegion = await hmac(kDate, config.region);
-  const kService = await hmac(kRegion, SERVICE);
-  const kSigning = await hmac(kService, 'aws4_request');
-  const signature = toHex(await hmac(kSigning, stringToSign));
-
-  const finalQuery = `${canonicalQueryString}&X-Amz-Signature=${signature}`;
-  const url = `${origin}${encodePath(path)}?${finalQuery}`;
-
-  return {
-    url,
-    expiresAt: now.getTime() + expiresSeconds * 1000,
     key,
-  };
+    { partNumber: String(partNumber), uploadId },
+    expiresSeconds,
+  );
+}
+
+/** `?uploadId=X` (POST) — presigned request to finalize the upload. The
+ * browser POSTs an XML body listing every part's number + ETag. */
+export async function createMultipartCompleteUrl(
+  config: WorkerStorageConfig,
+  key: string,
+  uploadId: string,
+  expiresSeconds: number = config.presignExpiresSeconds ?? DEFAULT_EXPIRES_SECONDS,
+): Promise<PresignedMultipartUrl> {
+  return signPresignedUrl(config, 'POST', key, { uploadId }, expiresSeconds);
+}
+
+/** `?uploadId=X` (DELETE) — presigned request to cancel/clean up an
+ * in-progress multipart upload (a failed or user-canceled upload
+ * otherwise leaves orphaned parts billed on the bucket until a lifecycle
+ * rule sweeps them). Best-effort: `s3Client.ts` calls this on error/abort
+ * but doesn't fail the whole operation if the cleanup call itself fails. */
+export async function createMultipartAbortUrl(
+  config: WorkerStorageConfig,
+  key: string,
+  uploadId: string,
+  expiresSeconds: number = config.presignExpiresSeconds ?? DEFAULT_EXPIRES_SECONDS,
+): Promise<PresignedMultipartUrl> {
+  return signPresignedUrl(config, 'DELETE', key, { uploadId }, expiresSeconds);
 }

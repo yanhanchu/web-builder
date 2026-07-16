@@ -1,5 +1,5 @@
 import type { StorageConfig, StorageProviderKind } from './types';
-import { parseAllowedMimeTypes, parseMaxFileSizeBytes } from './validation';
+import { parseAllowedMimeTypes, parseMaxFileSizeBytes, parseSizeMbWithDefault } from './validation';
 
 /**
  * Main-thread storage config. As of the presigned-URL migration (see
@@ -19,6 +19,16 @@ export function loadStorageConfig(): StorageConfig {
     // see the comment on StorageConfig in ./types.ts.
     maxFileSizeBytes: parseMaxFileSizeBytes(import.meta.env.VITE_S3_MAX_FILE_SIZE_MB),
     allowedMimeTypes: parseAllowedMimeTypes(import.meta.env.VITE_S3_ALLOWED_MIME_TYPES),
+    // Multipart tuning — see docs/storage-module.md, "Multipart upload for
+    // large files". Defaults: switch to multipart at 100MB, 8MB per part.
+    // S3 requires every part except the last to be >= 5MB, so clamp here
+    // rather than letting a too-small VITE_S3_MULTIPART_PART_SIZE_MB
+    // produce a REST error mid-upload.
+    multipartThresholdBytes: parseSizeMbWithDefault(import.meta.env.VITE_S3_MULTIPART_THRESHOLD_MB, 100),
+    multipartPartSizeBytes: Math.max(
+      5 * 1024 * 1024,
+      parseSizeMbWithDefault(import.meta.env.VITE_S3_MULTIPART_PART_SIZE_MB, 8),
+    ),
   };
 }
 

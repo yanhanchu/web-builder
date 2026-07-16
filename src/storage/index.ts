@@ -7,5 +7,7 @@ export type {
   StorageConfig,
   StorageProviderKind,
   PresignedPutUrl,
+  PresignedMultipartUrl,
+  CompletedPart,
 } from './types';
 export { loadStorageConfig, isStorageConfigured } from './config';

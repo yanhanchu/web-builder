@@ -6,7 +6,14 @@ import * as schema from '../db/schema';
 import { runMigrations } from './migrate';
 import { createUsersRepo } from './repositories/users.repo';
 import { createPostsRepo } from './repositories/posts.repo';
-import { createPresignedPutUrl, type WorkerStorageConfig } from './presign';
+import {
+  createPresignedPutUrl,
+  createMultipartInitiateUrl,
+  createMultipartPartUrl,
+  createMultipartCompleteUrl,
+  createMultipartAbortUrl,
+  type WorkerStorageConfig,
+} from './presign';
 import { parseAllowedMimeTypes, parseMaxFileSizeBytes } from '../storage/validation';
 
 /**
@@ -114,6 +121,29 @@ const api = {
   async storagePresignPutUrl(key: string, contentType: string, size: number) {
     const config = loadWorkerStorageConfig();
     return createPresignedPutUrl(config, key, contentType, size);
+  },
+
+  /**
+   * Multipart upload — see docs/storage-module.md, "Multipart upload for
+   * large files". Same division of labor as storagePresignPutUrl: this
+   * worker only ever signs; `src/storage/s3Client.ts` does the actual
+   * HTTP calls (initiate → N parts → complete/abort) against S3.
+   */
+  async storagePresignMultipartInitiate(key: string, contentType: string) {
+    const config = loadWorkerStorageConfig();
+    return createMultipartInitiateUrl(config, key, contentType);
+  },
+  async storagePresignMultipartPart(key: string, uploadId: string, partNumber: number) {
+    const config = loadWorkerStorageConfig();
+    return createMultipartPartUrl(config, key, uploadId, partNumber);
+  },
+  async storagePresignMultipartComplete(key: string, uploadId: string) {
+    const config = loadWorkerStorageConfig();
+    return createMultipartCompleteUrl(config, key, uploadId);
+  },
+  async storagePresignMultipartAbort(key: string, uploadId: string) {
+    const config = loadWorkerStorageConfig();
+    return createMultipartAbortUrl(config, key, uploadId);
   },
 };
 
