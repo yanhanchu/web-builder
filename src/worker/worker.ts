@@ -6,6 +6,30 @@ import * as schema from '../db/schema';
 import { runMigrations } from './migrate';
 import { createUsersRepo } from './repositories/users.repo';
 import { createPostsRepo } from './repositories/posts.repo';
+import { createPresignedPutUrl, type WorkerStorageConfig } from './presign';
+
+/**
+ * Worker-only storage config for the presign "backend" simulation. Reads
+ * the same underlying secret via Vite env vars because this whole app is
+ * still one client-side bundle (see docs/storage-module.md) — but by
+ * keeping this read here instead of in `src/storage/config.ts`, the key
+ * only ever exists inside worker module scope and is never imported by
+ * `src/storage/*` or any component. A real backend would read this from
+ * a server-only env instead.
+ */
+function loadWorkerStorageConfig(): WorkerStorageConfig {
+  return {
+    kind: (import.meta.env.VITE_S3_KIND ?? 'custom') as WorkerStorageConfig['kind'],
+    endpoint: import.meta.env.VITE_S3_ENDPOINT,
+    region: import.meta.env.VITE_S3_REGION ?? 'us-east-1',
+    bucket: import.meta.env.VITE_S3_BUCKET ?? '',
+    accessKeyId: import.meta.env.VITE_S3_ACCESS_KEY_ID ?? '',
+    secretAccessKey: import.meta.env.VITE_S3_SECRET_ACCESS_KEY ?? '',
+    forcePathStyle: import.meta.env.VITE_S3_FORCE_PATH_STYLE
+      ? import.meta.env.VITE_S3_FORCE_PATH_STYLE === 'true'
+      : (import.meta.env.VITE_S3_KIND ?? 'custom') !== 'r2',
+  };
+}
 
 let dbReady: ReturnType<typeof initDb> | null = null;
 
@@ -72,6 +96,17 @@ const api = {
   async postRemove(id: number) {
     const db = await dbReady!;
     return createPostsRepo(db).remove(id);
+  },
+
+  /**
+   * Simulated `POST /api/presign` — see docs/storage-module.md.
+   * This is the ONLY place the S3 secret key is read/used. The main
+   * thread never sees it; it only gets back a time-limited signed URL
+   * for this one object key.
+   */
+  async storagePresignPutUrl(key: string, contentType: string) {
+    const config = loadWorkerStorageConfig();
+    return createPresignedPutUrl(config, key, contentType);
   },
 };
 

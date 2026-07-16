@@ -2,7 +2,7 @@ import { useRef, type ChangeEvent, type DragEvent } from 'react';
 import { useS3Upload } from '../storage';
 
 /**
- * UI layer only. Never imports s3Client, sigv4, or config directly —
+ * UI layer only. Never imports s3Client, presign, or config directly —
  * only `useS3Upload()`, mirroring the AuthPanel.tsx / useAuth() pattern.
  */
 export default function S3UploadPanel() {
@@ -28,7 +28,8 @@ export default function S3UploadPanel() {
       {!isConfigured && (
         <p className="s3-warning">
           Storage is not configured. Copy <code>.env.example</code> to{' '}
-          <code>.env.local</code> and fill in <code>VITE_S3_*</code>.
+          <code>.env.local</code> and fill in <code>VITE_S3_BUCKET</code> and the
+          worker-side <code>VITE_S3_*</code> credentials (see docs/storage-module.md).
         </p>
       )}
 

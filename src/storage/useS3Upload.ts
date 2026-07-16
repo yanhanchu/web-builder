@@ -6,7 +6,7 @@ import type { UploadItem, UploadResult } from './types';
 /**
  * Bridge layer — the only place that owns React state for uploads.
  * UI components call this hook and only this hook; they never import
- * `s3Client.ts`, `sigv4.ts`, or `config.ts` directly (mirrors the
+ * `s3Client.ts`, `presign.ts`, or `config.ts` directly (mirrors the
  * useAuth() pattern in src/auth/).
  */
 
@@ -71,7 +71,7 @@ export function useS3Upload(): UseS3UploadResult {
       updateItem(item.id, { status: 'uploading', progress: 0, error: undefined });
 
       try {
-        const result = await uploadObject(config, item.key, item.file, {
+        const result = await uploadObject(item.key, item.file, {
           signal: controller.signal,
           onProgress: (loaded, total) => {
             updateItem(item.id, { progress: total > 0 ? Math.round((loaded / total) * 100) : 0 });

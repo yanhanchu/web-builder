@@ -10,6 +10,11 @@
  *
  * Swapping providers is a *config* change (endpoint/region/style), never a
  * code change — see config.ts and docs/storage-module.md.
+ *
+ * NOTE: as of the presigned-URL migration (see docs/storage-module.md),
+ * this main-thread `StorageConfig` no longer carries any S3 credentials.
+ * Signing now happens in `src/worker/presign.ts` (the "backend"), which
+ * has its own separate `WorkerStorageConfig` that includes the secret key.
  */
 
 /** Which flavor of S3-compatible endpoint we're talking to. Only affects
@@ -18,19 +23,20 @@
 export type StorageProviderKind = 'custom' | 'r2' | 'aws';
 
 export interface StorageConfig {
-  /** Provider flavor — controls URL shape only. */
+  /** Provider flavor — controls URL shape only. Kept here for display /
+   * key-layout purposes; the main thread never uses this to build a host
+   * itself anymore (the worker/backend does, when presigning). */
   kind: StorageProviderKind;
-  /** e.g. "http://192.168.123.11:9000" (custom/S2) or
-   * "https://<account_id>.r2.cloudflarestorage.com" (R2). Not used for kind: 'aws'. */
-  endpoint?: string;
-  /** SigV4 region. S2/most self-hosted setups accept "us-east-1" as a default. */
-  region: string;
   bucket: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  /** Force path-style URLs (bucket in the path, not the hostname).
-   * Required for most self-hosted S2 setups; not used for R2/AWS. */
-  forcePathStyle?: boolean;
+}
+
+/** Response shape for the simulated `POST /api/presign` call.
+ * See `src/storage/presign.ts` and `src/worker/presign.ts`. */
+export interface PresignedPutUrl {
+  url: string;
+  /** Epoch ms when the URL stops being valid (15 minutes from issuance by default). */
+  expiresAt: number;
+  key: string;
 }
 
 /** One file the UI wants uploaded. Purely descriptive — no File object logic beyond holding a reference. */
