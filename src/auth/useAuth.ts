@@ -17,11 +17,14 @@ export function useAuth(): UseAuthResult {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const userFromRedirect = consumeLoginRedirect();
-    if (userFromRedirect) {
+    const redirect = consumeLoginRedirect();
+    if (redirect) {
       const next: AuthSession = {
         ...EMPTY_SESSION,
-        user: userFromRedirect,
+        user: redirect.user,
+        idToken: redirect.idToken,
+        driveAccessToken: redirect.driveAccessToken,
+        driveAccessTokenExpiresAt: redirect.driveAccessTokenExpiresAt,
       };
       setSession(next);
       saveSession(next);

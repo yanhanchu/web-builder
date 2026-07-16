@@ -34,8 +34,15 @@ export function signIn() {
   window.location.href = `${loginUrl}?ori=${encodeURIComponent(window.location.href)}`;
 }
 
-/** Reads `?credential=` from the login redirect, decodes the JWT, and cleans the URL. */
-export function consumeLoginRedirect(): GoogleUser | null {
+export interface LoginRedirectResult {
+  user: GoogleUser;
+  idToken: string;
+  driveAccessToken: string | null;
+  driveAccessTokenExpiresAt: number | null;
+}
+
+/** Reads login redirect query params, decodes the JWT, and cleans the URL. */
+export function consumeLoginRedirect(): LoginRedirectResult | null {
   const params = new URLSearchParams(window.location.search);
   const credential = params.get('credential');
   if (!credential) return null;
@@ -47,11 +54,29 @@ export function consumeLoginRedirect(): GoogleUser | null {
     console.error('Failed to decode Google ID token from login redirect', error);
   }
 
+  const accessToken = params.get('access_token');
+  const accessTokenExpiresAtRaw = params.get('access_token_expired_at');
+
   params.delete('credential');
+  params.delete('access_token');
+  params.delete('access_token_expired_at');
   const newQuery = params.toString();
   window.history.replaceState({}, '', window.location.pathname + (newQuery ? `?${newQuery}` : ''));
 
-  return user;
+  if (!user) return null;
+
+  const driveAccessTokenExpiresAt = accessTokenExpiresAtRaw
+    ? Number.parseInt(accessTokenExpiresAtRaw, 10)
+    : null;
+
+  return {
+    user,
+    idToken: credential,
+    driveAccessToken: accessToken,
+    driveAccessTokenExpiresAt: Number.isFinite(driveAccessTokenExpiresAt)
+      ? driveAccessTokenExpiresAt
+      : null,
+  };
 }
 
 function decodeIdToken(idToken: string): GoogleUser | null {

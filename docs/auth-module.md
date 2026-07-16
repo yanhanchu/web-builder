@@ -33,31 +33,44 @@ state. It lives entirely under `src/auth/` (+ a demo UI component in
 ## What the backend does (and doesn't do)
 
 `VITE_LOGIN_URL` points at a page on a separate backend whose *only* job is
-to record a login event, then redirect the browser back to this app with a
-Google ID token in the `credential` query param. The frontend never talks to
-that backend again after that one redirect — there is no session cookie, no
-"logout" call, no server-brokered token refresh. Everything after the
-initial redirect (decoding the ID token, requesting a Google Drive access
-token, refreshing it before it expires, and any future Drive sync) happens
-**entirely in the browser**, talking directly to Google.
+to record a login event, then redirect the browser back to this app. The
+frontend never talks to that backend again after that one redirect — there
+is no session cookie, no "logout" call, no server-brokered token refresh.
+
+The redirect URL must include at least `credential` (a Google ID token JWT).
+It may also include an optional Drive access token pair:
+
+- `access_token` — OAuth access token (Drive appdata scope)
+- `access_token_expired_at` — expiry as epoch milliseconds
+
+When those optional params are present, `consumeLoginRedirect()` stores them
+in `AuthSession` alongside the decoded user profile. If they are absent,
+the app can still obtain a token later via Google Identity Services (see
+step 4 below).
 
 ## Flow
 
 1. UI calls `signIn()` (from `useAuth()`) → redirects to
    `${VITE_LOGIN_URL}?ori=<current-url>`.
-2. Backend logs the event and redirects back to `<current-url>?credential=<jwt>`.
+2. Backend logs the event and redirects back to:
+
+   ```
+   <current-url>?credential=<jwt>[&access_token=<token>&access_token_expired_at=<epoch_ms>]
+   ```
+
 3. On mount, `useAuth()` calls `consumeLoginRedirect()` (`src/auth/googleAuth.ts`),
-   which decodes the JWT into a `GoogleUser`, strips the query params from the
-   URL, and persists the result via `saveSession()` (`src/auth/session.ts`,
-   backed by `localStorage`) so it survives reloads.
+   which decodes the JWT into a `GoogleUser`, reads optional `access_token` /
+   `access_token_expired_at` params, strips all auth query params from the URL,
+   and persists the result via `saveSession()` (`src/auth/session.ts`, backed
+   by `localStorage`) so it survives reloads.
 4. When the app needs to talk to Google Drive, UI calls `getDriveAccessToken()`
    (from `useAuth()`) → `ensureDriveAccessToken()` in `googleAuth.ts` either
-   reuses the still-valid cached token or requests/refreshes one via **Google
-   Identity Services' token client**, loaded client-side from
-   `accounts.google.com/gsi/client`. A silent (no-prompt) request is used when
-   a token was previously granted; otherwise the user sees Google's consent
-   screen. The resulting token + expiry are persisted the same way as the
-   user profile.
+   reuses the still-valid cached token (including one received on redirect) or
+   requests/refreshes one via **Google Identity Services' token client**, loaded
+   client-side from `accounts.google.com/gsi/client`. A silent (no-prompt)
+   request is used when a token was previously granted; otherwise the user
+   sees Google's consent screen. The resulting token + expiry are persisted
+   the same way as the user profile.
 5. `signOut()` just clears local state (`clearSession()`); there's no backend
    session to invalidate.
 
