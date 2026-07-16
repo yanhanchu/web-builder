@@ -53,6 +53,7 @@ Full diagram, file-by-file table, and non-goals → [docs/architecture.md](./doc
 | Add a new table/feature (the step-by-step recipe)                   | [docs/workflow.md](./docs/workflow.md)         |
 | Understand `worker.ts`'s flat API design, `client.ts`, `migrate.ts` | [docs/worker-api.md](./docs/worker-api.md)     |
 | Work on Google sign-in / Drive access token                         | [docs/auth-module.md](./docs/auth-module.md)   |
+| Work on the S3-compatible multi-file upload                        | [docs/storage-module.md](./docs/storage-module.md) |
 | Know what must never be changed (Vite config, migrations, etc.)     | [docs/constraints.md](./docs/constraints.md)   |
 
 

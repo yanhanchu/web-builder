@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ensureDbReady } from './client';
 import AuthPanel from './components/AuthPanel';
+import S3UploadPanel from './components/S3UploadPanel';
 
 type User = Awaited<ReturnType<typeof api.userList>>[number];
 
@@ -41,6 +42,8 @@ export default function App() {
       <p id="status">{status}</p>
 
       <AuthPanel />
+
+      <S3UploadPanel />
 
       <section>
         <h2>Add User</h2>

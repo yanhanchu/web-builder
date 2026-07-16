@@ -49,6 +49,8 @@ out of the main bundle and off the main thread.
 | `src/style.css`, `src/assets/*` | Demo styling/images. | Freely replace/delete. |
 | `src/auth/*` | Google sign-in + Drive access-token module — a second, independent vertical. See [auth-module.md](./auth-module.md). | **Yes** — extend `types.ts`/`session.ts`/`googleAuth.ts`/`useAuth.ts`; call only via `useAuth()`. |
 | `src/components/AuthPanel.tsx` | Demo UI for sign-in/out. | **Yes** — replace/extend freely. |
+| `src/storage/*` | S3-compatible (S2/R2/AWS) multi-file upload module — a third, independent vertical. See [storage-module.md](./storage-module.md). | **Yes** — extend `types.ts`/`config.ts`/`sigv4.ts`/`s3Client.ts`/`useS3Upload.ts`; call only via `useS3Upload()`. |
+| `src/components/S3UploadPanel.tsx` | Demo UI for multi-file upload. | **Yes** — replace/extend freely. |
 | `vite.config.ts` | Vite config with two PGlite-required settings. | **Careful** with the PGlite settings, see [constraints.md](./constraints.md). The `react()` plugin is ordinary. |
 | `drizzle.config.ts` | Tells `drizzle-kit generate` where the schema/migrations live. DB URL is an unused placeholder. | Leave as-is unless you move `schema.ts` or the migrations folder. |
 | `tsconfig.json`, `package.json`, `index.html` | Standard Vite + React scaffolding. | Edit `package.json` normally to add deps. |
