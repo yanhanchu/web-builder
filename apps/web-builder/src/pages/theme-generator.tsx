@@ -16,6 +16,7 @@ import {
 } from '@/lib/theme-css-generator';
 import { writeThemeToDisk as writeThemeToDiskApi, readThemeFromDisk } from '@/lib/theme-disk-api';
 import { themeGeneratorStyles as styles } from '@/styles/theme-generator-styles';
+import { useApp } from '@/hooks/app/context-core';
 import { cn } from '@workspace/ui/utils/utils';
 import { Button } from '@workspace/ui/components/Button/Button';
 import { Badge } from '@workspace/ui/components/Badge/Badge';
@@ -33,17 +34,18 @@ import { Avatar } from '@workspace/ui/components/Avatar/Avatar';
  * 複製或下載產生的 CSS。
  *
  * 資料同步模式跟「頁面管理（/live）」「路由管理（/routes）」一致：
- * 「寫入檔案系統」「從檔案系統讀取（覆蓋）」兩個按鈕跟 `data/theme.json`
- * 互動（見 src/lib/theme-disk-api.ts、scripts/write-theme.mjs），僅在
- * `npm run dev` 環境有效。跟 routes/pages 不同的是，主題設定不分 app，
- * 是整個 workspace 共用一份（`data/theme.json`，不在任何 `data/{app}/`
- * 底下），所以這裡不需要 `useApp()`。
+ * 「寫入檔案系統」「從檔案系統讀取（覆蓋）」兩個按鈕跟
+ * `data/{app}/theme.json` 互動（見 src/lib/theme-disk-api.ts、
+ * scripts/write-theme.mjs），僅在 `npm run dev` 環境有效。主題設定改為
+ * 「每個 app 各自一份」，所以透過 `useApp()` 取得目前選定的 app；寫入時
+ * 同時把已產生的 CSS 一併寫成 `data/{app}/styles.css`。這個區塊放在
+ * 頁面最上方，方便一進頁面就能看到目前正在同步哪個 app。
  *
  * Shuffle / 鎖定：每個可調整欄位（primaryHue/primaryChroma/neutralHue/
  * radius/fontSans/fontHeading，見 ShufflableKey）旁都有一顆鎖頭按鈕。
  * 按「隨機」時，被鎖定的欄位維持原值，其餘欄位各自在合理範圍內重新
  * 取樣（見 src/lib/theme-css-generator.ts 的 shuffleTheme()）。鎖定狀態
- * 只存在畫面上（不隨 `data/theme.json` 同步），重新整理頁面會重置。
+ * 只存在畫面上（不隨 `data/{app}/theme.json` 同步），重新整理頁面會重置。
  */
 type WriteBackState =
   | { status: 'idle' }
@@ -96,6 +98,7 @@ function LockableLabel({
 }
 
 export function ThemeGenerator() {
+  const { app } = useApp();
   const [config, setConfig] = useState<ThemeConfig>(DEFAULT_THEME_CONFIG);
   const [locked, setLocked] = useState<LockedMap>({});
   const [previewMode, setPreviewMode] = useState<'light' | 'dark'>('light');
@@ -166,36 +169,47 @@ export function ThemeGenerator() {
   }
 
   async function handleWriteThemeToDisk() {
+    if (!app) {
+      setWriteState({ status: 'error', message: '尚未選定 app，無法寫入' });
+      return;
+    }
     setWriteState({ status: 'saving' });
-    const result = await writeThemeToDiskApi(config);
+    const result = await writeThemeToDiskApi(app, config, css);
     setWriteState(
       result.ok
-        ? { status: 'success', message: `✓ 已寫入 ${result.writtenFile}` }
+        ? {
+            status: 'success',
+            message: `✓ 已寫入 ${result.writtenFile}${result.writtenCssFile ? ` 與 ${result.writtenCssFile}` : ''}`,
+          }
         : { status: 'error', message: `寫入失敗：${result.error}` }
     );
   }
 
   async function handleReadThemeFromDisk() {
+    if (!app) {
+      setReadState({ status: 'error', message: '尚未選定 app，無法讀取' });
+      return;
+    }
     if (
       !window.confirm(
-        '確定要用磁碟上 data/theme.json 的內容覆蓋目前畫面上的主題編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。'
+        `確定要用磁碟上 data/${app}/theme.json 的內容覆蓋目前畫面上的主題編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
       )
     ) {
       return;
     }
     setReadState({ status: 'saving' });
-    const result = await readThemeFromDisk();
+    const result = await readThemeFromDisk(app);
     if (!result.ok) {
       setReadState({ status: 'error', message: `讀取失敗：${result.error}` });
       return;
     }
     if (!result.themeConfig) {
-      setReadState({ status: 'error', message: '磁碟上尚未有 data/theme.json，請先寫入一次' });
+      setReadState({ status: 'error', message: `磁碟上尚未有 data/${app}/theme.json，請先寫入一次` });
       return;
     }
     setConfig(result.themeConfig);
     setCopyState('idle');
-    setReadState({ status: 'success', message: '✓ 已從磁碟讀取並覆蓋目前的主題設定（data/theme.json）' });
+    setReadState({ status: 'success', message: `✓ 已從磁碟讀取並覆蓋目前的主題設定（data/${app}/theme.json）` });
   }
 
   return (
@@ -207,11 +221,40 @@ export function ThemeGenerator() {
           tailwindcss v4 主題設定檔（<code>@theme inline</code> +{' '}
           <code>:root</code>/<code>.dark</code> oklch 變數）。純前端即時運算，
           調整左側參數即可即時預覽，滿意後複製或下載 CSS，貼回專案的
-          <code> src/index.css</code> 即可套用。編輯即時反映在畫面上，另可用下方
-          「寫入檔案系統」「從檔案系統讀取（覆蓋）」跟 <code>data/theme.json</code>{' '}
-          互動（僅 <code>npm run dev</code> 環境有效，主題設定是整個 workspace
-          共用一份，不分 app）。
+          <code> src/index.css</code> 即可套用。編輯即時反映在畫面上，另可用上方
+          「資料同步」跟 <code>data/{app ?? '{app}'}/theme.json</code> +{' '}
+          <code>data/{app ?? '{app}'}/styles.css</code> 互動（僅{' '}
+          <code>npm run dev</code> 環境有效，主題設定改為每個 app 各自一份）。
         </p>
+      </div>
+
+      <div className={cn(styles.panel, styles.syncBar)}>
+        <div className={styles.syncBarInfo}>
+          <p className={styles.syncBarTitle}>資料同步</p>
+          <p className={styles.syncBarPath}>
+            data/{app ?? '(尚未選定 app)'}/theme.json ・ data/{app ?? '(尚未選定 app)'}/styles.css
+          </p>
+          <WriteBackStatus state={writeState} />
+          <WriteBackStatus state={readState} />
+        </div>
+        <div className={styles.syncBarActions}>
+          <button
+            type="button"
+            className={styles.actionButton}
+            onClick={handleWriteThemeToDisk}
+            disabled={writeState.status === 'saving' || !app}
+          >
+            {writeState.status === 'saving' ? '寫入中…' : '寫入檔案系統'}
+          </button>
+          <button
+            type="button"
+            className={styles.actionButton}
+            onClick={handleReadThemeFromDisk}
+            disabled={readState.status === 'saving' || !app}
+          >
+            {readState.status === 'saving' ? '讀取中…' : '從檔案系統讀取（覆蓋）'}
+          </button>
+        </div>
       </div>
 
       <div className={styles.grid}>
@@ -410,32 +453,6 @@ export function ThemeGenerator() {
             </div>
             <pre className={styles.code}>{css}</pre>
           </div>
-
-          <div className={cn(styles.panel, 'flex-row flex-wrap items-center gap-3')}>
-            <p className={cn(styles.panelTitle, 'normal-case tracking-normal text-foreground')}>
-              資料同步（{`data/theme.json`}）
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className={styles.actionButton}
-                onClick={handleWriteThemeToDisk}
-                disabled={writeState.status === 'saving'}
-              >
-                {writeState.status === 'saving' ? '寫入中…' : '寫入檔案系統'}
-              </button>
-              <button
-                type="button"
-                className={styles.actionButton}
-                onClick={handleReadThemeFromDisk}
-                disabled={readState.status === 'saving'}
-              >
-                {readState.status === 'saving' ? '讀取中…' : '從檔案系統讀取（覆蓋）'}
-              </button>
-            </div>
-            <WriteBackStatus state={writeState} />
-            <WriteBackStatus state={readState} />
-          </div>
         </div>
       </div>
     </div>
@@ -555,6 +572,120 @@ function ComponentShowcase({ previewVars }: { previewVars: Record<string, string
           </p>
         </Card>
       </div>
+
+      <div className={cn(styles.showcaseGrid, styles.showcaseGap)}>
+        <Card>
+          <CardHeader title="Tabs / Toggle" subtitle="切換分頁、開關等常見互動元件" />
+          <ShowcaseTabs />
+          <div className="mt-4">
+            <ShowcaseToggle />
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Progress / Chips" subtitle="進度、可移除標籤等呈現元件" />
+          <div className="flex flex-col gap-3">
+            <ShowcaseProgress label="儲存空間" percent={62} />
+            <ShowcaseProgress label="部署進度" percent={90} />
+            <ShowcaseChips />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/** 分頁切換（Tabs），純 CSS 變數驅動，不依賴額外套件 */
+function ShowcaseTabs() {
+  const [active, setActive] = useState('overview');
+  const tabs = [
+    { id: 'overview', label: '總覽' },
+    { id: 'design', label: '設計' },
+    { id: 'code', label: '程式碼' },
+  ];
+  return (
+    <div className={styles.showcaseTabsRow}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          className={cn(styles.showcaseTabButton, active === tab.id && styles.showcaseTabButtonActive)}
+          onClick={() => setActive(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 開關（Toggle Switch），套用主題色作為開啟狀態的底色 */
+function ShowcaseToggle() {
+  const [checked, setChecked] = useState(true);
+  return (
+    <label className={styles.showcaseToggleRow}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        className={styles.showcaseToggleTrack}
+        style={{ backgroundColor: checked ? 'var(--primary)' : 'var(--border)' }}
+        onClick={() => setChecked((prev) => !prev)}
+      >
+        <span className={styles.showcaseToggleThumb} style={{ left: checked ? '1.375rem' : '0.125rem' }} />
+      </button>
+      <span className="text-[0.8125rem]" style={{ color: 'var(--foreground)' }}>
+        啟用自動同步
+      </span>
+    </label>
+  );
+}
+
+/** 進度條，套用主題主色作為填充色 */
+function ShowcaseProgress({ label, percent }: { label: string; percent: number }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-[0.75rem]" style={{ color: 'var(--muted-foreground)' }}>
+        <span>{label}</span>
+        <span className="font-mono">{percent}%</span>
+      </div>
+      <div className={styles.showcaseProgressTrack}>
+        <div
+          className={styles.showcaseProgressFill}
+          style={{ width: `${percent}%`, backgroundColor: 'var(--primary)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 可移除的標籤（Chips），展示邊框 + 主題色 hover 效果 */
+function ShowcaseChips() {
+  const [chips, setChips] = useState(['多語系', 'S3 上傳', 'Dark Mode']);
+  return (
+    <div className={styles.showcaseChipRow}>
+      {chips.map((chip) => (
+        <span
+          key={chip}
+          className={styles.showcaseChip}
+          style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+        >
+          {chip}
+          <button
+            type="button"
+            aria-label={`移除 ${chip}`}
+            className="opacity-60 transition-opacity hover:opacity-100"
+            onClick={() => setChips((prev) => prev.filter((c) => c !== chip))}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      {chips.length === 0 && (
+        <span className="text-[0.75rem]" style={{ color: 'var(--muted-foreground)' }}>
+          （已全部移除，重新整理頁面可還原）
+        </span>
+      )}
     </div>
   );
 }

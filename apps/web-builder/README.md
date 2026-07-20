@@ -26,9 +26,10 @@ Vite plugin 掛的 `/__api/*` middleware，把資料直接寫進這個 app 目�
 ```
 data/                       執行期資料（會被 dev server 的 /__api/* 讀寫）
   apps.json                   目前有哪些 app（多站台）
-  theme.json                  主題產生器（/theme）設定，全域共用一份，不分 app
   {app}/app.json               單一 app 的設定（SEO、storage provider 等）
   {app}/pages.json             單一 app 的頁面內容
+  {app}/theme.json             單一 app 的主題產生器（/theme）設定
+  {app}/styles.css             單一 app 的主題產生器輸出的 CSS（theme.json 的衍生檔）
   {app}/i18n/{locale}.json     單一 app 的翻譯
 
 example.css                 tailwindcss v4 主題設定檔範例（/theme 產生器即是模仿此格式輸出）
@@ -50,31 +51,39 @@ src/
 
 ## 主題產生器（/theme）
 
-純前端工具，跟目前選定的 app 無關，隨時可用。用「主色 hue/chroma + 中性色
-hue + 圓角 + 兩個字型」幾個輸入，生成一份跟 `example.css` 相同格式的
-tailwindcss v4 主題設定檔（`@theme inline` + `:root`/`.dark` 的 oklch
-變數），即時預覽淺色/深色色票與範例元件，可複製或下載 `theme.css`。
+用「主色 hue/chroma + 中性色 hue + 圓角 + 兩個字型」幾個輸入，生成一份跟
+`example.css` 相同格式的 tailwindcss v4 主題設定檔（`@theme inline` +
+`:root`/`.dark` 的 oklch 變數），即時預覽淺色/深色色票與範例元件，可複製或
+下載 `theme.css`。
 
-- `src/types/theme-types.ts`：`ThemeConfig` 型別、預設值、配色預設清單
+- `src/types/theme-types.ts`：`ThemeConfig` 型別、預設值、配色預設清單、字型清單
 - `src/lib/theme-css-generator.ts`：純函式，`ThemeConfig` → CSS 字串（不碰 DOM）
-- `src/pages/theme-generator.tsx`：頁面本體（表單 + 預覽 + 產生的 CSS + 資料同步）
+- `src/pages/theme-generator.tsx`：頁面本體（資料同步 + 表單 + 預覽 + 產生的 CSS）
 - `src/lib/theme-disk-api.ts`：呼叫 `/__api/write-theme` 的讀寫 API 呼叫層
-- `scripts/write-theme.mjs` / `scripts/write-theme-plugin.mjs`：驗證並讀寫 `data/theme.json`
+- `scripts/write-theme.mjs` / `scripts/write-theme-plugin.mjs`：驗證並讀寫
+  `data/{app}/theme.json` + `data/{app}/styles.css`
 
-跟 routes/pages/i18n 不同：主題設定不分 app，是整個 workspace 共用一份，
-落在 `data/theme.json`（不在任何 `data/{app}/` 底下）。編輯即時反映在畫面，
-另提供「寫入檔案系統」「從檔案系統讀取（覆蓋）」跟 `data/theme.json` 互動，
-僅 `npm run dev` 環境有效，跟頁面管理/路由管理同一套模式。
+跟 routes/pages/i18n 一致：主題設定改為「每個 app 各自一份」，落在
+`data/{app}/theme.json`（不再是全域共用一份）。「資料同步」區塊放在**頁面最
+上方**，一進頁面就能看到目前正在同步哪個 app；「寫入檔案系統」除了寫
+`data/{app}/theme.json`，也會把前端已經算好的 CSS 字串一併寫成
+`data/{app}/styles.css`（純粹落地檔案，不是任何頁面的讀取來源——「從檔案
+系統讀取（覆蓋）」一律讀 `theme.json` 再由前端重新產生 CSS，避免兩份資料
+不同步）。僅 `npm run dev` 環境有效，跟頁面管理/路由管理同一套模式。
 
 **Shuffle / 鎖定**：每個可調整欄位（主色 hue/chroma、中性色 hue、圓角、
 內文/標題字型）旁都有鎖頭按鈕，按下「Shuffle」時，被鎖定的欄位維持原值、
 其餘欄位重新隨機取樣（見 `shuffleTheme()`）。鎖定狀態只存在畫面上，不會
-寫進 `data/theme.json`。字型清單已擴充至 15 種常見 `@fontsource-variable`
-字型（見 `FONT_OPTIONS`）。
+寫進 `data/{app}/theme.json`。字型清單已擴充至 20 種常見
+`@fontsource-variable` 字型（見 `FONT_OPTIONS`），除了 15 種常用無襯線字型，
+另外加了 Fraunces、Playfair Display、Bricolage Grotesque、Newsreader、
+Instrument Serif 等 5 種較有個性的展示型襯線/展示字體，適合當標題字。
 
 **UI 組件展示**：頁面下方用 `@workspace/ui` 的真實組件（Button/Badge/Card/
 Input/Avatar）展示套用目前主題設定後的實際樣子（見 `ComponentShowcase`），
-純粹用 CSS 自訂屬性局部套用，不影響頁面其他部分的樣式。
+另外補了幾種常見的樣式呈現元件（Tabs 分頁切換、Toggle 開關、Progress 進度
+條、可移除的 Chips 標籤），同樣純粹用 CSS 自訂屬性局部套用，不依賴額外套件、
+不影響頁面其他部分的樣式。
 
 ## 開發前要知道的事
 

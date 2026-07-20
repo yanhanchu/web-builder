@@ -25,7 +25,8 @@ export default defineConfig({
   // writeRoutesPlugin() 同樣只在 dev 掛載，讓 /routes 頁面可以把編輯好的路由設定
   // 寫回 data/{app}/routes.json，或從磁碟讀回覆蓋 localStorage。
   // writeThemePlugin() 同樣只在 dev 掛載，讓 /theme 頁面可以把編輯好的主題設定
-  // 寫回 data/theme.json（全域共用一份，不分 app），或從磁碟讀回覆蓋前端狀態。
+  // 寫回 data/{app}/theme.json + data/{app}/styles.css（每個 app 各自一份），
+  // 或從磁碟讀回覆蓋前端狀態。
   // writeFilesPlugin() 同樣只在 dev 掛載，讓 /files 頁面可以把上傳的檔案本體
   // 透過 /__api/upload-file 寫入 public/uploads/{app}/，模擬後端本機檔案上傳 API。
   // writeS3PresignPlugin() 同樣只在 dev 掛載，讓 /files 頁面在 app 設定為

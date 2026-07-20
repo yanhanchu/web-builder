@@ -84,5 +84,11 @@ export const FONT_OPTIONS = [
   'Figtree Variable',
   'Urbanist Variable',
   'Onest Variable',
+  // 特別／有個性的展示型字體（適合標題），同樣都有 @fontsource-variable 套件
+  'Fraunces Variable',
+  'Playfair Display Variable',
+  'Bricolage Grotesque Variable',
+  'Newsreader Variable',
+  'Instrument Serif Variable',
 ];
 

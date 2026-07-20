@@ -70,4 +70,29 @@ export const themeGeneratorStyles = {
   showcaseRow: 'flex flex-wrap items-center gap-2.5',
   showcaseGrid: 'grid grid-cols-1 gap-3 sm:grid-cols-2',
   showcaseGap: 'mt-5',
+
+  // 頁面上方「資料同步」區塊（每個 app 各自一份 data/{app}/theme.json + styles.css）
+  syncBar:
+    'mb-6 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between',
+  syncBarInfo: 'flex flex-col gap-1',
+  syncBarTitle: 'text-[0.6875rem] font-bold tracking-wider text-muted-foreground/70 uppercase',
+  syncBarPath: 'font-mono text-[0.8125rem] text-foreground',
+  syncBarActions: 'flex flex-wrap items-center gap-2',
+
+  // UI 增加樣式呈現用的展示元件（純 CSS 變數驅動，不依賴額外套件）
+  showcaseTabsRow: 'flex items-center gap-1 rounded-lg bg-secondary p-1',
+  showcaseTabButton:
+    'rounded-md px-3 py-1.5 text-[0.8125rem] font-semibold text-muted-foreground transition-colors duration-150',
+  showcaseTabButtonActive: 'bg-card text-foreground shadow-sm',
+
+  showcaseToggleRow: 'flex items-center gap-2.5',
+  showcaseToggleTrack: 'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150',
+  showcaseToggleThumb: 'absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-150',
+
+  showcaseProgressTrack: 'h-2 w-full overflow-hidden rounded-full bg-secondary',
+  showcaseProgressFill: 'h-full rounded-full transition-[width] duration-300',
+
+  showcaseChipRow: 'flex flex-wrap gap-2',
+  showcaseChip:
+    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150',
 };

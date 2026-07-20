@@ -77,6 +77,32 @@ export function appRoutesFile(app) {
   return resolveAppPath(app, 'routes.json');
 }
 
+/** 回傳該 app 底下 theme.json 的路徑（主題設定，每個 app 各自一份） */
+export function appThemeFile(app) {
+  return resolveAppPath(app, 'theme.json');
+}
+
+/** 回傳該 app 底下 styles.css 的路徑（主題設定產生出的 CSS 檔案，每個 app 各自一份） */
+export function appStylesCssFile(app) {
+  return resolveAppPath(app, 'styles.css');
+}
+
+/** 寫入單一純文字檔案（自動建立所在目錄） */
+export function writeTextFile(file, text) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, text, 'utf-8');
+}
+
+/** 讀取單一純文字檔案，檔案不存在時回傳 fallback */
+export function readTextFile(file, fallback) {
+  try {
+    if (!fs.existsSync(file)) return fallback;
+    return fs.readFileSync(file, 'utf-8');
+  } catch {
+    return fallback;
+  }
+}
+
 /** 回傳該 app 底下 i18n/ 目錄的路徑 */
 export function appI18nDir(app) {
   return resolveAppPath(app, 'i18n');
@@ -90,7 +116,7 @@ export function appI18nFile(app, locale) {
   return resolveAppPath(app, 'i18n', `${locale}.json`);
 }
 
-/** 回傳 data/ 底下某個「非 per-app」的全域檔案路徑，例如 data/theme.json */
+/** 回傳 data/ 底下某個「非 per-app」的全域檔案路徑（目前沒有任何 per-app 之外的資料在用這個 helper，theme.json 已改為 data/{app}/theme.json） */
 export function topLevelDataFile(filename) {
   if (!/^[a-zA-Z0-9_-]+\.json$/.test(filename)) {
     throw new Error(`不合法的檔名：${JSON.stringify(filename)}`);
