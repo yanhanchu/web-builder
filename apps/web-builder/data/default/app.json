@@ -1,0 +1,61 @@
+{
+  "siteName": "default",
+  "siteUrl": "",
+  "description": "",
+  "seo": {
+    "title": "",
+    "titleTemplate": "",
+    "description": "",
+    "keywords": [],
+    "canonicalUrl": "",
+    "language": "",
+    "locale": "",
+    "openGraph": {
+      "type": "",
+      "title": "",
+      "description": "",
+      "image": "",
+      "imageAlt": "",
+      "url": "",
+      "siteName": "",
+      "locale": ""
+    },
+    "twitter": {
+      "card": "",
+      "site": "",
+      "creator": "",
+      "title": "",
+      "description": "",
+      "image": ""
+    }
+  },
+  "favicon": {
+    "favicon": "",
+    "appleTouchIcon": "",
+    "manifest": ""
+  },
+  "analytics": {
+    "googleAnalyticsId": "",
+    "googleTagManagerId": "",
+    "metaPixelId": "",
+    "linkedinInsightId": "",
+    "tiktokPixelId": ""
+  },
+  "storage": {
+    "domain": "",
+    "providers": [
+      "s3"
+    ],
+    "s3": {
+      "accessKeyId": "cosmodela",
+      "secretAccessKey": "QqdoXC9VXXH5thPKZK5V3vZwcQWGA2Dnvue5NnD",
+      "endpoint": "http://192.168.123.11:9000",
+      "region": "us-east-1",
+      "bucket": "app.builder"
+    }
+  },
+  "auth": {
+    "googleClientId": "",
+    "microsoftClientId": ""
+  }
+}

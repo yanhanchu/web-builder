@@ -1,0 +1,5 @@
+/* app 專屬的樣式進入點：實際的設計系統（tailwind 設定、CSS 變數、字型、
+   base layer）都收斂在 @workspace/ui 套件裡（packages/ui/src/styles/globals.css），
+   這裡只單純 re-export，讓 main.tsx 維持原本 `import "./index.css"` 的用法。
+   如果之後需要 app 專屬（不屬於共用設計系統）的樣式覆蓋，可以加在這個檔案。 */
+@import "@workspace/ui/styles/globals.css";

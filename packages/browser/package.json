@@ -1,0 +1,37 @@
+{
+  "name": "@workspace/browser",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate"
+  },
+  "exports": {
+    "./s3-upload-client": "./src/s3-upload-client.ts",
+    "./client": "./src/client.ts",
+    "./worker/*": "./src/worker/*.ts",
+    "./db/schema": "./src/db/schema.ts",
+    "./s3": "./src/s3/index.ts",
+    "./s3/*": "./src/s3/*.ts",
+    "./google": "./src/google/index.ts",
+    "./google/*": "./src/google/*.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "comlink": "^4.4.2",
+    "drizzle-orm": "^0.45.2",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "typescript": "~6",
+    "vite": "^8",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10",
+    "globals": "^17"
+  }
+}

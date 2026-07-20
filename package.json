@@ -1,27 +1,22 @@
 {
-  "name": "pglite-app",
+  "name": "component-docs-monorepo",
+  "version": "0.0.1",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "db:generate": "drizzle-kit generate"
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "typecheck": "turbo typecheck"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "drizzle-kit": "^0.31.10",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "prettier": "^3.8.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "turbo": "^2.9.18",
+    "typescript": "~6"
   },
-  "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
-    "comlink": "^4.4.2",
-    "drizzle-orm": "^0.45.2",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=20"
   }
 }
