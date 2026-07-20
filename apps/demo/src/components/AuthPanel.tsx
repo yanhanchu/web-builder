@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@workspace/browser/google';
+import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
+import { Button } from '@workspace/ui/components/Button/Button';
 
 export default function AuthPanel() {
   const { user, isReady, isSignedIn, signIn, signOut, getDriveAccessToken } = useAuth();
@@ -16,30 +18,41 @@ export default function AuthPanel() {
   }
 
   if (!isReady) {
-    return <p>Checking sign-in state…</p>;
+    return (
+      <Card>
+        <p className="text-sm text-muted-foreground">Checking sign-in state…</p>
+      </Card>
+    );
   }
 
   if (!isSignedIn) {
     return (
-      <section>
-        <h2>Sign in</h2>
-        <button onClick={signIn}>Sign in with Google</button>
-      </section>
+      <Card>
+        <CardHeader title="Sign in" />
+        <Button onClick={signIn}>Sign in with Google</Button>
+      </Card>
     );
   }
 
   return (
-    <section>
-      <h2>Signed in</h2>
-      <p>
+    <Card>
+      <CardHeader title="Signed in" />
+      <p className="flex items-center gap-2 text-sm text-foreground">
         {user!.picture && (
-          <img src={user!.picture} alt="" width={32} height={32} style={{ borderRadius: '50%', verticalAlign: 'middle' }} />
-        )}{' '}
-        <strong>{user!.name}</strong> ({user!.email})
+          <img src={user!.picture} alt="" width={32} height={32} className="rounded-full" />
+        )}
+        <strong>{user!.name}</strong>
+        <span className="text-muted-foreground">({user!.email})</span>
       </p>
-      <button onClick={handleGetDriveToken}>Get Drive access token</button>
-      <button onClick={signOut}>Sign out</button>
-      {driveStatus && <p>{driveStatus}</p>}
-    </section>
+      <div className="mt-3 flex gap-2">
+        <Button variant="secondary" onClick={handleGetDriveToken}>
+          Get Drive access token
+        </Button>
+        <Button variant="ghost" onClick={signOut}>
+          Sign out
+        </Button>
+      </div>
+      {driveStatus && <p className="mt-2 text-sm text-muted-foreground">{driveStatus}</p>}
+    </Card>
   );
 }

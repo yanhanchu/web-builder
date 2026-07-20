@@ -1,5 +1,8 @@
 import { useRef, type ChangeEvent, type DragEvent } from 'react';
 import { useS3Upload } from '@workspace/browser/s3';
+import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
+import { Button } from '@workspace/ui/components/Button/Button';
+import { cn } from '@workspace/ui/utils/utils';
 
 /**
  * UI layer only. Never imports s3Client, presign, or config directly —
@@ -22,11 +25,11 @@ export default function S3UploadPanel() {
   const hasFinished = items.some((it) => it.status === 'done');
 
   return (
-    <section>
-      <h2>Upload files (S3-compatible)</h2>
+    <Card>
+      <CardHeader title="Upload files (S3-compatible)" />
 
       {!isConfigured && (
-        <p className="s3-warning">
+        <p className="mb-3 rounded-lg bg-warning/15 px-3 py-2 text-sm text-foreground">
           Storage is not configured. Copy <code>.env.example</code> to{' '}
           <code>.env.local</code> and fill in <code>VITE_S3_BUCKET</code> and the
           worker-side <code>VITE_S3_*</code> credentials (see docs/storage-module.md).
@@ -34,57 +37,66 @@ export default function S3UploadPanel() {
       )}
 
       <div
-        className="s3-dropzone"
+        className="cursor-pointer rounded-lg border-2 border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground transition-colors hover:border-primary"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
         <p>Drag files here, or click to choose</p>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          hidden
-          onChange={handleFileChange}
-        />
+        <input ref={inputRef} type="file" multiple hidden onChange={handleFileChange} />
       </div>
 
       {items.length > 0 && (
-        <ul className="s3-upload-list">
+        <ul className="mt-4 flex flex-col gap-2">
           {items.map((item) => (
-            <li key={item.id} className={`s3-upload-item s3-status-${item.status}`}>
-              <div className="s3-upload-item-row">
-                <span className="s3-upload-name" title={item.key}>{item.file.name}</span>
-                <span className="s3-upload-size">{formatBytes(item.file.size)}</span>
-                <button onClick={() => removeItem(item.id)}>
+            <li key={item.id} className="rounded-lg border border-border px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="flex-1 truncate text-sm" title={item.key}>
+                  {item.file.name}
+                </span>
+                <span className="text-xs text-muted-foreground">{formatBytes(item.file.size)}</span>
+                <Button variant="ghost" size="sm" onClick={() => removeItem(item.id)}>
                   {item.status === 'uploading' ? 'Cancel' : 'Remove'}
-                </button>
+                </Button>
               </div>
-              <div className="s3-progress-track">
-                <div className="s3-progress-fill" style={{ width: `${item.progress}%` }} />
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    'h-full bg-primary transition-[width]',
+                    item.status === 'done' && 'bg-success',
+                    item.status === 'error' && 'bg-destructive'
+                  )}
+                  style={{ width: `${item.progress}%` }}
+                />
               </div>
-              <div className="s3-upload-meta">
-                {item.status === 'error' && <span className="s3-error-text">⚠ {item.error}</span>}
-                {item.status === 'done' && <span className="s3-done-text">✓ Uploaded</span>}
-                {item.status === 'queued' && <span>Queued</span>}
-                {item.status === 'uploading' && <span>{item.progress}%</span>}
-                {item.status === 'canceled' && <span>Canceled</span>}
+              <div className="mt-1 text-xs">
+                {item.status === 'error' && <span className="text-destructive">⚠ {item.error}</span>}
+                {item.status === 'done' && <span className="text-success">✓ Uploaded</span>}
+                {item.status === 'queued' && <span className="text-muted-foreground">Queued</span>}
+                {item.status === 'uploading' && (
+                  <span className="text-muted-foreground">{item.progress}%</span>
+                )}
+                {item.status === 'canceled' && <span className="text-muted-foreground">Canceled</span>}
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="s3-actions">
-        <button
+      <div className="mt-3 flex gap-2">
+        <Button
           onClick={uploadAll}
           disabled={!isConfigured || items.every((it) => it.status !== 'queued' && it.status !== 'error')}
         >
           Upload all
-        </button>
-        {hasFinished && <button onClick={clearFinished}>Clear finished</button>}
+        </Button>
+        {hasFinished && (
+          <Button variant="secondary" onClick={clearFinished}>
+            Clear finished
+          </Button>
+        )}
       </div>
-    </section>
+    </Card>
   );
 }
 

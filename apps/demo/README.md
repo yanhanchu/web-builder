@@ -14,6 +14,12 @@ IndexedDB。是這個 monorepo 裡 `@workspace/browser` 套件的示範/測試�
 | Package | 用來做什麼 | 進入點 |
 |---|---|---|
 | `@workspace/browser` | 全部的「後端」邏輯：PGlite/Drizzle 資料庫（`client`）、S3 上傳（`s3`）、Google 登入（`google`） | `src/App.tsx`、`src/components/*`；[packages/browser/README.md](../../packages/browser/README.md) |
+| `@workspace/ui` | 畫面用的 UI 元件（`Card`, `Button`, `Input` 等）+ Tailwind 設計系統（`globals.css`） | `src/App.tsx`、`src/components/*`、`src/style.css`；[packages/ui/README.md](../../packages/ui/README.md) |
+
+這個 app 不再有自己的一套 CSS class（原本的 `.s3-*`、`#user-list` 等已移除），
+畫面一律用 `@workspace/ui` 的元件 + Tailwind utility class，跟
+`apps/web-builder` 用同一套設計系統，**不要**再另外寫 app 專屬的 CSS
+class 或引入其他 UI framework。
 
 這個 app **完全不直接** import PGlite、Drizzle、schema 的 query
 builder，或任何 S3/Google 密鑰邏輯 —— 一律透過

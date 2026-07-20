@@ -1,13 +1,15 @@
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // Do not remove optimizeDeps/worker settings — see docs/constraints.md
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@workspace/ui': path.resolve(__dirname, '../../packages/ui/src'),
     },
   },
   optimizeDeps: {

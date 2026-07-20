@@ -23,7 +23,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@workspace/browser/*": ["../../packages/browser/src/*"]
+      "@workspace/browser/*": ["../../packages/browser/src/*"],
+      "@workspace/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": ["src"]
