@@ -30,6 +30,8 @@ data/                       執行期資料（會被 dev server 的 /__api/* 讀
   {app}/pages.json             單一 app 的頁面內容
   {app}/i18n/{locale}.json     單一 app 的翻譯
 
+example.css                 tailwindcss v4 主題設定檔範例（/theme 產生器即是模仿此格式輸出）
+
 scripts/                    只在 `vite dev` 執行的 Node 端邏輯
   app-fs.mjs                   共用的安全檔案讀寫工具（路徑限制在 data/ 底下）
   write-*.mjs                  各功能（apps/pages/i18n/routes/files/s3-presign）的實際讀寫邏輯
@@ -44,6 +46,19 @@ src/
   hooks/app/                   AppProvider context（目前正在編輯哪個 app）
   types/                       AppSettings / PageDef / RouteEntry / FileEntry 等型別
 ```
+
+## 主題產生器（/theme）
+
+純前端工具，跟目前選定的 app 無關，隨時可用。用「主色 hue/chroma + 中性色
+hue + 圓角 + 兩個字型」幾個輸入，生成一份跟 `example.css` 相同格式的
+tailwindcss v4 主題設定檔（`@theme inline` + `:root`/`.dark` 的 oklch
+變數），即時預覽淺色/深色色票與範例元件，可複製或下載 `theme.css`。
+
+- `src/types/theme-types.ts`：`ThemeConfig` 型別、預設值、配色預設清單
+- `src/lib/theme-css-generator.ts`：純函式，`ThemeConfig` → CSS 字串（不碰 DOM）
+- `src/pages/theme-generator.tsx`：頁面本體（表單 + 預覽 + 產生的 CSS）
+
+不寫入 `data/`、不需要 dev-server 端點，純瀏覽器端運算。
 
 ## 開發前要知道的事
 

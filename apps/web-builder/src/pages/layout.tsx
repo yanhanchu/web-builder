@@ -137,6 +137,11 @@ export function Layout() {
           檔案管理
         </NavLink>
 
+        <NavLink to="/theme" className={navItemClass}>
+          <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
+          主題產生器
+        </NavLink>
+
         <p className="mt-4 mb-2 flex justify-between px-2 text-[0.6875rem] font-bold tracking-wider text-muted-foreground/70 uppercase">
           Components <span className="font-mono text-muted-foreground">{allComponents.length}</span>
         </p>

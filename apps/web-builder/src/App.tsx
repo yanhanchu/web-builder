@@ -10,6 +10,7 @@ import { I18nManager } from '@/pages/i18n-manager';
 import { AppListPage, AppEditPage } from '@/pages/settings';
 import { RouteManager } from '@/pages/route-manager';
 import { FileManager } from '@/pages/file-manager';
+import { ThemeGenerator } from '@/pages/theme-generator';
 import { AppProvider } from '@/hooks/app/context';
 // GENERATED_PAGES_IMPORT_BEGIN
 import { generatedPages } from '@/pages/pages-map';
@@ -91,6 +92,14 @@ const router = createBrowserRouter([
       //   /files -> 目前 app 底下的檔案管理
       // ---------------------------------------------------------------
       { path: 'files', element: <FileManager /> },
+
+      // ---------------------------------------------------------------
+      // 主題產生器（/theme）：純前端工具，跟目前選定的 app 無關，
+      // 用來生成一份跟 apps/web-builder/example.css 相同格式的
+      // tailwindcss v4 主題設定檔（見 src/pages/theme-generator.tsx）。
+      //   /theme -> 主題產生器
+      // ---------------------------------------------------------------
+      { path: 'theme', element: <ThemeGenerator /> },
 
       {/* GENERATED_PAGES_ROUTES_BEGIN */},
       {
