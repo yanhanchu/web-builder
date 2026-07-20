@@ -95,4 +95,22 @@ export const themeGeneratorStyles = {
   showcaseChipRow: 'flex flex-wrap gap-2',
   showcaseChip:
     'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150',
+
+  // 顏色選擇器（<input type="color"> 調色盤 + hue 數值同步顯示）
+  colorPickerRow: 'flex items-center gap-2.5',
+  colorSwatchInput:
+    'size-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5 disabled:cursor-not-allowed disabled:opacity-40',
+  colorHueReadout: 'font-mono text-[0.75rem] text-muted-foreground',
+
+  // Glassmorphism / Neumorphism 效果產生器區塊
+  effectSection: 'flex flex-col gap-3 rounded-lg border border-border bg-card p-4',
+  effectHeaderRow: 'flex items-center justify-between gap-2',
+  effectCheckboxLabel: 'flex cursor-pointer items-center gap-2 text-[0.8125rem] font-semibold text-foreground',
+  effectCheckbox: 'size-4 cursor-pointer accent-primary',
+  effectBody: 'flex flex-col gap-3 pl-0.5',
+  effectSliderRow: 'flex flex-col gap-1.5',
+  effectRadioRow: 'flex items-center gap-3 text-[0.8125rem] text-foreground',
+  effectRadioLabel: 'flex cursor-pointer items-center gap-1.5',
+  effectPreviewWrap: 'relative mt-1 flex min-h-[104px] items-center justify-center overflow-hidden rounded-lg p-4',
+  effectPreviewCard: 'w-full max-w-[220px] rounded-lg p-4 text-center text-[0.8125rem] font-semibold',
 };

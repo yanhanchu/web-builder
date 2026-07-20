@@ -31,6 +31,18 @@ export interface ThemeConfig {
   fontSans: string;
   /** 標題字體 */
   fontHeading: string;
+  /** 是否啟用 Glassmorphism（毛玻璃）效果產生器 */
+  glassEnabled?: boolean;
+  /** Glassmorphism 模糊強度（px） */
+  glassBlur?: number;
+  /** Glassmorphism 背景不透明度（0-1） */
+  glassOpacity?: number;
+  /** 是否啟用 Neumorphism（新擬態）效果產生器 */
+  neumorphismEnabled?: boolean;
+  /** Neumorphism 陰影強度（px） */
+  neumorphismIntensity?: number;
+  /** Neumorphism 樣式：凸起（flat）或內凹（pressed） */
+  neumorphismStyle?: 'flat' | 'pressed';
 }
 
 /** 每個 ShufflableKey 是否被鎖定（鎖定的欄位在 Shuffle 時維持原值不變） */
@@ -43,6 +55,12 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   radius: 0.625,
   fontSans: 'IBM Plex Sans Variable',
   fontHeading: 'Space Grotesk Variable',
+  glassEnabled: false,
+  glassBlur: 12,
+  glassOpacity: 0.55,
+  neumorphismEnabled: false,
+  neumorphismIntensity: 10,
+  neumorphismStyle: 'flat',
 };
 
 /** 預設主色配色方案，方便使用者一鍵套用而不用自己調色相/飽和度 */

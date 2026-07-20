@@ -13,6 +13,8 @@ import {
   buildPreviewSwatches,
   buildPreviewCssVars,
   shuffleTheme,
+  hueToHex,
+  hexToHue,
 } from '@/lib/theme-css-generator';
 import { writeThemeToDisk as writeThemeToDiskApi, readThemeFromDisk } from '@/lib/theme-disk-api';
 import { themeGeneratorStyles as styles } from '@/styles/theme-generator-styles';
@@ -298,17 +300,28 @@ export function ThemeGenerator() {
             <LockableLabel htmlFor="primary-hue" locked={!!locked.primaryHue} onToggle={() => toggleLock('primaryHue')}>
               主色 Hue <span className={styles.fieldValue}>{config.primaryHue}</span>
             </LockableLabel>
-            <input
-              id="primary-hue"
-              type="range"
-              min={0}
-              max={360}
-              step={1}
-              className={styles.slider}
-              value={config.primaryHue}
-              disabled={!!locked.primaryHue}
-              onChange={(e) => update('primaryHue', Number(e.target.value))}
-            />
+            <div className={styles.colorPickerRow}>
+              <input
+                id="primary-hue-picker"
+                type="color"
+                title="用調色盤選色（會轉換成對應的 hue 角度）"
+                className={styles.colorSwatchInput}
+                value={hueToHex(config.primaryHue, config.primaryChroma)}
+                disabled={!!locked.primaryHue}
+                onChange={(e) => update('primaryHue', hexToHue(e.target.value))}
+              />
+              <input
+                id="primary-hue"
+                type="range"
+                min={0}
+                max={360}
+                step={1}
+                className={styles.slider}
+                value={config.primaryHue}
+                disabled={!!locked.primaryHue}
+                onChange={(e) => update('primaryHue', Number(e.target.value))}
+              />
+            </div>
           </div>
 
           <div className={styles.field}>
@@ -336,17 +349,28 @@ export function ThemeGenerator() {
             <LockableLabel htmlFor="neutral-hue" locked={!!locked.neutralHue} onToggle={() => toggleLock('neutralHue')}>
               中性色 Hue（背景/邊框） <span className={styles.fieldValue}>{config.neutralHue}</span>
             </LockableLabel>
-            <input
-              id="neutral-hue"
-              type="range"
-              min={0}
-              max={360}
-              step={1}
-              className={styles.slider}
-              value={config.neutralHue}
-              disabled={!!locked.neutralHue}
-              onChange={(e) => update('neutralHue', Number(e.target.value))}
-            />
+            <div className={styles.colorPickerRow}>
+              <input
+                id="neutral-hue-picker"
+                type="color"
+                title="用調色盤選色（會轉換成對應的 hue 角度）"
+                className={styles.colorSwatchInput}
+                value={hueToHex(config.neutralHue, 0.05)}
+                disabled={!!locked.neutralHue}
+                onChange={(e) => update('neutralHue', hexToHue(e.target.value))}
+              />
+              <input
+                id="neutral-hue"
+                type="range"
+                min={0}
+                max={360}
+                step={1}
+                className={styles.slider}
+                value={config.neutralHue}
+                disabled={!!locked.neutralHue}
+                onChange={(e) => update('neutralHue', Number(e.target.value))}
+              />
+            </div>
           </div>
 
           <div className={styles.field}>
@@ -370,39 +394,183 @@ export function ThemeGenerator() {
             <LockableLabel htmlFor="font-sans" locked={!!locked.fontSans} onToggle={() => toggleLock('fontSans')}>
               內文字體（font-sans）
             </LockableLabel>
-            <input
+            <select
               id="font-sans"
-              list="font-options"
-              className={styles.input}
+              className={styles.select}
               value={config.fontSans}
               disabled={!!locked.fontSans}
               onChange={(e) => update('fontSans', e.target.value)}
-            />
+            >
+              {FONT_OPTIONS.map((font) => (
+                <option key={font} value={font}>
+                  {font}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className={styles.field}>
             <LockableLabel htmlFor="font-heading" locked={!!locked.fontHeading} onToggle={() => toggleLock('fontHeading')}>
               標題字體（font-heading）
             </LockableLabel>
-            <input
+            <select
               id="font-heading"
-              list="font-options"
-              className={styles.input}
+              className={styles.select}
               value={config.fontHeading}
               disabled={!!locked.fontHeading}
               onChange={(e) => update('fontHeading', e.target.value)}
-            />
+            >
+              {FONT_OPTIONS.map((font) => (
+                <option key={font} value={font}>
+                  {font}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <datalist id="font-options">
-            {FONT_OPTIONS.map((font) => (
-              <option key={font} value={font} />
-            ))}
-          </datalist>
           <p className={styles.hint}>
             字型名稱需對應 <code>@fontsource-variable/*</code> 套件；下載的 CSS 會依字型名稱自動產生
             <code> @import</code> 路徑，若專案尚未安裝對應套件，需自行 <code>pnpm add</code>。
           </p>
+
+          {/* Glassmorphism（毛玻璃）效果產生器 */}
+          <div className={styles.effectSection}>
+            <div className={styles.effectHeaderRow}>
+              <label className={styles.effectCheckboxLabel} htmlFor="glass-enabled">
+                <input
+                  id="glass-enabled"
+                  type="checkbox"
+                  className={styles.effectCheckbox}
+                  checked={!!config.glassEnabled}
+                  onChange={(e) => update('glassEnabled', e.target.checked)}
+                />
+                Glassmorphism（毛玻璃）
+              </label>
+            </div>
+            {config.glassEnabled && (
+              <div className={styles.effectBody}>
+                <div className={styles.effectSliderRow}>
+                  <span className={styles.fieldLabel}>
+                    模糊強度 <span className={styles.fieldValue}>{config.glassBlur ?? 12}px</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={2}
+                    max={30}
+                    step={1}
+                    className={styles.slider}
+                    value={config.glassBlur ?? 12}
+                    onChange={(e) => update('glassBlur', Number(e.target.value))}
+                  />
+                </div>
+                <div className={styles.effectSliderRow}>
+                  <span className={styles.fieldLabel}>
+                    背景不透明度 <span className={styles.fieldValue}>{Math.round((config.glassOpacity ?? 0.55) * 100)}%</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={0.9}
+                    step={0.05}
+                    className={styles.slider}
+                    value={config.glassOpacity ?? 0.55}
+                    onChange={(e) => update('glassOpacity', Number(e.target.value))}
+                  />
+                </div>
+                <div
+                  className={styles.effectPreviewWrap}
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, oklch(0.6 ${config.primaryChroma} ${config.primaryHue}), oklch(0.6 ${config.primaryChroma} ${(config.primaryHue + 80) % 360}))`,
+                  }}
+                >
+                  <div
+                    className={styles.effectPreviewCard}
+                    style={{
+                      background: `oklch(1 0 0 / ${Math.round((config.glassOpacity ?? 0.55) * 100)}%)`,
+                      backdropFilter: `blur(${config.glassBlur ?? 12}px) saturate(160%)`,
+                      WebkitBackdropFilter: `blur(${config.glassBlur ?? 12}px) saturate(160%)`,
+                      border: '1px solid oklch(1 0 0 / 30%)',
+                      color: `oklch(0.148 0.004 ${config.neutralHue})`,
+                    }}
+                  >
+                    .glass 預覽
+                  </div>
+                </div>
+                <p className={styles.hint}>下載的 CSS 會附上一份 <code>.glass</code> 工具 class，可直接套用在卡片、導覽列等元素上。</p>
+              </div>
+            )}
+          </div>
+
+          {/* Neumorphism（新擬態）效果產生器 */}
+          <div className={styles.effectSection}>
+            <div className={styles.effectHeaderRow}>
+              <label className={styles.effectCheckboxLabel} htmlFor="neumorphism-enabled">
+                <input
+                  id="neumorphism-enabled"
+                  type="checkbox"
+                  className={styles.effectCheckbox}
+                  checked={!!config.neumorphismEnabled}
+                  onChange={(e) => update('neumorphismEnabled', e.target.checked)}
+                />
+                Neumorphism（新擬態）
+              </label>
+            </div>
+            {config.neumorphismEnabled && (
+              <div className={styles.effectBody}>
+                <div className={styles.effectSliderRow}>
+                  <span className={styles.fieldLabel}>
+                    陰影強度 <span className={styles.fieldValue}>{config.neumorphismIntensity ?? 10}px</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={2}
+                    max={24}
+                    step={1}
+                    className={styles.slider}
+                    value={config.neumorphismIntensity ?? 10}
+                    onChange={(e) => update('neumorphismIntensity', Number(e.target.value))}
+                  />
+                </div>
+                <div className={styles.effectRadioRow}>
+                  <label className={styles.effectRadioLabel}>
+                    <input
+                      type="radio"
+                      name="neumorphism-style"
+                      checked={(config.neumorphismStyle ?? 'flat') === 'flat'}
+                      onChange={() => update('neumorphismStyle', 'flat')}
+                    />
+                    凸起（flat）
+                  </label>
+                  <label className={styles.effectRadioLabel}>
+                    <input
+                      type="radio"
+                      name="neumorphism-style"
+                      checked={config.neumorphismStyle === 'pressed'}
+                      onChange={() => update('neumorphismStyle', 'pressed')}
+                    />
+                    內凹（pressed）
+                  </label>
+                </div>
+                <div
+                  className={styles.effectPreviewWrap}
+                  style={{ backgroundColor: `oklch(0.963 0.002 ${config.neutralHue})` }}
+                >
+                  <div
+                    className={styles.effectPreviewCard}
+                    style={{
+                      background: `oklch(0.963 0.002 ${config.neutralHue})`,
+                      borderRadius: `${config.radius}rem`,
+                      color: `oklch(0.148 0.004 ${config.neutralHue})`,
+                      boxShadow: `${config.neumorphismStyle === 'pressed' ? 'inset ' : ''}${config.neumorphismIntensity ?? 10}px ${config.neumorphismIntensity ?? 10}px ${(config.neumorphismIntensity ?? 10) * 2}px oklch(0.148 0.004 ${config.neutralHue} / 18%), ${config.neumorphismStyle === 'pressed' ? 'inset ' : ''}-${config.neumorphismIntensity ?? 10}px -${config.neumorphismIntensity ?? 10}px ${(config.neumorphismIntensity ?? 10) * 2}px oklch(1 0 0 / 90%)`,
+                    }}
+                  >
+                    .neumorphic 預覽
+                  </div>
+                </div>
+                <p className={styles.hint}>下載的 CSS 會附上一份 <code>.neumorphic</code> 工具 class，可直接套用在卡片、按鈕等元素上。</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 右側：預覽 + 產生的 CSS */}

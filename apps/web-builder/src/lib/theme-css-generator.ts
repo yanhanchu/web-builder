@@ -30,6 +30,73 @@ function round(n: number, digits: number): number {
   return Math.round(n * f) / f;
 }
 
+/**
+ * 調色盤（<input type="color">）用的輔助函式：因為 ThemeConfig 存的是
+ * OKLCH 的 hue 角度（0-360），但 <input type="color"> 只認得 hex，所以
+ * 用固定的 lightness/chroma，把 hue 轉成一個「有代表性」的 hex 顏色給
+ * 調色盤顯示／輸入，反之亦然。這只是 UI 輸入手段，實際主題色仍然是用
+ * oklch(l, c, h) 依 lightness 曲線即時算出來的（見 buildLightVars 等）。
+ */
+export function hueToHex(hue: number, chroma = 0.15): string {
+  const h = ((hue % 360) + 360) % 360;
+  // 用 HSL 近似（僅供調色盤視覺選色用，跟 oklch 曲線是兩回事）
+  const s = Math.min(1, chroma / 0.3) * 0.75 + 0.25;
+  return hslToHex(h, s, 0.55);
+}
+
+export function hexToHue(hex: string): number {
+  const { h } = hexToHsl(hex);
+  return Math.round(h);
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const toHex = (v: number) =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16) / 255;
+  const g = parseInt(clean.substring(2, 4), 16) / 255;
+  const b = parseInt(clean.substring(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+        break;
+      case g:
+        h = ((b - r) / d + 2) * 60;
+        break;
+      default:
+        h = ((r - g) / d + 4) * 60;
+        break;
+    }
+  }
+  return { h, s, l };
+}
+
 /** 淺色模式（:root）的所有 oklch 變數 */
 export function buildLightVars(cfg: ThemeConfig) {
   const { primaryHue: ph, primaryChroma: pc, neutralHue: nh } = cfg;
@@ -113,10 +180,57 @@ function varsBlock(vars: Record<string, string>): string {
     .join('\n');
 }
 
+/** 依設定產生 Glassmorphism（毛玻璃） `.glass` 工具 class 的 CSS 區塊；未啟用時回傳空字串 */
+export function buildGlassCss(cfg: ThemeConfig): string {
+  if (!cfg.glassEnabled) return '';
+  const blur = cfg.glassBlur ?? 12;
+  const opacity = cfg.glassOpacity ?? 0.55;
+  return `
+/* Glassmorphism（毛玻璃）工具 class，套用在需要毛玻璃卡片/導覽列的元素上 */
+.glass {
+  background: oklch(1 0 0 / ${round(opacity * 100, 1)}%);
+  backdrop-filter: blur(${blur}px) saturate(160%);
+  -webkit-backdrop-filter: blur(${blur}px) saturate(160%);
+  border: 1px solid oklch(1 0 0 / 30%);
+  box-shadow: 0 8px 32px oklch(0.148 0.004 ${cfg.neutralHue} / 18%);
+}
+.dark .glass {
+  background: oklch(0.218 0.008 ${cfg.neutralHue} / ${round(opacity * 100, 1)}%);
+  border: 1px solid oklch(1 0 0 / 10%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 35%);
+}
+`;
+}
+
+/** 依設定產生 Neumorphism（新擬態） `.neumorphic` 工具 class 的 CSS 區塊；未啟用時回傳空字串 */
+export function buildNeumorphismCss(cfg: ThemeConfig): string {
+  if (!cfg.neumorphismEnabled) return '';
+  const intensity = cfg.neumorphismIntensity ?? 10;
+  const pressed = cfg.neumorphismStyle === 'pressed';
+  const inset = pressed ? 'inset ' : '';
+  return `
+/* Neumorphism（新擬態）工具 class，套用在需要柔和浮凸/內凹質感的元素上 */
+.neumorphic {
+  background: oklch(0.963 0.002 ${cfg.neutralHue});
+  border-radius: var(--radius);
+  box-shadow: ${inset}${intensity}px ${intensity}px ${intensity * 2}px oklch(0.148 0.004 ${cfg.neutralHue} / 18%),
+    ${inset}-${intensity}px -${intensity}px ${intensity * 2}px oklch(1 0 0 / 90%);
+}
+.dark .neumorphic {
+  background: oklch(0.218 0.008 ${cfg.neutralHue});
+  box-shadow: ${inset}${intensity}px ${intensity}px ${intensity * 2}px oklch(0 0 0 / 45%),
+    ${inset}-${intensity}px -${intensity}px ${intensity * 2}px oklch(1 0 0 / 4%);
+}
+`;
+}
+
 /** 產生完整的主題 CSS 檔內容，格式與 example.css 一致 */
 export function generateThemeCss(cfg: ThemeConfig): string {
   const light = buildLightVars(cfg);
   const dark = buildDarkVars(cfg);
+  const glassCss = buildGlassCss(cfg);
+  const neumorphismCss = buildNeumorphismCss(cfg);
+  const extraCss = `${glassCss}${neumorphismCss}`;
 
   return `@import "tailwindcss";
 @import "tw-animate-css";
@@ -190,7 +304,7 @@ ${varsBlock(dark)}
     cursor: pointer;
     }
 }
-`;
+${extraCss}`;
 }
 
 /** 'IBM Plex Sans Variable' -> 'ibm-plex-sans'，符合 @fontsource-variable 套件命名慣例 */
@@ -254,6 +368,7 @@ function randomFont(exclude?: string): string {
  */
 export function shuffleTheme(current: ThemeConfig, locked: LockedMap): ThemeConfig {
   return {
+    ...current,
     primaryHue: locked.primaryHue ? current.primaryHue : randomInt(0, 359),
     primaryChroma: locked.primaryChroma ? current.primaryChroma : randomFloat(0.02, 0.22, 3),
     neutralHue: locked.neutralHue ? current.neutralHue : randomInt(0, 359),
