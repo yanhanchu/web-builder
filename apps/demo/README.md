@@ -1,61 +1,42 @@
-# pglite-app — Monorepo (turbo / vite / pnpm / typescript)
+# apps/demo
 
-> **You are an AI coding agent.** This repository is a *template*, not a
-> finished app. Read this file, then follow the links below before you
-> write or change any code.
+`@electric-sql/pglite`（WASM Postgres）+ Drizzle ORM + Web Worker +
+Comlink + Google 登入 + S3 相容上傳的**純前端 demo**，沒有真正的
+Node/Express 後端 —— 所有「後端」邏輯都在瀏覽器裡跑，資料存在
+IndexedDB。是這個 monorepo 裡 `@workspace/browser` 套件的示範/測試場。
 
-## What this project actually is
+> **You are an AI coding agent.** This app is meant to stay a *template*.
+> Read this file, then follow the links below before you write or change
+> any code.
 
-This app has **no real server**. Instead of Node/Express + a real Postgres
-database, everything runs **inside the browser**:
+## 這個 app 引用了哪些 packages
 
-- **React (TSX)** — the UI layer (`apps/demo`), only ever talking to the
-  "backend" through `api` (`@workspace/browser/client`).
-- **PGlite** — a full Postgres build compiled to WASM, running in a Web Worker.
-- **Drizzle ORM** — type-safe schema + query builder, talking to that in-browser Postgres.
-- **A Web Worker** (`packages/browser/src/worker/worker.ts`) — hosts the database
-  and a small repository layer. This worker *is* your "backend". It never
-  talks to the network.
-- **Comlink** — turns the worker's exposed functions into something the main
-  thread can call with plain `await api.userList()`, as if it were a REST API.
-- **IndexedDB** (via PGlite's `dataDir: 'idb://...'`) — where the data
-  actually lives, so it survives page reloads.
+| Package | 用來做什麼 | 進入點 |
+|---|---|---|
+| `@workspace/browser` | 全部的「後端」邏輯：PGlite/Drizzle 資料庫（`client`）、S3 上傳（`s3`）、Google 登入（`google`） | `src/App.tsx`、`src/components/*`；[packages/browser/README.md](../../packages/browser/README.md) |
 
-There is no HTTP API, no auth server, no cloud database. Saving data means
-writing to this in-browser Postgres via Drizzle; it survives reloads because
-it's in IndexedDB, not memory.
+這個 app **完全不直接** import PGlite、Drizzle、schema 的 query
+builder，或任何 S3/Google 密鑰邏輯 —— 一律透過
+`@workspace/browser`（`/client`、`/s3`、`/google`）。修改功能前，先確認
+「這段邏輯該不該放在這個 app 裡，還是屬於 `packages/browser`」，資料庫
+schema、worker、S3 簽章、Google auth 的實作全部都在 `packages/browser`，
+不在這裡。
 
-## Monorepo layout
+> `@workspace/browser` 裡有兩套 S3 上傳邏輯，這個 app 用的是純前端模擬版
+> `s3`（簽章在 Worker 裡完成），不是 `s3-upload-client`（那個要搭配
+> Node dev server，見 `apps/web-builder`）。
+
+## 目錄一覽
 
 ```
-apps/
-  demo/                     the original demo app (UI only)
-    src/App.tsx, main.tsx, components/, assets/, style.css
-
-packages/
-  browser/                  @workspace/browser — all browser-side "backend" logic
-    src/client.ts             Comlink client, ensureDbReady()
-    src/worker/                the fake "backend" (Web Worker)
-      worker.ts                 Comlink-exposed flat API
-      migrate.ts                 runs Drizzle migrations
-      repositories/               *.repo.ts, one per table/domain
-    src/db/                     Drizzle schema + generated SQL migrations
-      schema.ts
-      migrations/*.sql, meta/
-    src/s3/                     S3-compatible multi-file upload module
-      types.ts, config.ts, validation.ts
-      presign.ts                 main-thread bridge (calls the worker via RPC)
-      s3Client.ts                 main-thread upload logic (single + multipart)
-      useS3Upload.ts               React hook — the only thing components call
-      workerPresign.ts            worker-only SigV4 presigned-URL signer (secret key lives only here)
-      index.ts
-    src/google/                 Google sign-in + Drive access-token module
-      types.ts, session.ts, googleAuth.ts, useAuth.ts, index.ts
+src/
+  App.tsx                注意：這是 demo UI，可自由替換/擴充
+  main.tsx                React 進入點
+  components/
+    AuthPanel.tsx           Google 登入示範 UI
+    S3UploadPanel.tsx        S3 上傳示範 UI
+  style.css, assets/       demo 樣式/圖片，可自由替換
 ```
-
-`apps/demo` never imports PGlite, Drizzle, the schema's query builder, or
-any S3/Google credential logic directly — it only imports from
-`@workspace/browser` (`/client`, `/s3`, `/google`). Keep this boundary.
 
 ## Where to look for what
 
@@ -68,22 +49,25 @@ any S3/Google credential logic directly — it only imports from
 | Work on the S3-compatible multi-file upload                        | [docs/storage-module.md](./docs/storage-module.md) |
 | Know what must never be changed (Vite config, migrations, etc.)     | [docs/constraints.md](./docs/constraints.md)   |
 
-> Paths referenced in `docs/*` were written for the pre-monorepo layout
-> (`src/auth/*`, `src/storage/*`, `src/worker/*`, `src/db/*`). Under this
-> monorepo they now live at `packages/browser/src/google/*`,
-> `packages/browser/src/s3/*`, `packages/browser/src/worker/*`, and
-> `packages/browser/src/db/*` respectively; `apps/demo/src/App.tsx` and
-> `apps/demo/src/components/*` replace the old `src/App.tsx` / `src/components/*`.
+> `docs/*` 裡的路徑是照 monorepo 化之前的舊結構寫的（`src/auth/*`、
+> `src/storage/*`、`src/worker/*`、`src/db/*`）。現在這些邏輯都在
+> `packages/browser/src/google/*`、`packages/browser/src/s3/*`、
+> `packages/browser/src/worker/*`、`packages/browser/src/db/*`；
+> `apps/demo/src/App.tsx`、`apps/demo/src/components/*` 才是現在真正的
+> UI 層。這批文件之後若有第二個 app 也用到同一套資料庫/S3/Google 模組，
+> 應該搬到 `packages/browser/docs/`（見根目錄
+> [README.md](../../README.md#新增-app-時) 的檢查清單）。
 
 ## Commands
 
 ```bash
-cp .env.example .env.local            # (in apps/demo) fill in VITE_LOGIN_URL and VITE_GOOGLE_OAUTH_CLIENT_ID (and VITE_S3_*)
-pnpm install                          # install deps (run from repo root)
-pnpm dev                              # start Vite dev server (turbo dev)
-pnpm build                            # type-check (tsc) + production build
-pnpm --filter @workspace/browser db:generate   # generate a new SQL migration after editing packages/browser/src/db/schema.ts
+cp .env.example .env.local            # 在 apps/demo 下建立，填入 VITE_LOGIN_URL / VITE_GOOGLE_OAUTH_CLIENT_ID / VITE_S3_*
+pnpm install                          # 在 repo 根目錄安裝所有 workspace 套件
+pnpm --filter demo dev                # 啟動這個 app 的 Vite dev server
+pnpm --filter demo build              # 型別檢查 (tsc) + production build
+pnpm --filter @workspace/browser db:generate   # 改了 packages/browser/src/db/schema.ts 後，產生新的 SQL migration
 ```
 
-`db:generate` runs `drizzle-kit generate` from `packages/browser` — see
-[docs/workflow.md](./docs/workflow.md) for when and how to use it.
+`db:generate` 實際跑在 `packages/browser`（不是這個 app），詳見
+[docs/workflow.md](./docs/workflow.md) 和
+[packages/browser/README.md](../../packages/browser/README.md#新增修改資料表)。

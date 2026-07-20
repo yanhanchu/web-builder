@@ -1,193 +1,87 @@
-# component-docs-monorepo
+# Monorepo（turbo / vite / pnpm / typescript）
 
-原本單一專案（Vite + React 19 + TypeScript + React Router v7 的元件文件系統）
-拆分成 pnpm + turborepo 的 monorepo，**功能完全不變**，只是把程式碼依「誰擁有它」
-重新分配到不同的 workspace 套件：
+多個獨立開發的 app（可能是純前端、也可能含 Node dev-server 端點），
+共用一組 `packages/*` 裡的邏輯與元件。這份文件的目的：
+
+1. 讓你在**開始開發某個 app 之前**，30 秒內知道它引用了哪些 packages、
+   進入點在哪，不會改錯地方。
+2. 讓你在**要修某個共用邏輯**（資料庫/S3 上傳/Google 登入/UI 元件）之前，
+   知道那段邏輯實際定義在哪個 package、有哪些 app 依賴它，改了會不會
+   波及別人。
+
+## Workspace 結構
 
 ```
-mono/
-  apps/
-    web-builder/      ← 原本的整個 app（App 管理 / 頁面預覽 / i18n / 路由 / 檔案管理）
-  packages/
-    ui/                ← 文件生成器：scripts + UI 元件 + 範例組件/函式（原 generator 領域）
-    server/            ← S3 / R2：server 端邏輯（SigV4 簽章、presign 產生，純 Node）
-    browser/           ← S3 / R2：browser 端邏輯（presign 請求 + PUT/DELETE 直傳）
+apps/                   每個都是可獨立開發、可獨立 build/deploy 的專案
+  demo/                   純前端 demo：PGlite/Drizzle + S3 + Google 登入
+  web-builder/            多頁面網站建置器，含 Node dev-server 端點（/__api/*）
+
+packages/                共用邏輯與元件，app 之間互不重複實作
+  browser/                @workspace/browser — 瀏覽器端共用邏輯（DB/S3/Google）
+  server/                 @workspace/server  — Node 端共用邏輯（目前只有 S3 簽章）
+  ui/                     @workspace/ui      — React UI 元件 + 元件/函式文件產生器
 ```
 
-`apps/web-builder` 透過 `@workspace/ui`、`@workspace/server`、`@workspace/browser`
-三個 workspace 套件的方式使用其他三塊程式碼，實際跑起來的**只有一個 Vite dev server**
-（`apps/web-builder`），其他三個套件都是「原始碼直接被 import」，不需要各自 build。
+`pnpm-workspace.yaml` 只認 `apps/*` 和 `packages/*` 這兩層，新增專案時
+放進對應資料夾即可自動被 workspace 抓到。
 
----
+## Packages 總覽 — 各自提供什麼、怎麼用
 
-## 怎麼跑起來
-
-```bash
-pnpm install
-pnpm --filter web-builder dev
-```
-
-或在 repo 根目錄：
-
-```bash
-pnpm install
-pnpm dev   # turbo 會找出 apps/* 底下有 dev script 的套件並執行
-```
-
-打開 http://localhost:5173。
-
-第一次啟動（或修改了 `packages/ui/src/components/**`、`src/functions/**` 之後）
-`web-builder` 的 `predev` / `prebuild` 會自動依序執行：
-
-1. `@workspace/ui` 的 `docs:generate`（掃描組件，產生 `packages/ui/data/components.json`）
-2. `@workspace/ui` 的 `functions:generate`（掃描函式，產生 `packages/ui/data/functions.json`）
-3. `web-builder` 自己的 `pages:generate`（讀 `packages/ui/data/components.json` +
-   `data/{app}/pages.json`，固化成 `apps/web-builder/src/pages/generated/*.tsx`）
-
-不需要手動個別執行，`pnpm dev` / `pnpm build` 會自動觸發。
-
----
-
-## 每個 package 在幹嘛
-
-### `apps/web-builder` —— App 管理（原本的整個 app）
-
-管「app / workspace」這個概念本身，以及底下的頁面預覽、路由、i18n、檔案管理
-子功能。資料落在 `apps/web-builder/data/{app}/` 底下（`app.json` / `pages.json` /
-`routes.json` / `i18n/{locale}.json`）。
-
-**這裡是唯一真的在跑 Vite dev server 的地方**——所有 `write-*-plugin.mjs`
-（含 `@workspace/ui` 提供的 `write-back-plugin.mjs`）都掛載在
-`apps/web-builder/vite.config.ts`，因為 middleware 要掛在正在跑的那個 server 上，
-跟程式碼邏輯本身歸屬哪個套件是兩件事。
-
-### `packages/ui` —— 文件生成器（原本的 generator 領域）
-
-負責「掃描組件/函式原始碼 → 產生文件資料 → 渲染文件頁面」這整套系統，
-包含：
-- 範例組件本體（`Avatar` / `Badge` / `Button` / `Card` / `Input`）與 shadcn 基礎元件（`ui/button.tsx`）
-- 範例函式本體（`calculateOrderTotal.ts` / `validateRegistrationForm.ts`）
-- 文件頁面（首頁列表、單一組件/函式詳情頁）與其子元件（props 表格、type pill、live preview 等）
-- 產生文件資料的 build script（`docs:generate` / `functions:generate`）
-- dev-only 的「props 就地編輯寫回原始碼」（`write-back-plugin.mjs`）
-- 整個共用設計系統（Tailwind tokens、`globals.css`、`cn()` 工具、主題切換 Provider）
-
-`apps/web-builder` 依賴這個套件來取得共用元件與設計系統，也依賴它的
-`component-registry` 來動態渲染「頁面預覽」功能裡使用者自訂的頁面節點樹。
-
-### `packages/server` —— S3 / R2，server 端
-
-純邏輯，不依賴任何特定 app 的資料夾結構：呼叫端自己讀出 `storage` 設定物件
-（例如 `apps/web-builder` 從 `data/{app}/app.json` 讀出來），傳進來，這裡只負責
-SigV4 簽章、組出 presigned PUT/DELETE URL。這樣未來想給別的 app 重用也不用改這個套件。
-
-### `packages/browser` —— S3 / R2，browser 端
-
-瀏覽器端呼叫 `/__api/s3-presign` 拿到 presigned URL 後，直接對 S3/R2 發
-PUT（上傳）或 DELETE（刪除），檔案本體不經過 dev server 中轉。
-
----
-
-## 路線總覽（路由 → 在哪個套件）
-
-| 路徑 | 頁面元件 | 所在套件 | 說明 |
+| Package | 執行環境 | 提供什麼 | 詳細文件 |
 |---|---|---|---|
-| `/` | `pages/generator/home.tsx` | `@workspace/ui` | 組件卡片列表 |
-| `/components/:id`、`/components/by-index/:index` | `component-detail.tsx` | `@workspace/ui` | 單一組件文件頁（Props 表格、Live Preview） |
-| `/functions`、`/functions/:id`、`/functions/by-index/:index` | `functions-home.tsx` / `function-detail.tsx` | `@workspace/ui` | 函式列表 / 單一函式文件頁 |
-| `/admin` | `settings.tsx`（`AppListPage`） | `apps/web-builder` | app 清單、新增表單 |
-| `/app` | `settings.tsx`（`AppEditPage`） | `apps/web-builder` | 目前選定 app 的設定表單（含刪除/重新命名） |
-| `/live`、`/live/:pageId` | `dynamic-page.tsx` | `apps/web-builder` | runtime 動態渲染頁面（讀 `pages.json`，用到 `@workspace/ui` 的 `component-registry` 解析節點） |
-| `/live/edit`、`/live/:pageId/edit` | `page-editor.tsx` | `apps/web-builder` | 頁面內容表單編輯器 |
-| `/i18n` | `i18n-manager.tsx` | `apps/web-builder` | 多語系翻譯管理 |
-| `/routes` | `route-manager.tsx` | `apps/web-builder` | 路由對照表管理（跟 `/live` 動態渲染系統無關，純路徑管理） |
-| `/files` | `file-manager.tsx` | `apps/web-builder` | 檔案管理，上傳目的地可選 OPFS（本機）/ S3(R2)，S3 部分呼叫 `@workspace/browser` |
-| `/pages/*` | `pages-map.ts` 產生的清單 | `apps/web-builder` | build-time 固化的靜態頁面（`npm run pages:generate` 的輸出） |
+| **`@workspace/browser`** | 瀏覽器 | PGlite/Drizzle 資料庫 + Web Worker（`client`, `worker/*`, `db/schema`）、S3 相容上傳（`s3` 純前端版 / `s3-upload-client` 搭配 dev-server 版）、Google 登入 + Drive token（`google`） | [packages/browser/README.md](./packages/browser/README.md) |
+| **`@workspace/server`** | Node（僅供 Vite plugin / `.mjs` script import，**絕不進瀏覽器 bundle**） | S3 SigV4 Presigned URL 簽章（`presign`, `s3-presign-service`） | [packages/server/README.md](./packages/server/README.md) |
+| **`@workspace/ui`** | 瀏覽器 | React UI 元件（`components/*`）+ 元件/函式自動文件產生器（`pages/generator/*` 等，選用） | [packages/ui/README.md](./packages/ui/README.md) |
 
-> `/live`、`/i18n`、`/routes`、`/app`、`/files` 都不帶 `:app` 路由參數，一律作用於
-> 最外層導覽列切換的「目前 app」（見 `apps/web-builder/src/hooks/app/context.tsx`）。
+**快速判斷「我需要哪個 package」：**
 
----
+- 要在瀏覽器裡存資料（不架後端）→ `@workspace/browser` 的 `client` + `db`
+- 要做多檔案上傳到 S3/R2，且**沒有** Node dev-server → `@workspace/browser` 的 `s3`
+- 要做多檔案上傳到 S3/R2，且**有** Node dev-server（vite plugin 可以掛端點）→ `@workspace/browser` 的 `s3-upload-client` + `@workspace/server`
+- 要 Google 登入 / 拿 Drive token → `@workspace/browser` 的 `google`
+- 要畫面元件（按鈕、卡片…）→ `@workspace/ui` 的 `components/*`
+- 要幫元件/函式自動長出文件頁面 → `@workspace/ui` 的 generator 系列（選用，見該 README）
 
-## 常用指令
+## Apps 總覽 — 各自引用了什麼
 
-在 repo 根目錄執行（透過 turbo 分派給對應套件）：
+| App | 型態 | 引用的 packages | 詳細文件 |
+|---|---|---|---|
+| **`apps/demo`** | 純前端 | `@workspace/browser`（`client` / `s3` / `google`） | [apps/demo/README.md](./apps/demo/README.md) |
+| **`apps/web-builder`** | 前端 + Node dev-server 端點 | `@workspace/ui`（元件 + 文件系統）、`@workspace/browser`（`s3-upload-client`）、`@workspace/server`（S3 簽章） | [apps/web-builder/README.md](./apps/web-builder/README.md) |
+
+開始開發某個 app 前，**先讀該 app 自己的 README**，裡面有「這個 app 引用了
+哪些 packages」的表格，對應到各 package 的進入點與 README。改共用邏輯前
+同樣先讀對應 package 的 README，確認有哪些 app 依賴它。
+
+## 新增 app 時
+
+1. 在 `apps/{name}/` 建立新專案，`package.json` 的 `name` 要唯一
+2. 決定要不要 Node dev-server 端點（`vite dev` 的 `configureServer`）：
+   - 不需要 → 保持純前端，S3 上傳走 `@workspace/browser/s3`
+   - 需要（例如要簽 S3 URL、寫本機檔案）→ 仿照 `apps/web-builder` 的
+     `scripts/write-xxx-plugin.mjs` 模式，S3 簽章邏輯放
+     `@workspace/server`，不要在 app 裡重寫一份
+3. 需要資料庫（PGlite/Drizzle）→ 引用 `@workspace/browser/client` +
+   `@workspace/browser/db/schema`，**不要**另外複製一份 worker/schema
+4. 需要 UI 元件 → 引用 `@workspace/ui/components/*`，若元件庫不夠用，
+   優先考慮在 `packages/ui` 新增元件，而不是在 app 裡各自刻一份
+5. 在 `apps/{name}/README.md` 補上「這個 app 引用了哪些 packages」表格
+   （比照 `apps/demo/README.md` / `apps/web-builder/README.md` 的格式），
+   並在這份根 README 的「Apps 總覽」加上一列
+6. 若某段邏輯被**兩個以上**的 app 需要，考慮把它從 app 搬進對應的
+   `packages/*`，而不是複製貼上
+
+## Commands
 
 ```bash
-pnpm dev          # 啟動 web-builder 的 dev server（含自動 docs:generate / pages:generate）
-pnpm build        # build 所有套件（依 turbo.json 的 dependsOn 決定順序）
-pnpm lint         # 各套件的 lint
-pnpm format       # 各套件的 format
-pnpm typecheck    # 各套件的型別檢查
+pnpm install                 # 安裝所有 workspace 套件（在 repo 根目錄執行一次即可）
+pnpm dev                     # turbo dev：同時啟動所有 app 的 dev server
+pnpm --filter demo dev       # 只啟動 apps/demo
+pnpm --filter web-builder dev  # 只啟動 apps/web-builder
+pnpm build                   # turbo build：依賴順序建置所有專案
+pnpm lint                    # turbo lint
+pnpm typecheck                # turbo typecheck
 ```
 
-只想針對單一套件下指令，用 `pnpm --filter <package-name> <script>`，例如：
-
-```bash
-pnpm --filter @workspace/ui run docs:generate
-pnpm --filter web-builder run pages:generate
-```
-
----
-
-## 加入你自己的組件 / 函式
-
-跟原本一樣，只是路徑換到 `packages/ui` 底下：
-
-**組件**（`packages/ui/src/components/YourComponent/YourComponent.tsx`）：
-
-```tsx
-export interface YourComponentProps {
-  /** 這段 JSDoc 會被抽出來當作 props 說明 */
-  label: string;
-}
-
-/** 這段 JSDoc 會被抽出來當作組件說明 */
-export function YourComponent({ label }: YourComponentProps) {
-  return <div>{label}</div>;
-}
-```
-
-執行 `pnpm --filter @workspace/ui run docs:generate` 重新產生文件資料，
-（可選）在 `packages/ui/src/content/generator/demo-props.ts` 補一筆示範 props。
-
-**函式**（`packages/ui/src/functions/yourFunction.ts`）：同樣寫上 JSDoc，執行
-`pnpm --filter @workspace/ui run functions:generate` 重新產生文件資料。
-
-新增後，`apps/web-builder` 的 `pnpm dev` / `pnpm build` 會自動重新讀取
-`packages/ui/data/components.json`，不需要手動同步。
-
----
-
-## 這次拆分做了什麼決策（給之後維護的人）
-
-- **`packages/server` 不讀任何 app 的 `data/` 資料夾**：`createS3UploadPresign` /
-  `createS3DeletePresign` 改成接收呼叫端已經讀出來的 `storage` 設定物件，而不是自己
-  用 app 名稱去讀 `app.json`。這樣這個套件才可能被其他（非 web-builder）的 app 重用。
-- **`write-back-plugin.mjs`（props 就地編輯寫回）邏輯留在 `packages/ui`，但掛載點在
-  `apps/web-builder`**：因為它操作的檔案（`packages/ui/src/components/**`）屬於 ui
-  套件，但實際在跑的 Vite dev server 是 web-builder，middleware 得掛在真正跑起來的
-  server 上，這兩件事本來就不必然是同一個套件。
-- **`component-map.ts`（自動產生的 import map）不再包含 `components/app/*`**：
-  `collapsible-section.tsx`、`dynamic-renderer.tsx` 是 web-builder 專屬的結構性元件，
-  不是文件生成器要展示的「範例組件」，本來就不該被 ui 套件掃到。
-- **`components.json`（shadcn CLI 設定）整份搬到 `packages/ui`**：因為
-  `ui`/`utils`/`components` 這些 alias 現在都指向 `packages/ui`，之後
-  `npx shadcn add` 要在 `packages/ui` 底下執行才會落在正確位置。
-
----
-
-## 已知限制（延續自拆分前）
-
-- `demo-props.ts` 手動維護，新增組件後記得補一筆。
-- `React.forwardRef` 包裝的組件，`react-docgen-typescript` 支援度依版本而異。
-- app / pages / 路由 / i18n 的編輯內容只存在單一瀏覽器的 `localStorage`，換瀏覽器、
-  清除資料、無痕模式都不會保留；「從檔案系統讀取（覆蓋）」是整批覆蓋、不會 merge。
-- 檔案管理（`/files`）「上傳目的地管理」面板勾選的自動同步目標，已改為以 app 為 key
-  存進 `localStorage`（`file-manager:auto-sync-targets`），重新整理頁面、切換分頁
-  不會再遺失勾選狀態；app 刪除／重新命名時會一併清除／搬移這份設定。
-- i18n 的 key 若包含點號會被誤判為巢狀路徑。
-- 路由管理的「自訂網址」（`targetUrl`）不做格式或可達性驗證，只檢查非空字串。
-- **本次 monorepo 重構未執行實際環境安裝、型別編譯與測試**，所有路徑正確性透過
-  靜態文字比對驗證；正式使用前建議在本機執行一次 `pnpm install && pnpm build`
-  做最終確認。
+各 app / package 若有專屬指令（例如 `db:generate`、`docs:generate`），
+列在各自的 README 裡，不重複寫在這裡。
