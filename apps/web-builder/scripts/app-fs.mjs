@@ -90,6 +90,14 @@ export function appI18nFile(app, locale) {
   return resolveAppPath(app, 'i18n', `${locale}.json`);
 }
 
+/** 回傳 data/ 底下某個「非 per-app」的全域檔案路徑，例如 data/theme.json */
+export function topLevelDataFile(filename) {
+  if (!/^[a-zA-Z0-9_-]+\.json$/.test(filename)) {
+    throw new Error(`不合法的檔名：${JSON.stringify(filename)}`);
+  }
+  return path.join(DATA_ROOT, filename);
+}
+
 /** 讀取單一 json 檔案，檔案不存在或解析失敗時回傳 fallback */
 export function readJsonFile(file, fallback) {
   try {

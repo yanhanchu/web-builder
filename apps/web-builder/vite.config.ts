@@ -7,6 +7,7 @@ import { writeI18nPlugin } from "./scripts/write-i18n-plugin.mjs";
 import { writePagesPlugin } from "./scripts/write-pages-plugin.mjs";
 import { writeAppsPlugin } from "./scripts/write-apps-plugin.mjs";
 import { writeRoutesPlugin } from "./scripts/write-routes-plugin.mjs";
+import { writeThemePlugin } from "./scripts/write-theme-plugin.mjs";
 import { writeFilesPlugin } from "./scripts/write-files-plugin.mjs";
 import { writeS3PresignPlugin } from "./scripts/write-s3-presign-plugin.mjs";
 
@@ -23,6 +24,8 @@ export default defineConfig({
   // （新增 / 刪除 / 重新命名 / 設定欄位），並同步聚合檔案。
   // writeRoutesPlugin() 同樣只在 dev 掛載，讓 /routes 頁面可以把編輯好的路由設定
   // 寫回 data/{app}/routes.json，或從磁碟讀回覆蓋 localStorage。
+  // writeThemePlugin() 同樣只在 dev 掛載，讓 /theme 頁面可以把編輯好的主題設定
+  // 寫回 data/theme.json（全域共用一份，不分 app），或從磁碟讀回覆蓋前端狀態。
   // writeFilesPlugin() 同樣只在 dev 掛載，讓 /files 頁面可以把上傳的檔案本體
   // 透過 /__api/upload-file 寫入 public/uploads/{app}/，模擬後端本機檔案上傳 API。
   // writeS3PresignPlugin() 同樣只在 dev 掛載，讓 /files 頁面在 app 設定為
@@ -38,6 +41,7 @@ export default defineConfig({
     writePagesPlugin(),
     writeAppsPlugin(),
     writeRoutesPlugin(),
+    writeThemePlugin(),
     writeFilesPlugin(),
     writeS3PresignPlugin(),
   ],

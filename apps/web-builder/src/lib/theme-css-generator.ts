@@ -14,7 +14,8 @@
 // 就能生成一份「大致可用、風格一致」的主題檔。使用者仍可把產生的 CSS
 // 貼回專案後自行微調個別數值。
 
-import type { ThemeConfig } from '@/types/theme-types';
+import type { LockedMap, ThemeConfig } from '@/types/theme-types';
+import { FONT_OPTIONS } from '@/types/theme-types';
 
 function oklch(l: number, c: number, h: number, alpha?: number): string {
   const L = Math.max(0, Math.min(1, l));
@@ -30,7 +31,7 @@ function round(n: number, digits: number): number {
 }
 
 /** 淺色模式（:root）的所有 oklch 變數 */
-function buildLightVars(cfg: ThemeConfig) {
+export function buildLightVars(cfg: ThemeConfig) {
   const { primaryHue: ph, primaryChroma: pc, neutralHue: nh } = cfg;
   return {
     background: oklch(1, 0, nh),
@@ -69,7 +70,7 @@ function buildLightVars(cfg: ThemeConfig) {
 }
 
 /** 深色模式（.dark）的所有 oklch 變數 */
-function buildDarkVars(cfg: ThemeConfig) {
+export function buildDarkVars(cfg: ThemeConfig) {
   const { primaryHue: ph, primaryChroma: pc, neutralHue: nh } = cfg;
   return {
     background: oklch(0.148, 0.004, nh),
@@ -202,9 +203,62 @@ function slugifyFontImport(fontName: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
+/**
+ * 把 buildLightVars/buildDarkVars 的結果轉成可以直接放進 React `style` 的
+ * CSS 自訂屬性物件（`--background` 等），讓 UI 組件展示區塊可以在畫面上
+ * 局部套用目前主題設定，而不用整頁套用（避免影響 /theme 頁面自己的介面）。
+ * 另外補上 `--success`/`--warning`/`--info`（專案的 example.css 沒有定義，
+ * 但 @workspace/ui 的 Badge 組件會用到），用主色/中性色系推算一組合理值，
+ * 純粹是展示用途，不會寫進 generateThemeCss() 產生的正式 CSS。
+ */
+export function buildPreviewCssVars(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, string> {
+  const vars = mode === 'light' ? buildLightVars(cfg) : buildDarkVars(cfg);
+  const style: Record<string, string> = {};
+  for (const [key, value] of Object.entries(vars)) {
+    style[`--${key}`] = value;
+  }
+  const isDark = mode === 'dark';
+  style['--success'] = oklch(isDark ? 0.7 : 0.6, 0.15, 150);
+  style['--warning'] = oklch(isDark ? 0.75 : 0.65, 0.15, 80);
+  style['--info'] = oklch(isDark ? 0.7 : 0.55, 0.13, cfg.primaryHue);
+  style['--font-sans'] = `'${cfg.fontSans}', sans-serif`;
+  style['--font-heading'] = `'${cfg.fontHeading}', sans-serif`;
+  return style;
+}
+
 /** 提供給預覽用：把 light/dark 的 oklch 變數轉成一份 flat 物件，方便畫色票 */
 export function buildPreviewSwatches(cfg: ThemeConfig, mode: 'light' | 'dark') {
   const vars = mode === 'light' ? buildLightVars(cfg) : buildDarkVars(cfg);
   const keys = ['background', 'foreground', 'card', 'primary', 'secondary', 'muted', 'accent', 'destructive', 'border'] as const;
   return keys.map((key) => ({ key, value: (vars as Record<string, string>)[key] }));
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomFloat(min: number, max: number, digits: number): number {
+  const value = Math.random() * (max - min) + min;
+  return round(value, digits);
+}
+
+function randomFont(exclude?: string): string {
+  const pool = FONT_OPTIONS.filter((f) => f !== exclude);
+  const candidates = pool.length > 0 ? pool : FONT_OPTIONS;
+  return candidates[randomInt(0, candidates.length - 1)];
+}
+
+/**
+ * 依目前設定與鎖定狀態，隨機產生下一組 ThemeConfig：被鎖定（locked[key] === true）
+ * 的欄位維持原值，其餘欄位各自在合理範圍內重新取樣。
+ */
+export function shuffleTheme(current: ThemeConfig, locked: LockedMap): ThemeConfig {
+  return {
+    primaryHue: locked.primaryHue ? current.primaryHue : randomInt(0, 359),
+    primaryChroma: locked.primaryChroma ? current.primaryChroma : randomFloat(0.02, 0.22, 3),
+    neutralHue: locked.neutralHue ? current.neutralHue : randomInt(0, 359),
+    radius: locked.radius ? current.radius : randomFloat(0, 1.25, 3),
+    fontSans: locked.fontSans ? current.fontSans : randomFont(),
+    fontHeading: locked.fontHeading ? current.fontHeading : randomFont(current.fontSans),
+  };
 }

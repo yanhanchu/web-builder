@@ -5,6 +5,18 @@
 // （@theme inline + :root / .dark 的 oklch CSS variables）。
 // 純前端運算，不寫入 data/ 也不需要 dev-server 端點。
 
+/** 可被 Shuffle 隨機、也可被鎖定的欄位 */
+export const SHUFFLABLE_KEYS = [
+  'primaryHue',
+  'primaryChroma',
+  'neutralHue',
+  'radius',
+  'fontSans',
+  'fontHeading',
+] as const;
+
+export type ShufflableKey = (typeof SHUFFLABLE_KEYS)[number];
+
 /** 使用者可調整的主題輸入參數 */
 export interface ThemeConfig {
   /** 主色（primary）的色相角度，0-360 */
@@ -20,6 +32,9 @@ export interface ThemeConfig {
   /** 標題字體 */
   fontHeading: string;
 }
+
+/** 每個 ShufflableKey 是否被鎖定（鎖定的欄位在 Shuffle 時維持原值不變） */
+export type LockedMap = Partial<Record<ShufflableKey, boolean>>;
 
 export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   primaryHue: 223,
@@ -48,7 +63,11 @@ export const THEME_PRESETS: ThemePreset[] = [
   { id: 'slate', label: 'Slate（灰）', primaryHue: 240, primaryChroma: 0.02, neutralHue: 240 },
 ];
 
-/** 常見可透過 @fontsource-variable 引入的字型（僅列出常見選項，使用者仍可自行輸入） */
+/**
+ * 可透過 @fontsource-variable 引入的字型清單（分「內文」「標題」兩組常見搭配，
+ * 但使用者仍可自行輸入任意字型名稱，這份清單只是 datalist 建議選項 + Shuffle
+ * 隨機取樣用的池子）。
+ */
 export const FONT_OPTIONS = [
   'IBM Plex Sans Variable',
   'Space Grotesk Variable',
@@ -57,4 +76,13 @@ export const FONT_OPTIONS = [
   'Manrope Variable',
   'Sora Variable',
   'Plus Jakarta Sans Variable',
+  'Work Sans Variable',
+  'Outfit Variable',
+  'Lexend Variable',
+  'DM Sans Variable',
+  'Roboto Flex Variable',
+  'Figtree Variable',
+  'Urbanist Variable',
+  'Onest Variable',
 ];
+

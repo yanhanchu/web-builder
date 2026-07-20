@@ -17,14 +17,25 @@ export const themeGeneratorStyles = {
   presetSwatch: 'size-3.5 shrink-0 rounded-full border border-border/60',
 
   field: 'flex flex-col gap-1.5',
-  fieldLabelRow: 'flex items-center justify-between',
+  fieldLabelRow: 'flex items-center justify-between gap-2',
   fieldLabel: 'text-[0.6875rem] font-bold tracking-wider text-muted-foreground/70 uppercase',
+  fieldLabelWithLock: 'flex items-center gap-1.5',
   fieldValue: 'font-mono text-[0.75rem] text-muted-foreground',
-  slider: 'w-full accent-primary',
+  slider: 'w-full accent-primary disabled:opacity-40',
   select:
     'w-full rounded-md border border-border bg-secondary px-2.5 py-[0.4375rem] font-sans text-[0.8125rem] text-foreground outline-none focus:border-muted-foreground',
   input:
-    'w-full rounded-md border border-border bg-secondary px-2.5 py-[0.4375rem] font-sans text-[0.8125rem] text-foreground outline-none focus:border-muted-foreground',
+    'w-full rounded-md border border-border bg-secondary px-2.5 py-[0.4375rem] font-sans text-[0.8125rem] text-foreground outline-none focus:border-muted-foreground disabled:opacity-40',
+
+  lockButton:
+    'flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground transition-colors duration-150 hover:text-foreground',
+  lockButtonActive: 'border-primary/60 bg-primary/10 text-primary',
+
+  shuffleRow: 'flex items-center gap-2 rounded-lg border border-border bg-card p-3',
+  shuffleButton:
+    'flex-1 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-[0.8125rem] font-semibold text-foreground transition-colors duration-150 hover:bg-primary/20',
+  resetButton:
+    'shrink-0 rounded-md border border-border bg-secondary px-3 py-2 text-[0.8125rem] font-semibold text-muted-foreground transition-colors duration-150 hover:text-foreground',
 
   previewArea: 'flex flex-col gap-5',
   previewTabsRow: 'flex items-center gap-2',
@@ -53,4 +64,10 @@ export const themeGeneratorStyles = {
   code:
     'max-h-[560px] overflow-auto rounded-lg border border-border bg-secondary p-4 font-mono text-[0.75rem] leading-relaxed whitespace-pre text-foreground',
   hint: 'mt-1 text-xs text-muted-foreground',
+
+  showcaseWrap: 'rounded-lg border p-5',
+  showcaseSectionTitle: 'm-0 mb-3 text-[0.6875rem] font-bold tracking-wider uppercase opacity-70',
+  showcaseRow: 'flex flex-wrap items-center gap-2.5',
+  showcaseGrid: 'grid grid-cols-1 gap-3 sm:grid-cols-2',
+  showcaseGap: 'mt-5',
 };

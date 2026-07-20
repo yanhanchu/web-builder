@@ -26,6 +26,7 @@ Vite plugin 掛的 `/__api/*` middleware，把資料直接寫進這個 app 目�
 ```
 data/                       執行期資料（會被 dev server 的 /__api/* 讀寫）
   apps.json                   目前有哪些 app（多站台）
+  theme.json                  主題產生器（/theme）設定，全域共用一份，不分 app
   {app}/app.json               單一 app 的設定（SEO、storage provider 等）
   {app}/pages.json             單一 app 的頁面內容
   {app}/i18n/{locale}.json     單一 app 的翻譯
@@ -56,9 +57,24 @@ tailwindcss v4 主題設定檔（`@theme inline` + `:root`/`.dark` 的 oklch
 
 - `src/types/theme-types.ts`：`ThemeConfig` 型別、預設值、配色預設清單
 - `src/lib/theme-css-generator.ts`：純函式，`ThemeConfig` → CSS 字串（不碰 DOM）
-- `src/pages/theme-generator.tsx`：頁面本體（表單 + 預覽 + 產生的 CSS）
+- `src/pages/theme-generator.tsx`：頁面本體（表單 + 預覽 + 產生的 CSS + 資料同步）
+- `src/lib/theme-disk-api.ts`：呼叫 `/__api/write-theme` 的讀寫 API 呼叫層
+- `scripts/write-theme.mjs` / `scripts/write-theme-plugin.mjs`：驗證並讀寫 `data/theme.json`
 
-不寫入 `data/`、不需要 dev-server 端點，純瀏覽器端運算。
+跟 routes/pages/i18n 不同：主題設定不分 app，是整個 workspace 共用一份，
+落在 `data/theme.json`（不在任何 `data/{app}/` 底下）。編輯即時反映在畫面，
+另提供「寫入檔案系統」「從檔案系統讀取（覆蓋）」跟 `data/theme.json` 互動，
+僅 `npm run dev` 環境有效，跟頁面管理/路由管理同一套模式。
+
+**Shuffle / 鎖定**：每個可調整欄位（主色 hue/chroma、中性色 hue、圓角、
+內文/標題字型）旁都有鎖頭按鈕，按下「Shuffle」時，被鎖定的欄位維持原值、
+其餘欄位重新隨機取樣（見 `shuffleTheme()`）。鎖定狀態只存在畫面上，不會
+寫進 `data/theme.json`。字型清單已擴充至 15 種常見 `@fontsource-variable`
+字型（見 `FONT_OPTIONS`）。
+
+**UI 組件展示**：頁面下方用 `@workspace/ui` 的真實組件（Button/Badge/Card/
+Input/Avatar）展示套用目前主題設定後的實際樣子（見 `ComponentShowcase`），
+純粹用 CSS 自訂屬性局部套用，不影響頁面其他部分的樣式。
 
 ## 開發前要知道的事
 
