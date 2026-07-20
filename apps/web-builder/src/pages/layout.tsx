@@ -114,27 +114,27 @@ export function Layout() {
         */}
         <NavLink to="/app" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
-          App 設定（app 子功能）
+          App 設定
         </NavLink>
 
         <NavLink to="/live" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
-          頁面管理（app 子功能）
+          頁面管理
         </NavLink>
 
         <NavLink to="/i18n" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
-          i18n 管理（app 子功能）
+          i18n 管理
         </NavLink>
 
         <NavLink to="/routes" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
-          路由管理（app 子功能）
+          路由管理
         </NavLink>
 
         <NavLink to="/files" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
-          檔案管理（app 子功能）
+          檔案管理
         </NavLink>
 
         <p className="mt-4 mb-2 flex justify-between px-2 text-[0.6875rem] font-bold tracking-wider text-muted-foreground/70 uppercase">

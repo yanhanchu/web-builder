@@ -22,12 +22,12 @@ import type { PagesData, PageDef } from '@/types/pages-types';
 //     所以不會有先前「聚合檔 HMR 導致 Context 物件被重建」的問題。
 // ---------------------------------------------------------------------------
 
-const appModules = import.meta.glob('../../../data/*/app.json', { eager: true }) as Record<
+const appModules = import.meta.glob('../../data/*/app.json', { eager: true }) as Record<
   string,
   { default: AppSettings }
 >;
 
-const pagesModules = import.meta.glob('../../../data/*/pages.json', { eager: true }) as Record<
+const pagesModules = import.meta.glob('../../data/*/pages.json', { eager: true }) as Record<
   string,
   { default: PageDef[] }
 >;
