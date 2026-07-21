@@ -340,10 +340,23 @@ function EditableCanvas({
       setRect(null);
       return;
     }
-    const el = rootRef.current.querySelector(
+    // 同一個 path 可能同時出現在「外層 display:contents 的保險 wrapper」跟
+    // 「元件自己有正確透傳屬性的實際 DOM 節點」上（見 dynamic-renderer.tsx）。
+    // wrapper 本身不佔版面、getBoundingClientRect 永遠是全 0，所以這裡挑第一個
+    // 「有實際尺寸」的相符節點，而不是直接拿 querySelector 找到的第一個，
+    // 避免選取外框在 Avatar 這類元件上收縮成一個點。
+    const candidates = rootRef.current.querySelectorAll(
       `[data-node-path="${CSS.escape(path)}"]`,
     );
-    setRect(el ? el.getBoundingClientRect() : null);
+    let rect: DOMRect | null = null;
+    for (const el of candidates) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 || r.height > 0) {
+        rect = r;
+        break;
+      }
+    }
+    setRect(rect ?? (candidates[0]?.getBoundingClientRect() ?? null));
   }
 
   useEffect(() => {

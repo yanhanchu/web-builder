@@ -30,9 +30,9 @@ export interface BadgeProps extends VariantProps<typeof badgeVariants> {
 }
 
 /** A compact label for statuses, counts, or tags. */
-export function Badge({ tone = 'neutral', dot = false, children }: BadgeProps) {
+export function Badge({ tone = 'neutral', dot = false, children, ...rest }: BadgeProps & Record<string, unknown>) {
   return (
-    <span className={cn(badgeVariants({ tone }))}>
+    <span {...rest} className={cn(badgeVariants({ tone }))}>
       {dot && <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />}
       {children}
     </span>

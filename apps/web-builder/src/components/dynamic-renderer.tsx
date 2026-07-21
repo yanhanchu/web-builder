@@ -302,6 +302,25 @@ function renderNode(
     ...(childNodes ?? [])
   );
 
+  // 保險層：不是每個元件都會把不認得的 props（例如這裡塞的 data-node-path）
+  // `{...rest}` 到底層 DOM 上（過去 Avatar / Badge 就是這樣，導致點擊代理
+  // 找不到對應節點、選不到也刪不掉）。用一個 `display: contents` 的
+  // wrapper span 包住，該 wrapper 本身不影響版面（不佔盒子、不影響 flex/grid
+  // 排列），但仍是 DOM 樹的一部分，`closest('[data-node-path]')` 往上找的時候
+  // 一定找得到，不管內層元件本身有沒有正確透傳這個屬性。
+  const wrapped = editable ? (
+    <span
+      key={key}
+      data-node-path={path}
+      data-node-kind="component"
+      style={{ display: 'contents' }}
+    >
+      {element}
+    </span>
+  ) : (
+    element
+  );
+
   // resetKey 隨這個節點的 component id / props / children 內容變化，讓面板
   // 修改完設定後（例如補上必填欄位）能立即跳出「壞掉」狀態、重新嘗試 render，
   // 不需要重新整理整頁。
@@ -321,7 +340,7 @@ function renderNode(
         )
       }
     >
-      {element}
+      {wrapped}
     </NodeErrorBoundary>
   );
 }

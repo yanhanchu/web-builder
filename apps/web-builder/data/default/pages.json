@@ -1,32 +1,16 @@
 [
   {
-    "id": "about",
-    "title": "關於",
+    "id": "page-1",
+    "title": "新頁面",
     "nodes": [
       {
-        "component": "card-card",
-        "children": [
-          {
-            "component": "card-card-header",
-            "props": {
-              "title": "關於本站"
-            }
-          },
-          "這是第二個頁面，示範多頁面 JSON 生成。",
-          {
-            "component": "avatar-avatar",
-            "props": {
-              "name": "Jane Cooper",
-              "size": 48
-            }
-          }
-        ]
-      },
-      {
-        "component": "avatar-avatar",
+        "component": "button-button",
         "props": {
-          "name": ""
-        }
+          "variant": "danger"
+        },
+        "children": [
+          "新文字節點"
+        ]
       }
     ]
   }

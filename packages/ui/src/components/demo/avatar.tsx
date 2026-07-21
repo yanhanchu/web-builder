@@ -10,7 +10,7 @@ export interface AvatarProps {
 }
 
 function getInitials(name: string): string {
-  if (!name) return ""
+  if (typeof name !== "string" || !name.trim()) return ""
   const parts = name.trim().split(/\s+/)
   const first = parts[0]?.[0] ?? ""
   const last = parts.length > 1 ? parts[parts.length - 1][0] : ""
@@ -18,9 +18,10 @@ function getInitials(name: string): string {
 }
 
 /** Displays a user's profile image, falling back to initials on error or when no src is given. */
-export function Avatar({ src, name, size = 40, ringColor }: AvatarProps) {
+export function Avatar({ src, name, size = 40, ringColor, ...rest }: AvatarProps & Record<string, unknown>) {
   return (
     <span
+      {...rest}
       className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary to-primary/60 font-sans font-bold text-primary-foreground"
       style={{
         width: size,
