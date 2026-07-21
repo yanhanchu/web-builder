@@ -10,6 +10,9 @@ export const editorStyles = {
   pageMeta: 'mb-5 flex flex-wrap gap-4',
   metaField: 'flex min-w-[160px] flex-1 flex-col gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground/70 uppercase',
   node: 'my-2.5 rounded-lg border border-border bg-secondary p-3.5 print:hidden',
+  nodeNested: 'border-l-2 border-l-primary/25 bg-card/60',
+  depthBadge:
+    'rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[0.625rem] font-bold text-muted-foreground/70',
   nodeHeader: 'mb-2.5 flex flex-wrap items-center gap-2',
   kindBadge: 'rounded-full border border-border bg-card px-2.5 py-1 text-[0.625rem] font-bold tracking-wide text-muted-foreground uppercase',
   kindBadgeComponent: 'border-info/25 bg-info/10 text-info',
@@ -49,6 +52,8 @@ export const editorStyles = {
   writeStatusSuccess: 'text-success',
   writeStatusError: 'text-destructive',
   addKeyRow: 'mb-4 flex gap-2',
+  i18nStatus:
+    'inline-flex w-fit items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[0.6875rem] text-primary',
   dragHandle:
     'flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/50 transition-colors duration-150 hover:bg-card hover:text-muted-foreground active:cursor-grabbing',
   nodeDragging: 'opacity-40',

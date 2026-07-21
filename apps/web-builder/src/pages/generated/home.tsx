@@ -13,24 +13,15 @@ export function HomePage() {
       <Card
         interactive={true}
         padding={24}
+        children="test"
       >
-        <CardHeader
-          title="歡迎使用"
-          subtitle="這是一個由 JSON 遞迴生成的頁面"
-        />
-        這段文字直接放在 Card 裡面，示範純文字 children。。
-        <Badge
-          tone="success"
-          dot={true}
-        >
-          已上線
-        </Badge>
         <Button
           variant="primary"
           size="md"
         >
           立即開始
         </Button>
+        test
       </Card>
       <Card
         interactive={true}

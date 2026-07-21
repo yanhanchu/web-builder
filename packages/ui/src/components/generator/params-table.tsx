@@ -9,6 +9,7 @@ import { cn } from '@workspace/ui/utils/utils';
  * 組件的 XxxProps interface，不涉及一般函式的參數列表）。
  */
 export function ParamsTable({ params }: { params: FunctionParamDoc[] }) {
+  if(!params) return;
   if (params.length === 0) {
     return <p className={t.empty}>此函式沒有參數。</p>;
   }

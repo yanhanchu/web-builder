@@ -167,7 +167,9 @@ function ChildNodesPanel({
 }) {
   function addChild(kind: "text" | "component") {
     const child =
-      kind === "text" ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? "");
+      kind === "text"
+        ? makeNewTextNode()
+        : makeNewComponentNode(allComponents[0]?.id ?? "");
     onChange({ ...node, children: [...node.children, child] });
     // 新增後直接跳去編輯剛新增的子節點，減少「新增完還要自己回畫面找」的步驟。
     onSelectPath(`${selectedPath}.${node.children.length}`);
@@ -186,10 +188,18 @@ function ChildNodesPanel({
           子節點（{node.children.length}）
         </span>
         <div className="flex gap-1.5">
-          <button type="button" className={toolbarBtn} onClick={() => addChild("text")}>
+          <button
+            type="button"
+            className={toolbarBtn}
+            onClick={() => addChild("text")}
+          >
             + 文字
           </button>
-          <button type="button" className={toolbarBtn} onClick={() => addChild("component")}>
+          <button
+            type="button"
+            className={toolbarBtn}
+            onClick={() => addChild("component")}
+          >
             + 元件
           </button>
         </div>
@@ -208,7 +218,9 @@ function ChildNodesPanel({
                 key={child.key}
                 className={cn(
                   "flex items-center justify-between gap-2 rounded-md border bg-card px-2.5 py-1.5",
-                  childPath === selectedPath ? "border-primary/50" : "border-border",
+                  childPath === selectedPath
+                    ? "border-primary/50"
+                    : "border-border",
                 )}
               >
                 <button
@@ -217,7 +229,9 @@ function ChildNodesPanel({
                   onClick={() => onSelectPath(childPath)}
                   title="編輯此子節點"
                 >
-                  <span className="mr-1 opacity-60">{child.kind === "component" ? "▢" : "❝"}</span>
+                  <span className="mr-1 opacity-60">
+                    {child.kind === "component" ? "▢" : "❝"}
+                  </span>
                   {nodeSummary(child)}
                 </button>
                 <button
@@ -598,6 +612,23 @@ export function LiveWorkspace() {
     navigate(`/live/${pageId}/edit`, { replace: true });
   }
 
+  /**
+   * 直接在畫面（canvas）上新增一個「頁面根層級」節點，補上原本只能透過選取
+   * 既有節點後、在側邊 NodeEditorPanel 裡新增子節點的缺口——頁面完全空白，
+   * 或就是想在最外層加一個新節點時，不需要先有東西可以點選。新增後直接選取
+   * 該節點，側邊面板隨即滑出可以編輯。
+   */
+  function addRootNode(kind: "text" | "component") {
+    if (!page) return;
+    const node =
+      kind === "text"
+        ? makeNewTextNode()
+        : makeNewComponentNode(allComponents[0]?.id ?? "");
+    const nextNodes = [...page.nodes, node];
+    setPage({ ...page, nodes: nextNodes });
+    setSelectedPath(String(nextNodes.length - 1));
+  }
+
   function closeEdit() {
     setEditing(false);
     setSelectedPath(null);
@@ -782,14 +813,46 @@ export function LiveWorkspace() {
       {/* 畫面本身永遠是實際頁面的樣子：編輯模式只多了 hover/選取外框，
           不會改變版面、不會推擠、不會縮排。 */}
       {editing ? (
-        <EditableCanvas selectedPath={selectedPath} onSelect={setSelectedPath}>
-          <DynamicRenderer
-            nodes={livePageDef.nodes}
-            i18nBindings={livePageDef.i18nBindings}
-            app={app}
-            editable
-          />
-        </EditableCanvas>
+        <>
+          {/* 新增「頁面根層級」節點：補上原本只能靠先選取既有節點才能新增子節點的缺口，
+              讓空白頁面 / 想在最外層加節點時，不需要繞路去 /live/:pageId/edit 頁的
+              PageDefEditor（那裡新增節點同樣可行，但這裡讓「在畫面上編輯」自成一套完整流程）。 */}
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2">
+            <span className="text-[0.75rem] font-semibold text-muted-foreground">
+              新增頁面節點
+            </span>
+            <button
+              type="button"
+              className={toolbarBtn}
+              onClick={() => addRootNode("text")}
+            >
+              + 文字
+            </button>
+            <button
+              type="button"
+              className={toolbarBtn}
+              onClick={() => addRootNode("component")}
+            >
+              + 元件
+            </button>
+          </div>
+          {livePageDef.nodes.length === 0 && (
+            <div className="mb-4 rounded-lg border border-dashed border-border bg-secondary/40 px-4 py-6 text-center text-sm text-muted-foreground">
+              此頁面尚無任何節點，從下方按鈕新增第一個節點。
+            </div>
+          )}
+          <EditableCanvas
+            selectedPath={selectedPath}
+            onSelect={setSelectedPath}
+          >
+            <DynamicRenderer
+              nodes={livePageDef.nodes}
+              i18nBindings={livePageDef.i18nBindings}
+              app={app}
+              editable
+            />
+          </EditableCanvas>
+        </>
       ) : (
         <DynamicRenderer
           nodes={livePageDef.nodes}

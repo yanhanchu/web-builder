@@ -11,6 +11,12 @@ import { collectAllKeys, type FlatDict } from '@/utils/i18n-utils';
 import { editorStyles as styles } from '@/styles/page-editor-styles';
 import { cn } from '@workspace/ui/utils/utils';
 import { useApp } from '@/hooks/context';
+import {
+  ValueTypeSelect,
+  ValueTypeField,
+  isStringLikeValueType,
+  type StringLikeValueType,
+} from '@/components/value-type-input';
 
 /**
  * data/pages.json 的編輯器。
@@ -59,7 +65,7 @@ function nextKey() {
 // （`PageDef.i18nBindings`），並不會出現在 `PageNode`/`ComponentNode` 裡，
 // 對 generate-pages.mjs、DynamicRenderer 既有邏輯完全透明。
 export type EditableNode =
-  | { key: string; kind: 'text'; value: string; i18nKey?: string }
+  | { key: string; kind: 'text'; value: string; i18nKey?: string; valueType?: StringLikeValueType }
   | {
       key: string;
       kind: 'component';
@@ -67,6 +73,16 @@ export type EditableNode =
       props: Record<string, unknown>;
       children: EditableNode[];
       i18nPropBindings?: Record<string, string>;
+      /**
+       * `string` 型別的 props，除了純文字，也可能代表 email/url/phone/color/markdown 等
+       * 更具體的輸入類型（沿用 i18n 管理頁的 `ValueType` 定義，見
+       * `@/components/value-type-input.tsx` 的 `STRING_LIKE_VALUE_TYPES`）。這份 map
+       * 只決定「用哪種輸入元件呈現」，不影響 `props[name]` 本身仍是純字串這件事，
+       * 因此輸出（`toPageNode`）時完全不用特別處理，跟 `nodeProps`/`i18nPropBindings`
+       * 一樣是平行的 sidecar，對 generate-pages.mjs、DynamicRenderer 完全透明。
+       * 未設定的 prop 預設視為 `'string'`（一般文字 input）。
+       */
+      propValueTypes?: Record<string, StringLikeValueType>;
       /**
        * `ReactNode` 型別的 props 除了可以是純文字/JSON，也可以「放入另一棵節點樹」
        * （例如 `icon={<SomeIcon />}` 這種需要塞組件的 prop）。跟 `i18nPropBindings`
@@ -459,7 +475,7 @@ function I18nKeyPicker({
         )}
         title={value ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}` : '綁定 i18n key（顯示時動態換值）'}
       >
-        <span className="truncate">{value ? `🔗 ${value}` : '🔗 不綁定 i18n'}</span>
+        <span className="truncate">{value ? `🔗 ${value}` : '⛓️‍💥'}</span>
         <span className="text-muted-foreground/50">▾</span>
       </summary>
 
@@ -751,15 +767,21 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
     onChange({ ...node, children: [...node.children, child] });
   }
 
+  // depth 用實際像素內縮（而非固定 class），讓遞迴層級可以無限往下正確表示；
+  // 同時在節點標頭放一個 "L{depth}" 徽章，讓深層節點在視覺上能清楚辨識自己
+  // 目前巢狀在第幾層，而不是所有 depth > 0 的節點看起來縮排都一樣。
+  const indentPx = depth * 18;
+
   return (
     <div
       className={cn(
         styles.node,
-        depth > 0 && 'ml-5',
+        depth > 0 && styles.nodeNested,
         dragProps?.isDragging && styles.nodeDragging,
         dragProps?.dropPosition === 'before' && styles.nodeDropBefore,
         dragProps?.dropPosition === 'after' && styles.nodeDropAfter
       )}
+      style={depth > 0 ? { marginLeft: `${indentPx}px` } : undefined}
       draggable={dragProps?.draggable}
       onDragStart={dragProps?.onDragStart}
       onDragEnter={dragProps?.onDragEnter}
@@ -771,6 +793,11 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
         {dragProps && (
           <span className={styles.dragHandle} title="拖曳排序">
             ⠿
+          </span>
+        )}
+        {depth > 0 && (
+          <span className={styles.depthBadge} title={`巢狀層級：第 ${depth} 層`}>
+            L{depth}
           </span>
         )}
         <span
@@ -808,6 +835,17 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
           </select>
         )}
 
+        {node.kind === 'component' && node.children.length > 0 && (
+          <span className={styles.depthBadge} title={`共 ${node.children.length} 個子節點`}>
+            ▾ {node.children.length}
+          </span>
+        )}
+        {node.kind === 'component' && Object.keys(node.props).length > 0 && (
+          <span className={styles.depthBadge} title={`共 ${Object.keys(node.props).length} 個已設定的 props`}>
+            ⚙ {Object.keys(node.props).length}
+          </span>
+        )}
+
         <div className={styles.headerActions}>
           {onMoveUp && (
             <button type="button" className={styles.iconBtn} onClick={onMoveUp} title="上移">
@@ -828,13 +866,19 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
       {node.kind === 'text' && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <textarea
-              className={cn(styles.textInput, 'flex-1')}
-              value={node.value}
-              rows={2}
-              disabled={Boolean(node.i18nKey)}
-              onChange={(e) => onChange({ ...node, value: e.target.value })}
+            <ValueTypeSelect
+              value={node.valueType ?? 'string'}
+              onChange={(nextType) => onChange({ ...node, valueType: nextType })}
+              className="shrink-0"
             />
+            <div className="flex-1">
+              <ValueTypeField
+                valueType={node.valueType ?? 'string'}
+                value={node.value}
+                disabled={Boolean(node.i18nKey)}
+                onChange={(next) => onChange({ ...node, value: next })}
+              />
+            </div>
             <I18nKeyPicker
               value={node.i18nKey}
               keys={i18nKeys}
@@ -847,14 +891,13 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               }}
             />
           </div>
-          {node.i18nKey ? (
-            <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
-              已綁定 i18n key「{node.i18nKey}」，畫面上會改用該 key 目前語系的翻譯內容顯示，上方輸入框已停用；要改回手動輸入文字，請先在右側選單解除綁定（🔗 不綁定 i18n）。
-            </p>
-          ) : (
-            <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
-              目前顯示上方輸入框的文字。若綁定 i18n key，畫面會改用該 key 的翻譯內容，兩者只會擇一生效。
-            </p>
+          {node.i18nKey && (
+            <span
+              className={styles.i18nStatus}
+              title={`已綁定 i18n key「${node.i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容，輸入框已停用；要改回手動輸入，請在右側選單解除綁定`}
+            >
+              🔗 {node.i18nKey}
+            </span>
           )}
         </div>
       )}
@@ -911,6 +954,59 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                           </option>
                         ))}
                     </select>
+                  ) : p.type === 'string' ? (
+                    // 純 `string` 型別的 prop：額外提供「輸入類型」選單（一般文字/多行/
+                    // email/url/phone/色碼/檔案路徑/markdown），依選擇渲染對應的輸入元件。
+                    // `props[p.name]` 本身仍然只存純字串，型別選擇只存在編輯器 sidecar
+                    // （`node.propValueTypes`），不影響輸出的 PageNode 結構。
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <ValueTypeSelect
+                          value={
+                            isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
+                              ? node.propValueTypes![p.name]
+                              : 'string'
+                          }
+                          onChange={(nextType) => {
+                            const nextTypes = { ...(node.propValueTypes ?? {}), [p.name]: nextType };
+                            onChange({ ...node, propValueTypes: nextTypes });
+                          }}
+                          className="shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <ValueTypeField
+                            valueType={
+                              isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
+                                ? node.propValueTypes![p.name]
+                                : 'string'
+                            }
+                            value={propValueToInputString(node.props[p.name])}
+                            placeholder={p.defaultValue ?? ''}
+                            disabled={Boolean(node.i18nPropBindings?.[p.name])}
+                            onChange={(next) =>
+                              onChange({ ...node, props: { ...node.props, [p.name]: next } })
+                            }
+                          />
+                        </div>
+                        <I18nKeyPicker
+                          value={node.i18nPropBindings?.[p.name]}
+                          keys={i18nKeys}
+                          previewDict={i18nPreview}
+                          onChange={(key) => {
+                            const nextBindings = { ...(node.i18nPropBindings ?? {}) };
+                            if (key) nextBindings[p.name] = key;
+                            else delete nextBindings[p.name];
+                            const next = { ...node };
+                            if (Object.keys(nextBindings).length > 0) {
+                              next.i18nPropBindings = nextBindings;
+                            } else {
+                              delete next.i18nPropBindings;
+                            }
+                            onChange(next);
+                          }}
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <input
@@ -930,7 +1026,9 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                         }
                       />
                       {/* 只有字串型別（非 number）的 prop 才提供 i18n 綁定，
-                          number 型別在畫面上不會是「文案」，綁定意義不大。 */}
+                          number 型別在畫面上不會是「文案」，綁定意義不大。
+                          純 `string` 型別已改用上面的分支處理，這裡剩下的是
+                          非 number、非純 string 的其他型別（例如未知/複雜型別 fallback）。 */}
                       {p.type !== 'number' && (
                         <I18nKeyPicker
                           value={node.i18nPropBindings?.[p.name]}
@@ -953,9 +1051,12 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                     </div>
                   )}
                   {node.i18nPropBindings?.[p.name] && (
-                    <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
-                      已綁定 i18n key「{node.i18nPropBindings[p.name]}」，畫面上會改用該 key 目前語系的翻譯內容顯示，左側輸入框已停用；要改回手動輸入值，請先解除綁定（🔗 不綁定 i18n）。
-                    </p>
+                    <span
+                      className={styles.i18nStatus}
+                      title={`已綁定 i18n key「${node.i18nPropBindings[p.name]}」，畫面顯示改用該 key 目前語系的翻譯內容，左側輸入框已停用；要改回手動輸入，請先解除綁定`}
+                    >
+                      🔗 {node.i18nPropBindings[p.name]}
+                    </span>
                   )}
                 </label>
               ))}
