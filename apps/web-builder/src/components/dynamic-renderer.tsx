@@ -1,6 +1,7 @@
 import { createElement, Fragment, useEffect, useState, type ReactNode } from 'react';
 import { getComponentById, loadComponentModule } from '@workspace/ui/lib/generator/component-registry';
-import type { PageNode } from '@/types/pages-types';
+import type { PageDef, PageNode } from '@/types/pages-types';
+import { loadI18nData } from '@/store/i18n-storage';
 
 /**
  * runtime 版的「JSON -> JSX」渲染器。
@@ -83,10 +84,32 @@ function useModuleCacheVersion() {
   }, []);
 }
 
-/** 遞迴把單一節點（字串或 component 節點）轉成 ReactNode。 */
-function renderNode(node: PageNode, key: string | number): ReactNode {
+/** 遞迴把單一節點（字串或 component 節點）轉成 ReactNode。
+ *  `path` 對應 `PageDef.i18nBindings` 使用的路徑格式（見 page-editor.tsx
+ *  的 `I18nPathBindings`），`resolveI18n` 是「給 key，回傳目前語系的值（找不到回傳
+ *  undefined）」的查找函式，由外層 `DynamicRenderer` 依 app 準備好。 */
+function renderNode(
+  node: PageNode,
+  key: string | number,
+  path: string,
+  bindings: PageDef['i18nBindings'],
+  resolveI18n: (i18nKey: string) => string | undefined,
+  editable: boolean
+): ReactNode {
   if (typeof node === 'string') {
-    return node;
+    const boundKey = bindings?.text?.[path];
+    const resolved = boundKey ? resolveI18n(boundKey) : undefined;
+    const text = resolved ?? node;
+    // 找不到對應翻譯時 fallback 回原本寫死的字面內容，而不是顯示空白，
+    // 避免漏翻譯的 key 導致畫面上整塊文字不見。
+    if (!editable) return text;
+    // 編輯模式下，文字節點也要能被點選，用一個不影響版面的 inline span 包住，
+    // 帶上 data-node-path 讓外層的點擊代理（click delegation）辨識出這是哪個節點。
+    return (
+      <span key={key} data-node-path={path} data-node-kind="text" className="outline-none">
+        {text}
+      </span>
+    );
   }
 
   const { component, props = {}, children } = node;
@@ -126,32 +149,81 @@ function renderNode(node: PageNode, key: string | number): ReactNode {
     );
   }
 
+  // 依 i18nBindings 把綁定的 string props 換成目前語系的值（找不到就沿用原本的 prop 值）。
+  const propBindings = bindings?.props?.[path];
+  const resolvedProps = propBindings
+    ? Object.fromEntries(
+        Object.entries(props).map(([name, value]) => {
+          const boundKey = propBindings[name];
+          if (!boundKey) return [name, value];
+          const resolved = resolveI18n(boundKey);
+          return [name, resolved ?? value];
+        })
+      )
+    : props;
+
   const childNodes = Array.isArray(children)
-    ? children.map((child, i) => renderNode(child, i))
+    ? children.map((child, i) =>
+        renderNode(child, i, path ? `${path}.${i}` : String(i), bindings, resolveI18n, editable)
+      )
+    : undefined;
+
+  // 編輯模式下，把 data-node-path / data-node-kind 一併 spread 進元件 props——
+  // 這個 UI 套件裡的元件都是 `{...rest}` spread 到底層 DOM 元素（見
+  // packages/ui/src/components/*），所以這兩個 data-* 屬性會安全地落到
+  // 實際渲染出來的 DOM 節點上，外層點擊代理才能用 closest('[data-node-path]')
+  // 找到「使用者實際點到的是哪一個節點」，不需要額外包一層 wrapper 破壞版面。
+  const editableProps = editable
+    ? { 'data-node-path': path, 'data-node-kind': 'component' }
     : undefined;
 
   return createElement(
     entry.Component!,
-    { key, ...props },
+    { key, ...resolvedProps, ...editableProps },
     ...(childNodes ?? [])
   );
 }
 
 interface DynamicRendererProps {
   nodes: PageNode[];
+  /** 選填：這份 nodes 對應的 i18n 綁定 sidecar（來自 `PageDef.i18nBindings`）。
+   *  不提供時等同完全沒有任何 i18n 綁定，行為與原本一致。 */
+  i18nBindings?: PageDef['i18nBindings'];
+  /** 選填：目前 app（用來查 i18n 字典）；不提供時即使有綁定也不會被解析，直接顯示 fallback 字面值。 */
+  app?: string;
+  /** 選填：指定要用哪個語系；不提供時預設取該 app 底下第一個（依字母排序）語系。 */
+  locale?: string;
+  /** 選填：編輯模式。開啟時每個節點都會帶上 `data-node-path`/`data-node-kind`，
+   *  供外層點擊代理（例如 live-workspace.tsx 的可視化編輯器）辨識點擊到哪個節點。
+   *  純預覽（如 dynamic-page.tsx）不需要傳，行為與原本完全一致。 */
+  editable?: boolean;
 }
 
 /**
  * 把一組 PageNode 遞迴渲染成實際畫面。
  * 內部會依賴 moduleCache 做動態 import，載入完成後透過訂閱機制觸發重新渲染，
  * 所以第一次渲染某個新用到的組件時會短暫顯示「載入中」，之後就是同步渲染。
+ *
+ * 若傳入 `i18nBindings` + `app`，會額外把綁定的文字節點 / props 換成
+ * 目前語系的 i18n 值（見 page-editor.tsx 綁定 UI 與 `I18nPathBindings`）。
  */
-export function DynamicRenderer({ nodes }: DynamicRendererProps) {
+export function DynamicRenderer({ nodes, i18nBindings, app, locale, editable = false }: DynamicRendererProps) {
   useModuleCacheVersion();
+
+  function resolveI18n(i18nKey: string): string | undefined {
+    if (!app) return undefined;
+    const data = loadI18nData();
+    const nsData = data[app];
+    if (!nsData) return undefined;
+    const localeToUse = locale ?? Object.keys(nsData).sort()[0];
+    if (!localeToUse) return undefined;
+    return nsData[localeToUse]?.[i18nKey];
+  }
+
   return (
     <Fragment>
       {nodes.map((node, i) => (
-        <Fragment key={i}>{renderNode(node, i)}</Fragment>
+        <Fragment key={i}>{renderNode(node, i, String(i), i18nBindings, resolveI18n, editable)}</Fragment>
       ))}
     </Fragment>
   );

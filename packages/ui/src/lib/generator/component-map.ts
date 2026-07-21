@@ -4,14 +4,14 @@
 export type ComponentLoader = () => Promise<Record<string, unknown>>;
 
 export const componentMap: Record<string, ComponentLoader> = {
-  'components/Avatar/Avatar': () => import('@workspace/ui/components/Avatar/Avatar.tsx'),
-  'components/Badge/Badge': () => import('@workspace/ui/components/Badge/Badge.tsx'),
-  'components/Button/Button': () => import('@workspace/ui/components/Button/Button.tsx'),
+  'components/demo/avatar': () => import('@workspace/ui/components/demo/avatar.tsx'),
+  'components/demo/badge': () => import('@workspace/ui/components/demo/badge.tsx'),
+  'components/demo/button': () => import('@workspace/ui/components/demo/button.tsx'),
   'components/ui/button': () => import('@workspace/ui/components/ui/button.tsx'),
-  'components/Card/Card': () => import('@workspace/ui/components/Card/Card.tsx'),
+  'components/demo/card': () => import('@workspace/ui/components/demo/card.tsx'),
   'components/generator/doc-tree-view': () => import('@workspace/ui/components/generator/doc-tree-view.tsx'),
   'components/generator/function-signature': () => import('@workspace/ui/components/generator/function-signature.tsx'),
-  'components/Input/Input': () => import('@workspace/ui/components/Input/Input.tsx'),
+  'components/demo/input': () => import('@workspace/ui/components/demo/input.tsx'),
   'components/generator/live-preview': () => import('@workspace/ui/components/generator/live-preview.tsx'),
   'components/generator/nav-filter-input': () => import('@workspace/ui/components/generator/nav-filter-input.tsx'),
   'components/generator/params-table': () => import('@workspace/ui/components/generator/params-table.tsx'),

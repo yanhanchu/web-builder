@@ -201,7 +201,7 @@ function setDefaultValue(sourceFile, componentName, propName, literalText) {
  * 主要對外 API：把單一 prop 的 description / defaultValue 寫回 tsx。
  *
  * @param {object} params
- * @param {string} params.filePath   相對於專案根目錄的檔案路徑，例如 'src/components/Button/Button.tsx'
+ * @param {string} params.filePath   相對於專案根目錄的檔案路徑，例如 'src/components/demo/button.tsx'
  * @param {string} params.componentName  例如 'Button'
  * @param {string} params.propName   例如 'variant'
  * @param {string} params.propType   例如 "'primary' | 'secondary' | 'ghost' | 'danger'"（來自 components.json 的 type 欄位，用來判斷預設值該不該加引號）

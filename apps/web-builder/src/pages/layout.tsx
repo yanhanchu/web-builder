@@ -6,7 +6,7 @@ import { buildDocTree, filterDocTree } from '@workspace/ui/lib/generator/doc-tre
 import { DocTreeView, useDocTreeState } from '@workspace/ui/components/generator/doc-tree-view';
 import { NavFilterInput } from '@workspace/ui/components/generator/nav-filter-input';
 import { cn } from '@workspace/ui/utils/utils';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   cn(

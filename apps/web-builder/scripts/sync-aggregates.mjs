@@ -6,7 +6,7 @@
  * 背景：real 資料現在以 app 目錄為單位分開存放
  * （data/{app}/app.json、data/{app}/pages.json、
  * data/{app}/i18n/{locale}.json），但前端有兩處用 Vite 的靜態 `import`
- * 直接讀整份聚合資料（`src/hooks/app/app-context.tsx` 讀 data/apps.json、
+ * 直接讀整份聚合資料（`src/hooks-context.tsx` 讀 data/apps.json、
  * `src/pages/dynamic-page.tsx（@/lib/app-data）` 等讀 data/pages.json，靠 import.meta.hot
  * 做 HMR），這兩個聚合檔案就是餵給那些靜態 import 用的「衍生產物」。
  *

@@ -81,6 +81,35 @@ export const i18nStyles = {
   empty: 'text-[0.8125rem] leading-relaxed text-muted-foreground/70',
   addKeyRow: 'mt-4 flex gap-2',
 
+  // 版本管理
+  versionPanel: 'mb-5 rounded-lg border border-border bg-card p-4',
+  versionPanelHeader: 'mb-3 flex flex-wrap items-center justify-between gap-3',
+  versionPanelTitle: 'm-0 text-sm font-bold text-foreground',
+  versionPanelHint: 'm-0 text-[0.75rem] leading-relaxed text-muted-foreground/70',
+  versionCreateRow: 'mb-3 flex flex-wrap gap-2',
+  versionList: 'flex flex-col gap-1.5',
+  versionItem:
+    'flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-[0.8125rem]',
+  versionItemLatest: 'border-primary/40 bg-primary/10',
+  versionBadge:
+    'shrink-0 rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[0.625rem] font-bold text-muted-foreground',
+  versionBadgeLatest: 'border-primary/40 bg-primary/15 text-primary',
+  versionLabel: 'min-w-0 flex-1 truncate font-semibold text-foreground',
+  versionMeta: 'shrink-0 font-mono text-[0.6875rem] text-muted-foreground/70',
+  versionActions: 'flex shrink-0 flex-wrap gap-1.5',
+  versionEmpty: 'text-[0.8125rem] leading-relaxed text-muted-foreground/70',
+  diffPicker: 'mb-3 flex flex-wrap items-center gap-2 text-[0.8125rem] text-muted-foreground',
+  diffSummary: 'mb-3 flex flex-wrap items-center gap-3',
+  diffLocaleBlock: 'mb-3 rounded-md border border-border bg-secondary p-3 last:mb-0',
+  diffLocaleTitle: 'mb-2 font-mono text-[0.75rem] font-bold text-primary',
+  diffEntry: 'mb-1.5 rounded border-l-2 pl-2 py-1 font-mono text-[0.75rem] leading-relaxed last:mb-0',
+  diffEntryAdded: 'border-l-success bg-success/10 text-foreground',
+  diffEntryRemoved: 'border-l-destructive bg-destructive/10 text-foreground',
+  diffEntryChanged: 'border-l-info bg-info/10 text-foreground',
+  diffKeyLabel: 'font-bold',
+  diffOldValue: 'text-destructive line-through',
+  diffNewValue: 'text-success',
+
   // toast
   toast:
     'fixed right-6 bottom-6 z-[100] max-w-[360px] rounded-lg border border-muted-foreground/40 bg-card px-4 py-3 text-[0.8125rem] text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.35)]',

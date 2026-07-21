@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { appsData as diskAppsData, subscribeAppData } from '@/lib/data';
-import { AppContext, type AppContextValue } from '@/hooks/app/context-core';
+import { AppContext, type AppContextValue } from '@/hooks/context-core';
 import { loadAppsData, subscribeAppsData } from '@/store/settings-storage';
 import type { AppsData } from '@/types/types';
 
@@ -109,5 +109,5 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 // 保留原本的匯出路徑，避免其他檔案需要跟著改 import 路徑。
-export { useApp } from '@/hooks/app/context-core';
-export type { AppContextValue } from '@/hooks/app/context-core';
+export { useApp } from '@/hooks/context-core';
+export type { AppContextValue } from '@/hooks/context-core';

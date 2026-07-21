@@ -20,8 +20,9 @@ import {
 import { appStyles as styles } from '@/styles/styles';
 import { cn } from '@workspace/ui/utils/utils';
 import type { PagesData } from '@/types/pages-types';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
 import { loadI18nData, saveI18nData, removeLocalAppI18n, renameLocalAppI18n } from '@/store/i18n-storage';
+import { removeLocalAppI18nVersions, renameLocalAppI18nVersions } from '@/store/i18n-version-storage';
 import { removeAppRoutes, renameAppRoutes } from '@/store/route-storage';
 import {
   removeAppFiles,
@@ -37,7 +38,7 @@ import {
   renameLocalAppPages,
 } from '@/store/pages-storage';
 import { writePagesToDisk as writePagesToDiskApi, readPagesFromDisk } from '@/lib/pages-disk-api';
-import { CollapsibleSection } from '@/components/app/collapsible-section';
+import { CollapsibleSection } from '@/components/collapsible-section';
 
 /**
  * App 是這個專案裡最外層的功能：一個 app / workspace 的概念。
@@ -520,6 +521,7 @@ export function AppEditPage() {
     renameAppSettings(app!, newName);
     renameLocalAppPages(app!, newName);
     renameLocalAppI18n(app!, newName);
+    renameLocalAppI18nVersions(app!, newName);
     renameAppRoutes(app!, newName);
     renameAppFiles(app!, newName);
     renameAppAutoSyncTargets(app!, newName);
@@ -551,6 +553,7 @@ export function AppEditPage() {
       removeAppSettings(app)
       removeLocalAppPages(app)
       removeLocalAppI18n(app)
+      removeLocalAppI18nVersions(app)
       removeAppRoutes(app)
       removeAppFiles(app)
       removeAppAutoSyncTargets(app)

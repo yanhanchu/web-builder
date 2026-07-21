@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
 import {
   loadAppFiles,
   addFiles,

@@ -35,7 +35,7 @@ package（`browser`、`server`）不同，這裡**同時有兩種東西混在一
 }
 ```
 ```tsx
-import { Button } from '@workspace/ui/components/Button/Button';
+import { Button } from '@workspace/ui/components/demo/button';
 import { cn } from '@workspace/ui/utils/utils';
 import '@workspace/ui/globals.css'; // 在 app 入口引入一次
 ```

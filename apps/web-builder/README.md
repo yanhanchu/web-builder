@@ -45,7 +45,7 @@ src/
   pages/                       各功能頁面（設定/頁面編輯/i18n/路由/檔案管理）
   store/                       localStorage 讀寫（跟 data/*.json 是兩份，dev 時可互相同步）
   lib/                         disk-api（呼叫 /__api/*）+ opfs-file-store 等瀏覽器端邏輯
-  hooks/app/                   AppProvider context（目前正在編輯哪個 app）
+  hooks/                   AppProvider context（目前正在編輯哪個 app）
   types/                       AppSettings / PageDef / RouteEntry / FileEntry 等型別
 ```
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@workspace/browser/google';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
-import { Button } from '@workspace/ui/components/Button/Button';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
+import { Button } from '@workspace/ui/components/demo/button';
 
 export default function AuthPanel() {
   const { user, isReady, isSignedIn, signIn, signOut, getDriveAccessToken } = useAuth();

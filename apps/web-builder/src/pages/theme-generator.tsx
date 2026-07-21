@@ -18,13 +18,13 @@ import {
 } from '@/lib/theme-css-generator';
 import { writeThemeToDisk as writeThemeToDiskApi, readThemeFromDisk } from '@/lib/theme-disk-api';
 import { themeGeneratorStyles as styles } from '@/styles/theme-generator-styles';
-import { useApp } from '@/hooks/app/context-core';
+import { useApp } from '@/hooks/context-core';
 import { cn } from '@workspace/ui/utils/utils';
-import { Button } from '@workspace/ui/components/Button/Button';
-import { Badge } from '@workspace/ui/components/Badge/Badge';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
-import { Input } from '@workspace/ui/components/Input/Input';
-import { Avatar } from '@workspace/ui/components/Avatar/Avatar';
+import { Button } from '@workspace/ui/components/demo/button';
+import { Badge } from '@workspace/ui/components/demo/badge';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
+import { Input } from '@workspace/ui/components/demo/input';
+import { Avatar } from '@workspace/ui/components/demo/avatar';
 
 /**
  * `/theme` — 主題（tailwindcss）產生器。

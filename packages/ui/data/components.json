@@ -2,8 +2,8 @@
   {
     "id": "avatar-avatar",
     "componentName": "Avatar",
-    "filePath": "src/components/Avatar/Avatar.tsx",
-    "importPath": "components/Avatar/Avatar",
+    "filePath": "src/components/demo/avatar.tsx",
+    "importPath": "components/demo/avatar",
     "description": "Displays a user's profile image, falling back to initials on error or when no src is given.",
     "props": [
       {
@@ -39,8 +39,8 @@
   {
     "id": "badge-badge",
     "componentName": "Badge",
-    "filePath": "src/components/Badge/Badge.tsx",
-    "importPath": "components/Badge/Badge",
+    "filePath": "src/components/demo/badge.tsx",
+    "importPath": "components/demo/badge",
     "description": "A compact label for statuses, counts, or tags.",
     "props": [
       {
@@ -69,8 +69,8 @@
   {
     "id": "button-button",
     "componentName": "Button",
-    "filePath": "src/components/Button/Button.tsx",
-    "importPath": "components/Button/Button",
+    "filePath": "src/components/demo/button.tsx",
+    "importPath": "components/demo/button",
     "description": "The primary interactive control for triggering actions.\nUse `variant=\"danger\"` for destructive actions like delete.",
     "props": [
       {
@@ -164,8 +164,8 @@
   {
     "id": "card-card",
     "componentName": "Card",
-    "filePath": "src/components/Card/Card.tsx",
-    "importPath": "components/Card/Card",
+    "filePath": "src/components/demo/card.tsx",
+    "importPath": "components/demo/card",
     "description": "A container for grouping related content with consistent padding and border.",
     "props": [
       {
@@ -194,8 +194,8 @@
   {
     "id": "card-card-header",
     "componentName": "CardHeader",
-    "filePath": "src/components/Card/Card.tsx",
-    "importPath": "components/Card/Card",
+    "filePath": "src/components/demo/card.tsx",
+    "importPath": "components/demo/card",
     "description": "Header region for a Card, rendering a title and optional subtitle.",
     "props": [
       {
@@ -277,8 +277,8 @@
   {
     "id": "input-input",
     "componentName": "Input",
-    "filePath": "src/components/Input/Input.tsx",
-    "importPath": "components/Input/Input",
+    "filePath": "src/components/demo/input.tsx",
+    "importPath": "components/demo/input",
     "description": "A labeled text input with built-in error and helper text states.",
     "props": [
       {
@@ -420,7 +420,7 @@
         "required": false,
         "type": "string",
         "defaultValue": null,
-        "description": "相對於專案根目錄的 .tsx 路徑，例如 'src/components/Button/Button.tsx'。傳入才會啟用編輯功能。"
+        "description": "相對於專案根目錄的 .tsx 路徑，例如 'src/components/demo/button.tsx'。傳入才會啟用編輯功能。"
       }
     ]
   },

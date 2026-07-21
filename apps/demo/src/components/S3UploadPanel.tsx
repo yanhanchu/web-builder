@@ -1,7 +1,7 @@
 import { useRef, type ChangeEvent, type DragEvent } from 'react';
 import { useS3Upload } from '@workspace/browser/s3';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
-import { Button } from '@workspace/ui/components/Button/Button';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
+import { Button } from '@workspace/ui/components/demo/button';
 import { cn } from '@workspace/ui/utils/utils';
 
 /**

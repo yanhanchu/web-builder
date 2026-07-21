@@ -1,9 +1,8 @@
 // 此檔案由 scripts/generate-pages.mjs 依 data/pages.json 自動產生，請勿手動編輯。
 // 若要修改頁面內容，請編輯來源 JSON 後重新執行 `npm run pages:generate`。
 
-import { Badge } from '@workspace/ui/components/Badge/Badge';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
-import { Input } from '@workspace/ui/components/Input/Input';
+import { Badge } from '@workspace/ui/components/demo/badge';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
 import { Button } from '@workspace/ui/components/ui/button';
 
 /** 首頁 */
@@ -12,7 +11,7 @@ export function HomePage() {
     <div className="mx-auto max-w-[720px] px-6 pt-8 pb-16" data-page-id="home">
       <h1>首頁</h1>
       <Card
-        interactive={false}
+        interactive={true}
         padding={24}
       >
         <CardHeader
@@ -51,11 +50,11 @@ export function HomePage() {
             內層 Badge（示範多層遞迴）
           </Badge>
         </Badge>
-        <Input
-          label="Email address"
-          helperText="我們不會公開你的信箱"
-        />
+        <Badge>
+          新文字節點
+        </Badge>
       </Card>
+      新文字節點
     </div>
   );
 }

@@ -49,4 +49,9 @@ export const editorStyles = {
   writeStatusSuccess: 'text-success',
   writeStatusError: 'text-destructive',
   addKeyRow: 'mb-4 flex gap-2',
+  dragHandle:
+    'flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/50 transition-colors duration-150 hover:bg-card hover:text-muted-foreground active:cursor-grabbing',
+  nodeDragging: 'opacity-40',
+  nodeDropBefore: 'border-t-2 border-t-primary',
+  nodeDropAfter: 'border-b-2 border-b-primary',
 };

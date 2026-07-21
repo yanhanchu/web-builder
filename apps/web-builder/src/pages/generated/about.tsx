@@ -1,8 +1,8 @@
 // 此檔案由 scripts/generate-pages.mjs 依 data/pages.json 自動產生，請勿手動編輯。
 // 若要修改頁面內容，請編輯來源 JSON 後重新執行 `npm run pages:generate`。
 
-import { Avatar } from '@workspace/ui/components/Avatar/Avatar';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
+import { Avatar } from '@workspace/ui/components/demo/avatar';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
 
 /** 關於 */
 export function AboutPage() {

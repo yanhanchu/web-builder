@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
 import {
   loadAppRoutes,
   loadRoutesData,

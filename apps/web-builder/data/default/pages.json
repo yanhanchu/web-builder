@@ -6,7 +6,7 @@
       {
         "component": "card-card",
         "props": {
-          "interactive": false,
+          "interactive": true,
           "padding": 24
         },
         "children": [
@@ -24,7 +24,9 @@
               "tone": "success",
               "dot": true
             },
-            "children": ["已上線"]
+            "children": [
+              "已上線"
+            ]
           },
           {
             "component": "button-button",
@@ -32,7 +34,9 @@
               "variant": "primary",
               "size": "md"
             },
-            "children": ["立即開始"]
+            "children": [
+              "立即開始"
+            ]
           }
         ]
       },
@@ -62,19 +66,21 @@
                   "tone": "warning",
                   "dot": true
                 },
-                "children": ["內層 Badge（示範多層遞迴）"]
+                "children": [
+                  "內層 Badge（示範多層遞迴）"
+                ]
               }
             ]
           },
           {
-            "component": "input-input",
-            "props": {
-              "label": "Email address",
-              "helperText": "我們不會公開你的信箱"
-            }
+            "component": "badge-badge",
+            "children": [
+              "新文字節點"
+            ]
           }
         ]
-      }
+      },
+      "新文字節點"
     ]
   },
   {

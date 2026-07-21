@@ -13,7 +13,7 @@ export function getComponentById(id: string): ComponentDoc | undefined {
 /**
  * 依陣列 index 取得組件。
  * 因為 `id` 是「檔名-組件名」轉 kebab-case 而來，不同目錄下同名的組件
- * （例如 `src/components/Button/Button.tsx` 與 `src/components/ui/button.tsx`）
+ * （例如 `src/components/demo/button.tsx` 與 `src/components/ui/button.tsx`）
  * 會產生完全相同的 `id`，用 `id` 查找時永遠只會拿到第一筆，
  * 導致側邊欄樹狀結構裡的第二個 Button 點進去卻顯示第一個的內容。
  * 側邊欄改用「陣列 index」當作路由參數，才能讓每一筆資料都能被獨立定位到。

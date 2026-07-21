@@ -4,14 +4,14 @@ import { Home } from '@workspace/ui/pages/generator/home';
 import { ComponentDetail } from '@workspace/ui/pages/generator/component-detail';
 import { FunctionsHome } from '@workspace/ui/pages/generator/functions-home';
 import { FunctionDetail } from '@workspace/ui/pages/generator/function-detail';
-import { DynamicPage, DynamicPageIndex } from '@/pages/dynamic-page';
-import { PageEditorRoute, PagesEditorIndex } from '@/pages/page-editor';
+import { LiveWorkspace } from '@/pages/live-workspace';
+import { PagesEditorIndex } from '@/pages/page-editor';
 import { I18nManager } from '@/pages/i18n-manager';
 import { AppListPage, AppEditPage } from '@/pages/settings';
 import { RouteManager } from '@/pages/route-manager';
 import { FileManager } from '@/pages/file-manager';
 import { ThemeGenerator } from '@/pages/theme-generator';
-import { AppProvider } from '@/hooks/app/context';
+import { AppProvider } from '@/hooks/context';
 // GENERATED_PAGES_IMPORT_BEGIN
 import { generatedPages } from '@/pages/pages-map';
 // GENERATED_PAGES_IMPORT_END
@@ -45,7 +45,7 @@ const router = createBrowserRouter([
       // App 設定（/app）：目前選定 app 的專屬設定頁，跟「頁面管理（/live）」
       // 「i18n 管理（/i18n）」「路由管理（/routes）」同一種模式 —— 不帶
       // `:app` 路由參數，一律直接讀取最外層導覽列 dropdown 選定的
-      // 「目前 app」（見 src/hooks/app/context.tsx 的 AppProvider / useApp）。
+      // 「目前 app」（見 src/hooks/context.tsx 的 AppProvider / useApp）。
       // 原本掛在 /apps/:app/edit 底下的單一 app 設定表單（含刪除 / 重新命名，已改名為 /app）
       // 搬移至此。
       //   /app -> 目前 app 的設定表單（含刪除 / 重新命名）
@@ -58,15 +58,21 @@ const router = createBrowserRouter([
       // src/lib/-data.ts），改 json 立即反映在畫面上，不需要重新產生任何檔案
       // （對比下面 build-time 產生的 /pages/*）。app 一律取自最外層
       // 導覽列的切換 dropdown，路由不再帶 `:app` 參數。
-      //   /live            -> 目前 app 底下的頁面清單
-      //   /live/edit       -> 目前 app 底下所有頁面的表單編輯器
-      //   /live/:pageId       -> 單一頁面的即時預覽
-      //   /live/:pageId/edit  -> 單一頁面的表單編輯器
+      //   /live            -> 目前 app 底下的頁面清單（LiveWorkspace，無 :pageId）
+      //   /live/edit       -> 目前 app 底下所有頁面的表單編輯器（維持獨立頁面）
+      //   /live/:pageId       -> 單一頁面即時預覽（LiveWorkspace）
+      //   /live/:pageId/edit  -> 同一頁面，右側浮動面板展開編輯（同樣是 LiveWorkspace）
+      //
+      // 2024 合併：原本 /live、/live/:pageId、/live/:pageId/edit 三個各自
+      // 獨立的頁面元件（DynamicPageIndex / DynamicPage / PageEditorRoute）
+      // 合併成單一 LiveWorkspace 元件 —— 畫面以「即時預覽」為主體，上方
+      // 工具列可切換頁面 / 進入編輯，編輯模式改成右側浮動面板（重用
+      // page-editor.tsx 的 PageDefEditor），不再是整頁跳轉。
       // ---------------------------------------------------------------
-      { path: 'live', element: <DynamicPageIndex /> },
+      { path: 'live', element: <LiveWorkspace /> },
       { path: 'live/edit', element: <PagesEditorIndex /> },
-      { path: 'live/:pageId', element: <DynamicPage /> },
-      { path: 'live/:pageId/edit', element: <PageEditorRoute /> },
+      { path: 'live/:pageId', element: <LiveWorkspace /> },
+      { path: 'live/:pageId/edit', element: <LiveWorkspace /> },
 
       // ---------------------------------------------------------------
       // i18n 管理（/i18n）：app 底下的子功能，同樣直接使用最外層

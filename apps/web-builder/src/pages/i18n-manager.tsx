@@ -3,6 +3,20 @@ import { Link } from 'react-router-dom';
 import { loadI18nData, saveI18nData, loadI18nMetaData, saveI18nMetaData } from '@/store/i18n-storage';
 import { readI18nFromDisk, writeI18nToDisk } from '@/lib/i18n-disk-api';
 import {
+  loadI18nVersionHistory,
+  saveI18nVersionHistory,
+} from '@/store/i18n-version-storage';
+import {
+  createVersion,
+  diffVersions,
+  countDiffEntries,
+  exportDiffToJson,
+  latestVersion,
+  type I18nVersion,
+  type I18nVersionHistory,
+  type VersionDiff,
+} from '@/utils/i18n-versions';
+import {
   collectAllKeys,
   downloadFilesAsZip,
   downloadTextFile,
@@ -18,7 +32,23 @@ import {
 } from '@/utils/i18n-utils';
 import { i18nStyles as styles } from '@/styles/i18n-styles';
 import { cn } from '@workspace/ui/utils/utils';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
+
+/** 把版本的 ISO 時間字串轉成畫面上好讀的格式（本地時間，到分鐘）。 */
+function formatVersionTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
 
 /**
  * `/i18n` — 目前 app 底下的多語系翻譯管理。
@@ -51,6 +81,113 @@ export function I18nManager() {
   function showToast(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  // -------------------------------------------------------------------
+  // 版本管理：簡單的線性版本歷史（v1 -> v2 -> v3 -> ...），每個版本都是
+  // 「當下全部語系 + key 型別標記」的完整快照，存在 localStorage
+  // （見 i18n-version-storage.ts）。新版本永遠基於「目前歷史中最新的
+  // 一個版本」建立（parentId 指向它），不支援分支。
+  // -------------------------------------------------------------------
+  const [versionHistory, setVersionHistory] = useState<I18nVersionHistory>(() =>
+    activeNs ? loadI18nVersionHistory(activeNs) : []
+  );
+  const [newVersionLabel, setNewVersionLabel] = useState('');
+  const [diffFromId, setDiffFromId] = useState<string>('');
+  const [diffToId, setDiffToId] = useState<string>('');
+  const [showVersionPanel, setShowVersionPanel] = useState(false);
+
+  // 切換 app 時，重新載入該 app 自己的版本歷史（各 app 的版本歷史彼此獨立）。
+  useEffect(() => {
+    setVersionHistory(activeNs ? loadI18nVersionHistory(activeNs) : []);
+  }, [activeNs]);
+
+  useEffect(() => {
+    if (!activeNs) return;
+    saveI18nVersionHistory(activeNs, versionHistory);
+  }, [activeNs, versionHistory]);
+
+  const currentVersion = latestVersion(versionHistory);
+
+  // 預設把 diff 的兩端設成「上一版 -> 最新版」，最符合「新版本基於上一版本，
+  // 想看這次改了什麼」的使用情境；版本歷史變動時（新增/切換 app）重新校正。
+  useEffect(() => {
+    if (versionHistory.length === 0) {
+      setDiffFromId('');
+      setDiffToId('');
+      return;
+    }
+    if (versionHistory.length === 1) {
+      setDiffFromId(versionHistory[0].id);
+      setDiffToId(versionHistory[0].id);
+      return;
+    }
+    const last = versionHistory[versionHistory.length - 1];
+    const secondLast = versionHistory[versionHistory.length - 2];
+    setDiffFromId((prev) => (versionHistory.some((v) => v.id === prev) ? prev : secondLast.id));
+    setDiffToId((prev) => (versionHistory.some((v) => v.id === prev) ? prev : last.id));
+  }, [versionHistory]);
+
+  /** 把目前 app 的編輯內容（data[activeNs] + metaData[activeNs]）拍照存成新版本。 */
+  function handleCreateVersion() {
+    if (!activeNs) return;
+    const nsData = data[activeNs] ?? {};
+    if (Object.keys(nsData).length === 0) {
+      showToast('目前沒有任何語系可以建立版本');
+      return;
+    }
+    const nsMeta = metaData[activeNs] ?? {};
+    const label = newVersionLabel.trim() || `第 ${versionHistory.length + 1} 版`;
+    const version = createVersion(versionHistory, label, nsData, nsMeta);
+    setVersionHistory((prev) => [...prev, version]);
+    setNewVersionLabel('');
+    showToast(`已建立版本「${version.label}」（基於${version.parentId ? '上一個版本' : '無（第一個版本）'}）`);
+  }
+
+  /** 用指定版本的快照整批覆蓋目前 app 的編輯內容（data + metaData），不影響版本歷史本身。 */
+  function handleRestoreVersion(version: I18nVersion) {
+    if (!activeNs) return;
+    if (
+      !window.confirm(
+        `確定要用版本「${version.label}」（建立於 ${formatVersionTime(version.createdAt)}）覆蓋目前瀏覽器中「${activeNs}」的所有語系嗎？此動作不會刪除任何版本紀錄，但會覆蓋目前尚未存成新版本的編輯內容。`
+      )
+    ) {
+      return;
+    }
+    setData((prev) => ({ ...prev, [activeNs]: structuredClone(version.snapshot) }));
+    setMetaData((prev) => ({ ...prev, [activeNs]: structuredClone(version.keyTypes) }));
+    showToast(`已還原至版本「${version.label}」`);
+  }
+
+  function handleDeleteVersion(version: I18nVersion) {
+    if (!window.confirm(`確定要刪除版本「${version.label}」？此動作只刪除這筆版本紀錄，不影響目前編輯內容。`)) {
+      return;
+    }
+    setVersionHistory((prev) => prev.filter((v) => v.id !== version.id));
+  }
+
+  const diffFromVersion = useMemo(
+    () => versionHistory.find((v) => v.id === diffFromId) ?? null,
+    [versionHistory, diffFromId]
+  );
+  const diffToVersion = useMemo(
+    () => versionHistory.find((v) => v.id === diffToId) ?? null,
+    [versionHistory, diffToId]
+  );
+  const versionDiff: VersionDiff | null = useMemo(() => {
+    if (!diffFromVersion || !diffToVersion) return null;
+    return diffVersions(diffFromVersion, diffToVersion);
+  }, [diffFromVersion, diffToVersion]);
+  const diffEntryCount = versionDiff ? countDiffEntries(versionDiff) : 0;
+
+  function handleExportDiff() {
+    if (!activeNs || !diffFromVersion || !diffToVersion || !versionDiff) return;
+    const json = exportDiffToJson(diffFromVersion, diffToVersion, versionDiff);
+    downloadTextFile(
+      `${activeNs}-i18n-diff-${diffFromVersion.label}-to-${diffToVersion.label}.json`,
+      json
+    );
+    showToast(`已匯出差異：「${diffFromVersion.label}」→「${diffToVersion.label}」`);
   }
 
   const locales = useMemo(() => {
@@ -480,6 +617,207 @@ export function I18nManager() {
           </p>
         </div>
       </div>
+
+      {activeNs && (
+        <div className={styles.versionPanel}>
+          <div className={styles.versionPanelHeader}>
+            <div>
+              <h2 className={styles.versionPanelTitle}>
+                版本管理
+                {currentVersion && (
+                  <span className="ml-2 font-mono text-[0.6875rem] font-normal text-muted-foreground/70">
+                    目前共 {versionHistory.length} 個版本，最新：{currentVersion.label}
+                  </span>
+                )}
+              </h2>
+              <p className={styles.versionPanelHint}>
+                建立版本 = 把目前所有語系的內容拍照存起來；新版本永遠基於上一個版本（線性歷史，不支援分支）。
+                可比較任兩個版本、匯出差異 JSON，或還原到某個版本。版本只存在瀏覽器 localStorage，不會寫入檔案系統。
+              </p>
+            </div>
+            <button className={styles.btnGhost} onClick={() => setShowVersionPanel((v) => !v)}>
+              {showVersionPanel ? '收合' : '展開'}
+            </button>
+          </div>
+
+          <div className={styles.versionCreateRow}>
+            <input
+              className={styles.input}
+              placeholder={`版本名稱（留空預設為「第 ${versionHistory.length + 1} 版」）`}
+              value={newVersionLabel}
+              onChange={(e) => setNewVersionLabel(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateVersion()}
+            />
+            <button className={styles.btnPrimary} onClick={handleCreateVersion}>
+              📌 建立新版本
+              {currentVersion ? '（基於目前最新版）' : ''}
+            </button>
+          </div>
+
+          {showVersionPanel && (
+            <>
+              {versionHistory.length === 0 ? (
+                <p className={styles.versionEmpty}>
+                  尚無任何版本，按上方「建立新版本」把目前的翻譯內容存成第一個版本。
+                </p>
+              ) : (
+                <div className={styles.versionList}>
+                  {[...versionHistory].reverse().map((version) => {
+                    const isLatest = currentVersion?.id === version.id;
+                    return (
+                      <div
+                        key={version.id}
+                        className={cn(styles.versionItem, isLatest && styles.versionItemLatest)}
+                      >
+                        <span className={cn(styles.versionBadge, isLatest && styles.versionBadgeLatest)}>
+                          {isLatest ? '最新' : version.parentId ? '延續版本' : '起始版本'}
+                        </span>
+                        <span className={styles.versionLabel}>{version.label}</span>
+                        <span className={styles.versionMeta}>{formatVersionTime(version.createdAt)}</span>
+                        <span className={styles.versionMeta}>
+                          {Object.keys(version.snapshot).length} 語系 ·{' '}
+                          {collectAllKeys(version.snapshot).length} key
+                        </span>
+                        <div className={styles.versionActions}>
+                          <button
+                            className={styles.linkBtn}
+                            onClick={() => {
+                              setDiffFromId(version.id);
+                            }}
+                            title="設為比較起點（左邊）"
+                          >
+                            設為起點
+                          </button>
+                          <button
+                            className={styles.linkBtn}
+                            onClick={() => {
+                              setDiffToId(version.id);
+                            }}
+                            title="設為比較終點（右邊）"
+                          >
+                            設為終點
+                          </button>
+                          <button
+                            className={styles.linkBtn}
+                            onClick={() => handleRestoreVersion(version)}
+                            title="用這個版本覆蓋目前的編輯內容"
+                          >
+                            還原
+                          </button>
+                          <button
+                            className={cn(styles.linkBtn, 'text-destructive')}
+                            onClick={() => handleDeleteVersion(version)}
+                            title="刪除這筆版本紀錄"
+                          >
+                            刪除
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {versionHistory.length >= 1 && (
+                <>
+                  <div className={cn(styles.diffPicker, 'mt-4')}>
+                    <span>比較</span>
+                    <select
+                      className={styles.select}
+                      value={diffFromId}
+                      onChange={(e) => setDiffFromId(e.target.value)}
+                    >
+                      {versionHistory.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span>→</span>
+                    <select
+                      className={styles.select}
+                      value={diffToId}
+                      onChange={(e) => setDiffToId(e.target.value)}
+                    >
+                      {versionHistory.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className={styles.btnGhost}
+                      onClick={handleExportDiff}
+                      disabled={!versionDiff || diffEntryCount === 0}
+                    >
+                      匯出差異 JSON
+                    </button>
+                  </div>
+
+                  {versionDiff && (
+                    <div>
+                      <div className={styles.diffSummary}>
+                        <span className={styles.versionMeta}>
+                          共 {diffEntryCount} 筆差異
+                          {versionDiff.addedLocales.length > 0 &&
+                            `，新增語系：${versionDiff.addedLocales.join(', ')}`}
+                          {versionDiff.removedLocales.length > 0 &&
+                            `，移除語系：${versionDiff.removedLocales.join(', ')}`}
+                        </span>
+                      </div>
+
+                      {diffEntryCount === 0 ? (
+                        <p className={styles.versionEmpty}>這兩個版本之間沒有任何差異。</p>
+                      ) : (
+                        Object.entries(versionDiff.localeDiffs).map(([locale, entries]) => (
+                          <div key={locale} className={styles.diffLocaleBlock}>
+                            <div className={styles.diffLocaleTitle}>
+                              {locale}（{entries.length} 筆差異）
+                            </div>
+                            {entries.map((entry) => (
+                              <div
+                                key={entry.key}
+                                className={cn(
+                                  styles.diffEntry,
+                                  entry.status === 'added' && styles.diffEntryAdded,
+                                  entry.status === 'removed' && styles.diffEntryRemoved,
+                                  entry.status === 'changed' && styles.diffEntryChanged
+                                )}
+                              >
+                                <span className={styles.diffKeyLabel}>{entry.key}</span>
+                                {entry.status === 'added' && (
+                                  <>
+                                    {' '}
+                                    ＋ <span className={styles.diffNewValue}>{entry.to}</span>
+                                  </>
+                                )}
+                                {entry.status === 'removed' && (
+                                  <>
+                                    {' '}
+                                    − <span className={styles.diffOldValue}>{entry.from}</span>
+                                  </>
+                                )}
+                                {entry.status === 'changed' && (
+                                  <>
+                                    {' '}
+                                    <span className={styles.diffOldValue}>{entry.from}</span>
+                                    {' → '}
+                                    <span className={styles.diffNewValue}>{entry.to}</span>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className={styles.layout}>
         <section className={styles.main}>

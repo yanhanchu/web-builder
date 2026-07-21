@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { DynamicRenderer } from '@/components/app/dynamic-renderer';
+import { DynamicRenderer } from '@/components/dynamic-renderer';
 import type { PageDef, PagesData } from '@/types/pages-types';
 import { pagesData as initialPagesData, subscribeAppData } from '@/lib/data';
-import { useApp } from '@/hooks/app/context';
+import { useApp } from '@/hooks/context';
 
 // pagesData 來自 app-data.ts：用 import.meta.glob 靜態掃描
 // `data/{app}/pages.json` 組成 `{ [app]: PageDef[] }`，

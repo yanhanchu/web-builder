@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ensureDbReady } from '@workspace/browser/client';
-import { Card, CardHeader } from '@workspace/ui/components/Card/Card';
-import { Button } from '@workspace/ui/components/Button/Button';
-import { Input } from '@workspace/ui/components/Input/Input';
+import { Card, CardHeader } from '@workspace/ui/components/demo/card';
+import { Button } from '@workspace/ui/components/demo/button';
+import { Input } from '@workspace/ui/components/demo/input';
 import AuthPanel from './components/AuthPanel';
 import S3UploadPanel from './components/S3UploadPanel';
 

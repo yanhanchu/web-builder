@@ -7,7 +7,7 @@ import { cn } from '@workspace/ui/utils/utils';
 
 interface PropsTableProps {
   props: PropDoc[];
-  /** 相對於專案根目錄的 .tsx 路徑，例如 'src/components/Button/Button.tsx'。傳入才會啟用編輯功能。 */
+  /** 相對於專案根目錄的 .tsx 路徑，例如 'src/components/demo/button.tsx'。傳入才會啟用編輯功能。 */
   filePath?: string;
   /** 例如 'Button'。傳入才會啟用編輯功能。 */
   componentName?: string;
