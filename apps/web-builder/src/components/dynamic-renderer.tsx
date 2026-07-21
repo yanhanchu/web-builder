@@ -84,6 +84,21 @@ function useModuleCacheVersion() {
   }, []);
 }
 
+/**
+ * 寬鬆判斷一個 prop 值是否「看起來像」PageNode（component 節點），用來決定
+ * 是否要把它當成子節點樹遞迴渲染，而不是原封不動當作 prop 值傳下去。純字串
+ * 不算在內——一般字串 prop 太常見，交由 `props[name]` 原樣傳遞即可，只有帶
+ * `component` 欄位的物件才視為節點樹（對應 page-editor.tsx 的 nodeProps 輸出）。
+ */
+function isPageNodeLike(value: unknown): value is PageNode {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as { component?: unknown }).component === 'string'
+  );
+}
+
 /** 遞迴把單一節點（字串或 component 節點）轉成 ReactNode。
  *  `path` 對應 `PageDef.i18nBindings` 使用的路徑格式（見 page-editor.tsx
  *  的 `I18nPathBindings`），`resolveI18n` 是「給 key，回傳目前語系的值（找不到回傳
@@ -151,7 +166,7 @@ function renderNode(
 
   // 依 i18nBindings 把綁定的 string props 換成目前語系的值（找不到就沿用原本的 prop 值）。
   const propBindings = bindings?.props?.[path];
-  const resolvedProps = propBindings
+  const withI18n = propBindings
     ? Object.fromEntries(
         Object.entries(props).map(([name, value]) => {
           const boundKey = propBindings[name];
@@ -161,6 +176,30 @@ function renderNode(
         })
       )
     : props;
+
+  // `ReactNode` 型別的 prop 若存的是一個 PageNode / PageNode[]（component
+  // 節點編輯器允許把子節點樹「塞進某個 prop」，見 page-editor.tsx 的
+  // `nodeProps`），這裡要遞迴渲染成真正的 ReactNode，而不是把原始物件/陣列
+  // 直接當 prop 值傳給元件。
+  const resolvedProps = Object.fromEntries(
+    Object.entries(withI18n).map(([name, value]) => {
+      if (isPageNodeLike(value)) {
+        return [
+          name,
+          renderNode(value, `${key}-${name}`, `${path}#${name}.0`, undefined, resolveI18n, false),
+        ];
+      }
+      if (Array.isArray(value) && value.length > 0 && value.every(isPageNodeLike)) {
+        return [
+          name,
+          value.map((child, i) =>
+            renderNode(child, `${key}-${name}-${i}`, `${path}#${name}.${i}`, undefined, resolveI18n, false)
+          ),
+        ];
+      }
+      return [name, value];
+    })
+  );
 
   const childNodes = Array.isArray(children)
     ? children.map((child, i) =>

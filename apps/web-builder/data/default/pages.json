@@ -7,27 +7,10 @@
         "component": "card-card",
         "props": {
           "interactive": true,
-          "padding": 24
+          "padding": 24,
+          "children": "test"
         },
         "children": [
-          {
-            "component": "card-card-header",
-            "props": {
-              "title": "歡迎使用",
-              "subtitle": "這是一個由 JSON 遞迴生成的頁面"
-            }
-          },
-          "這段文字直接放在 Card 裡面，示範純文字 children。。",
-          {
-            "component": "badge-badge",
-            "props": {
-              "tone": "success",
-              "dot": true
-            },
-            "children": [
-              "已上線"
-            ]
-          },
           {
             "component": "button-button",
             "props": {
@@ -37,7 +20,8 @@
             "children": [
               "立即開始"
             ]
-          }
+          },
+          "test"
         ]
       },
       {

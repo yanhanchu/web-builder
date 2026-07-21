@@ -7,7 +7,7 @@ import { pagesData as initialPagesData } from '@/lib/data';
 import { loadLocalPagesData, saveLocalPagesData, resolveInitialAppPages } from '@/store/pages-storage';
 import { writePagesToDisk as writePagesToDiskApi, readPagesFromDisk } from '@/lib/pages-disk-api';
 import { loadI18nData } from '@/store/i18n-storage';
-import { collectAllKeys } from '@/utils/i18n-utils';
+import { collectAllKeys, type FlatDict } from '@/utils/i18n-utils';
 import { editorStyles as styles } from '@/styles/page-editor-styles';
 import { cn } from '@workspace/ui/utils/utils';
 import { useApp } from '@/hooks/context';
@@ -67,6 +67,15 @@ export type EditableNode =
       props: Record<string, unknown>;
       children: EditableNode[];
       i18nPropBindings?: Record<string, string>;
+      /**
+       * `ReactNode` 型別的 props 除了可以是純文字/JSON，也可以「放入另一棵節點樹」
+       * （例如 `icon={<SomeIcon />}` 這種需要塞組件的 prop）。跟 `i18nPropBindings`
+       * 一樣是平行的 sidecar map（`propName -> EditableNode[]`），不影響 `props`
+       * 本身的型別；輸出（`toPageNode`）時，若某個 prop 有對應的 nodeProps 項目，
+       * 會改成輸出一個小型節點樹（單一節點時直接輸出該節點、多節點時輸出陣列），
+       * 而不是 `props[name]` 裡的原始值。
+       */
+      nodeProps?: Record<string, EditableNode[]>;
     };
 
 /**
@@ -156,21 +165,54 @@ export function removeNodeByPath(nodes: EditableNode[], path: string): EditableN
   return recur(nodes, 0);
 }
 
+/**
+ * 判斷某個已存的 prop 原始值是否「看起來像」節點樹（曾經被存成 PageNode /
+ * PageNode[]），用來在讀回資料時自動還原成 `nodeProps`，讓使用者不需要手動
+ * 重新綁定。只做寬鬆判斷（字串、或帶有 `component` 欄位的物件、或這些的陣列），
+ * 誤判也無妨——UI 上一樣能繼續編輯，只是「當成節點樹」而非「當成純文字」。
+ */
+function looksLikePageNode(value: unknown): value is PageNode {
+  if (typeof value === 'string') return true;
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as { component?: unknown }).component === 'string'
+  );
+}
+
 function toEditable(node: PageNode, path: string, bindings: I18nPathBindings | undefined): EditableNode {
   if (typeof node === 'string') {
     const i18nKey = bindings?.text?.[path];
     return { key: nextKey(), kind: 'text', value: node, ...(i18nKey ? { i18nKey } : {}) };
   }
   const propBindings = bindings?.props?.[path];
+  const rawProps = { ...(node.props ?? {}) };
+  const meta = getComponentById(node.component);
+  const nodeProps: Record<string, EditableNode[]> = {};
+  if (meta) {
+    for (const p of meta.props) {
+      if (p.type !== 'ReactNode') continue;
+      const raw = rawProps[p.name];
+      if (raw === undefined) continue;
+      const asArray = Array.isArray(raw) ? raw : [raw];
+      if (!asArray.every(looksLikePageNode)) continue;
+      nodeProps[p.name] = asArray.map((child, i) =>
+        toEditable(child as PageNode, `${path}#${p.name}.${i}`, undefined)
+      );
+      delete rawProps[p.name];
+    }
+  }
   return {
     key: nextKey(),
     kind: 'component',
     component: node.component,
-    props: { ...(node.props ?? {}) },
+    props: rawProps,
     children: (node.children ?? []).map((child, i) => toEditable(child, nodePath(path, i), bindings)),
     ...(propBindings && Object.keys(propBindings).length > 0
       ? { i18nPropBindings: { ...propBindings } }
       : {}),
+    ...(Object.keys(nodeProps).length > 0 ? { nodeProps } : {}),
   };
 }
 
@@ -187,8 +229,19 @@ function toPageNode(node: EditableNode, path: string, outBindings: I18nPathBindi
     }
     return node.value;
   }
+  const mergedProps: Record<string, unknown> = { ...node.props };
+  if (node.nodeProps) {
+    for (const [propName, children] of Object.entries(node.nodeProps)) {
+      // 單一節點時直接輸出該節點本身（一般 ReactNode 用法），多個節點時輸出陣列
+      // （呼叫端組件若把該 prop 當 `ReactNode[]` 用也能吃得下）。
+      mergedProps[propName] =
+        children.length === 1
+          ? toPageNode(children[0], `${path}#${propName}.0`, {})
+          : children.map((child, i) => toPageNode(child, `${path}#${propName}.${i}`, {}));
+    }
+  }
   const out: ComponentNode = { component: node.component };
-  if (Object.keys(node.props).length > 0) out.props = node.props;
+  if (Object.keys(mergedProps).length > 0) out.props = mergedProps;
   if (node.children.length > 0) {
     out.children = node.children.map((child, i) => toPageNode(child, nodePath(path, i), outBindings));
   }
@@ -199,11 +252,11 @@ function toPageNode(node: EditableNode, path: string, outBindings: I18nPathBindi
   return out;
 }
 
-function makeNewTextNode(): EditableNode {
+export function makeNewTextNode(): EditableNode {
   return { key: nextKey(), kind: 'text', value: '新文字節點' };
 }
 
-function makeNewComponentNode(componentId: string): EditableNode {
+export function makeNewComponentNode(componentId: string): EditableNode {
   const meta = getComponentById(componentId);
   const props: Record<string, unknown> = {};
   if (meta) {
@@ -321,49 +374,152 @@ function WriteBackStatus({ state }: { state: WriteBackState }) {
  * localStorage（`loadI18nData()`），不特別做即時訂閱更新——切換頁面或
  * 重新整理即可看到最新 key 清單，避免這裡為了一個下拉選單多接一套
  * subscribe 機制。
+ *
+ * 除了 key 清單本身，也一併回傳「該 app 第一個語系」的完整字典
+ * （`previewDict`），供 `I18nKeyPicker` 在下拉選單裡顯示每個 key 目前綁定
+ * 的翻譯內容當作預覽，不需要每個呼叫端各自重新讀一次 localStorage。
  */
-export function useI18nKeys(app: string | undefined): string[] {
+export function useI18nKeys(app: string | undefined): { keys: string[]; previewDict: FlatDict } {
   return useMemo(() => {
-    if (!app) return [];
+    if (!app) return { keys: [], previewDict: {} };
     const data = loadI18nData();
     const nsData = data[app];
-    if (!nsData) return [];
-    return collectAllKeys(nsData);
+    if (!nsData) return { keys: [], previewDict: {} };
+    const firstLocale = Object.keys(nsData).sort()[0];
+    return {
+      keys: collectAllKeys(nsData),
+      previewDict: firstLocale ? nsData[firstLocale] : {},
+    };
   }, [app]);
 }
 
 /**
- * 「綁定 i18n key」的小選單，文字節點與 string 型別的 props 共用。
+ * 「綁定 i18n key」的下拉選單，文字節點與 string 型別的 props 共用。
  * `value` 是目前綁定的 key（未綁定為 undefined/空字串）；選擇「不綁定」
  * 會呼叫 `onChange(undefined)`，讓呼叫端把對應的綁定欄位整個移除。
+ *
+ * 跟原本的原生 `<select>`比起來，多了兩個功能：
+ *   - 上方一個簡易 filter 輸入框，key 數量一多可以快速縮小範圍（不分大小寫，
+ *     比對 key 字串本身）。
+ *   - 每個 key 選項旁邊會顯示一小段目前語系（`previewDict`）的翻譯內容預覽，
+ *     方便在不切到 `/i18n` 頁面的情況下，大致確認選到的是不是對的 key。
+ * 用原生 `<select>` 做不到「選項旁邊放預覽文字＋上方放搜尋框」，因此改用
+ * `<details>/<summary>` + 純 HTML 清單自己刻一個小型下拉選單，維持零額外
+ * 套件依賴、鍵盤 Esc/點外側收合都用原生行為（`<details>` 內建）。
  */
 function I18nKeyPicker({
   value,
   keys,
+  previewDict,
   onChange,
 }: {
   value: string | undefined;
   keys: string[];
+  previewDict: FlatDict;
   onChange: (key: string | undefined) => void;
 }) {
+  const [filter, setFilter] = useState('');
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+
+  const filteredKeys = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return keys;
+    return keys.filter((k) => k.toLowerCase().includes(q));
+  }, [keys, filter]);
+
+  function choose(key: string | undefined) {
+    onChange(key);
+    setFilter('');
+    if (detailsRef.current) detailsRef.current.open = false;
+  }
+
+  const currentPreview = value ? previewDict[value] : undefined;
+
   return (
-    <select
-      className={cn(styles.select, 'max-w-[220px] shrink-0', value ? 'border-primary/40 text-primary' : 'text-muted-foreground')}
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value || undefined)}
-      title={value ? `已綁定 i18n key「${value}」` : '綁定 i18n key（顯示時動態換值）'}
+    <details
+      ref={detailsRef}
+      className="group relative max-w-[220px] shrink-0"
+      onToggle={(e) => {
+        // 展開時把 filter 輸入框聚焦，收合時清掉 filter 字串（下次打開重新開始篩選）。
+        const el = e.currentTarget;
+        if (el.open) {
+          requestAnimationFrame(() => {
+            el.querySelector<HTMLInputElement>('input[data-i18n-filter]')?.focus();
+          });
+        } else {
+          setFilter('');
+        }
+      }}
     >
-      <option value="">🔗 不綁定 i18n</option>
-      {keys.map((k) => (
-        <option key={k} value={k}>
-          {k}
-        </option>
-      ))}
-      {/* 綁定的 key 若因為刪除等原因已不在目前 key 清單中，仍保留原本的值可見、可解除 */}
-      {value && !keys.includes(value) && (
-        <option value={value}>{value}（找不到此 key）</option>
-      )}
-    </select>
+      <summary
+        className={cn(
+          styles.select,
+          'flex cursor-pointer list-none items-center justify-between gap-1 truncate [&::-webkit-details-marker]:hidden',
+          value ? 'border-primary/40 text-primary' : 'text-muted-foreground'
+        )}
+        title={value ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}` : '綁定 i18n key（顯示時動態換值）'}
+      >
+        <span className="truncate">{value ? `🔗 ${value}` : '🔗 不綁定 i18n'}</span>
+        <span className="text-muted-foreground/50">▾</span>
+      </summary>
+
+      <div className="absolute right-0 z-10 mt-1 w-[280px] rounded-md border border-border bg-card p-2 shadow-lg">
+        <input
+          data-i18n-filter
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="篩選 key…"
+          className={cn(styles.textFieldInput, 'mb-2 normal-case')}
+        />
+        <div className="max-h-[240px] overflow-y-auto">
+          <button
+            type="button"
+            className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-secondary"
+            onClick={() => choose(undefined)}
+          >
+            不綁定 i18n
+          </button>
+
+          {filteredKeys.length === 0 && (
+            <p className="px-2 py-1.5 text-[0.75rem] text-muted-foreground/70 italic">（找不到符合的 key）</p>
+          )}
+
+          {filteredKeys.map((k) => {
+            const preview = previewDict[k];
+            return (
+              <button
+                key={k}
+                type="button"
+                className={cn(
+                  'block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs hover:bg-secondary',
+                  k === value ? 'bg-primary/10 text-primary' : 'text-foreground'
+                )}
+                onClick={() => choose(k)}
+              >
+                <div className="truncate font-mono">{k}</div>
+                {/* 目前語系（第一個語系）的內容預覽：截斷避免撐開下拉選單，找不到值時提示「無內容」 */}
+                <div className="truncate text-[0.6875rem] text-muted-foreground/70">
+                  {preview ? preview : '（此語系尚無內容）'}
+                </div>
+              </button>
+            );
+          })}
+
+          {/* 綁定的 key 若因為刪除等原因已不在目前 key 清單中，仍保留原本的值可見、可解除 */}
+          {value && !keys.includes(value) && (
+            <button
+              type="button"
+              className="block w-full cursor-pointer rounded bg-destructive/10 px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/20"
+              onClick={() => choose(value)}
+            >
+              <div className="truncate font-mono">{value}</div>
+              <div className="truncate text-[0.6875rem]">（找不到此 key，點擊維持選取或改選其他 key）</div>
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -378,6 +534,8 @@ export interface NodeEditorProps {
   dragProps?: NodeDragProps;
   /** 目前 app 底下可選的 i18n key 清單，供「綁定 i18n key」下拉選單使用。 */
   i18nKeys: string[];
+  /** 目前語系（第一個語系）的 key -> 內容，供下拉選單顯示每個 key 的預覽文字。 */
+  i18nPreview: FlatDict;
   /** 是否要遞迴渲染 children（單一節點編輯面板只想編輯這一個節點本身時可關閉）。預設 true。 */
   showChildren?: boolean;
 }
@@ -451,7 +609,104 @@ interface NodeDragProps {
   onDrop: (e: DragEvent) => void;
 }
 
-export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDown, dragProps, i18nKeys, showChildren = true }: NodeEditorProps) {
+/**
+ * `ReactNode` 型別 prop 專用的小型節點編輯器：這個 prop 本身也可以放「一棵
+ * （通常很小的）節點樹」，例如 `icon={<SomeIcon />}` 或 `label={<span>...</span>}`。
+ * 跟 `children` 使用同一套 `NodeEditor` 遞迴渲染，只是資料來源是
+ * `node.nodeProps[propName]` 而不是 `node.children`。
+ *
+ * 大多數情況這種 prop 只會放 0 或 1 個節點（單一 icon/label），但底層仍用陣列
+ * 存放，允許放多個節點（少見但保留彈性，輸出時單一節點直接展開、多節點才輸出
+ * 陣列，見 `toPageNode`）。
+ */
+function ReactNodePropEditor({
+  propName,
+  required,
+  nodes,
+  depth,
+  i18nKeys,
+  i18nPreview,
+  onChange,
+}: {
+  propName: string;
+  required: boolean;
+  nodes: EditableNode[];
+  depth: number;
+  i18nKeys: string[];
+  i18nPreview: FlatDict;
+  onChange: (next: EditableNode[]) => void;
+}) {
+  function updateChild(index: number, next: EditableNode) {
+    const copy = nodes.slice();
+    copy[index] = next;
+    onChange(copy);
+  }
+
+  function deleteChild(index: number) {
+    const copy = nodes.slice();
+    copy.splice(index, 1);
+    onChange(copy);
+  }
+
+  function moveChild(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= nodes.length) return;
+    const copy = nodes.slice();
+    [copy[index], copy[target]] = [copy[target], copy[index]];
+    onChange(copy);
+  }
+
+  function addChild(kind: 'text' | 'component') {
+    const child = kind === 'text' ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? '');
+    onChange([...nodes, child]);
+  }
+
+  const dragProps = useNodeDragReorder(nodes.length, (from, to) => {
+    const copy = nodes.slice();
+    const [moved] = copy.splice(from, 1);
+    copy.splice(to, 0, moved);
+    onChange(copy);
+  });
+
+  return (
+    <div className={styles.childrenBlock}>
+      <div className={styles.childrenHeader}>
+        <span>
+          {propName} <span className={styles.propType}>(ReactNode{required ? ' *' : ''})</span>
+        </span>
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.smallBtn} onClick={() => addChild('text')}>
+            + 文字
+          </button>
+          <button type="button" className={styles.smallBtn} onClick={() => addChild('component')}>
+            + 元件
+          </button>
+        </div>
+      </div>
+
+      {nodes.length === 0 && (
+        <p className={styles.emptyHint}>（此 prop 尚未放入任何節點，可用上方按鈕新增一個文字或元件）</p>
+      )}
+
+      {nodes.map((child, i) => (
+        <NodeEditor
+          key={child.key}
+          node={child}
+          depth={depth + 1}
+          onChange={(next) => updateChild(i, next)}
+          onDelete={() => deleteChild(i)}
+          onMoveUp={i > 0 ? () => moveChild(i, -1) : undefined}
+          onMoveDown={i < nodes.length - 1 ? () => moveChild(i, 1) : undefined}
+          dragProps={dragProps(i)}
+          i18nKeys={i18nKeys}
+          i18nPreview={i18nPreview}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDown, dragProps, i18nKeys, i18nPreview, showChildren = true }: NodeEditorProps) {
   const meta = node.kind === 'component' ? getComponentById(node.component) : undefined;
 
   function updateChild(index: number, next: EditableNode) {
@@ -577,11 +832,13 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               className={cn(styles.textInput, 'flex-1')}
               value={node.value}
               rows={2}
+              disabled={Boolean(node.i18nKey)}
               onChange={(e) => onChange({ ...node, value: e.target.value })}
             />
             <I18nKeyPicker
               value={node.i18nKey}
               keys={i18nKeys}
+              previewDict={i18nPreview}
               onChange={(key) => {
                 const next = { ...node } as typeof node;
                 if (key) next.i18nKey = key;
@@ -590,9 +847,13 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               }}
             />
           </div>
-          {node.i18nKey && (
+          {node.i18nKey ? (
             <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
-              已綁定 i18n key「{node.i18nKey}」，畫面上會改用該 key 目前語系的翻譯內容顯示；上方輸入框的內容只在找不到這個 key 時當作備援文字。
+              已綁定 i18n key「{node.i18nKey}」，畫面上會改用該 key 目前語系的翻譯內容顯示，上方輸入框已停用；要改回手動輸入文字，請先在右側選單解除綁定（🔗 不綁定 i18n）。
+            </p>
+          ) : (
+            <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
+              目前顯示上方輸入框的文字。若綁定 i18n key，畫面會改用該 key 的翻譯內容，兩者只會擇一生效。
             </p>
           )}
         </div>
@@ -608,7 +869,9 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
 
           {meta && meta.props.length > 0 && (
             <div className={styles.propsGrid}>
-              {meta.props.map((p) => (
+              {meta.props
+                .filter((p) => p.type !== 'ReactNode')
+                .map((p) => (
                 <label key={p.name} className={styles.propField}>
                   <span className={styles.propLabel}>
                     {p.name}
@@ -672,6 +935,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                         <I18nKeyPicker
                           value={node.i18nPropBindings?.[p.name]}
                           keys={i18nKeys}
+                          previewDict={i18nPreview}
                           onChange={(key) => {
                             const nextBindings = { ...(node.i18nPropBindings ?? {}) };
                             if (key) nextBindings[p.name] = key;
@@ -688,10 +952,45 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                       )}
                     </div>
                   )}
+                  {node.i18nPropBindings?.[p.name] && (
+                    <p className="text-[0.6875rem] leading-relaxed text-muted-foreground/70">
+                      已綁定 i18n key「{node.i18nPropBindings[p.name]}」，畫面上會改用該 key 目前語系的翻譯內容顯示，左側輸入框已停用；要改回手動輸入值，請先解除綁定（🔗 不綁定 i18n）。
+                    </p>
+                  )}
                 </label>
               ))}
             </div>
           )}
+
+          {meta &&
+            meta.props
+              .filter((p) => p.type === 'ReactNode')
+              .map((p) => (
+                <ReactNodePropEditor
+                  key={p.name}
+                  propName={p.name}
+                  required={p.required}
+                  nodes={node.nodeProps?.[p.name] ?? []}
+                  depth={depth}
+                  i18nKeys={i18nKeys}
+                  i18nPreview={i18nPreview}
+                  onChange={(nextNodes) => {
+                    const nextNodeProps = { ...(node.nodeProps ?? {}) };
+                    if (nextNodes.length > 0) {
+                      nextNodeProps[p.name] = nextNodes;
+                    } else {
+                      delete nextNodeProps[p.name];
+                    }
+                    const next = { ...node };
+                    if (Object.keys(nextNodeProps).length > 0) {
+                      next.nodeProps = nextNodeProps;
+                    } else {
+                      delete next.nodeProps;
+                    }
+                    onChange(next);
+                  }}
+                />
+              ))}
 
           {showChildren ? (
             <div className={styles.childrenBlock}>
@@ -720,6 +1019,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                   onMoveDown={i < node.children.length - 1 ? () => moveChild(i, 1) : undefined}
                   dragProps={childDragProps(i)}
                   i18nKeys={i18nKeys}
+                  i18nPreview={i18nPreview}
                 />
               ))}
             </div>
@@ -773,7 +1073,7 @@ export function PageDefEditor({
 
   const nodeDragProps = useNodeDragReorder(page.nodes.length, reorderNode);
   const { app } = useApp();
-  const i18nKeys = useI18nKeys(app!);
+  const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
 
   function addNode(kind: 'text' | 'component') {
     const node = kind === 'text' ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? '');
@@ -838,6 +1138,7 @@ export function PageDefEditor({
           }
           dragProps={nodeDragProps(i)}
           i18nKeys={i18nKeys}
+          i18nPreview={i18nPreview}
         />
       ))}
     </div>

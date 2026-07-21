@@ -21,10 +21,14 @@ import {
   postPagesToDisk,
   fetchAppPagesFromDisk,
   WriteBackStatus,
+  makeNewTextNode,
+  makeNewComponentNode,
   type EditableNode,
   type EditablePageDef,
   type WriteBackState,
 } from "@/pages/page-editor";
+import { allComponents } from "@workspace/ui/lib/generator/component-registry";
+import type { FlatDict } from "@/utils/i18n-utils";
 import { cn } from "@workspace/ui/utils/utils";
 
 /**
@@ -142,6 +146,95 @@ function nodeSummary(node: EditableNode): string {
       : "(空白文字)";
   }
   return node.component || "(未選擇元件)";
+}
+
+/**
+ * 單一節點編輯面板下方的「子節點管理」區塊：可以直接新增文字/元件子節點、
+ * 刪除既有子節點，或點選既有子節點跳去編輯它（不需要跑回左側畫面上點選）。
+ * 跟畫面上點選是同一份資料（`node.children`），這裡只是提供另一種操作入口，
+ * 讓「新增/刪除子節點」不再只能靠可視化畫面點選（原本完全沒有新增入口）。
+ */
+function ChildNodesPanel({
+  node,
+  onChange,
+  onSelectPath,
+  selectedPath,
+}: {
+  node: Extract<EditableNode, { kind: "component" }>;
+  onChange: (next: EditableNode) => void;
+  onSelectPath: (path: string | null) => void;
+  selectedPath: string;
+}) {
+  function addChild(kind: "text" | "component") {
+    const child =
+      kind === "text" ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? "");
+    onChange({ ...node, children: [...node.children, child] });
+    // 新增後直接跳去編輯剛新增的子節點，減少「新增完還要自己回畫面找」的步驟。
+    onSelectPath(`${selectedPath}.${node.children.length}`);
+  }
+
+  function deleteChildAt(index: number) {
+    const copy = node.children.slice();
+    copy.splice(index, 1);
+    onChange({ ...node, children: copy });
+  }
+
+  return (
+    <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/50 px-3 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[0.75rem] font-semibold text-muted-foreground">
+          子節點（{node.children.length}）
+        </span>
+        <div className="flex gap-1.5">
+          <button type="button" className={toolbarBtn} onClick={() => addChild("text")}>
+            + 文字
+          </button>
+          <button type="button" className={toolbarBtn} onClick={() => addChild("component")}>
+            + 元件
+          </button>
+        </div>
+      </div>
+
+      {node.children.length === 0 ? (
+        <p className="text-[0.75rem] text-muted-foreground/70 italic">
+          （尚無子節點，可用上方按鈕新增）
+        </p>
+      ) : (
+        <ul className="flex list-none flex-col gap-1 p-0">
+          {node.children.map((child, i) => {
+            const childPath = `${selectedPath}.${i}`;
+            return (
+              <li
+                key={child.key}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-md border bg-card px-2.5 py-1.5",
+                  childPath === selectedPath ? "border-primary/50" : "border-border",
+                )}
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 cursor-pointer truncate bg-transparent p-0 text-left text-xs text-foreground hover:text-primary hover:underline"
+                  onClick={() => onSelectPath(childPath)}
+                  title="編輯此子節點"
+                >
+                  <span className="mr-1 opacity-60">{child.kind === "component" ? "▢" : "❝"}</span>
+                  {nodeSummary(child)}
+                </button>
+                <button
+                  type="button"
+                  className="shrink-0 cursor-pointer rounded border border-transparent px-1.5 py-0.5 text-[0.6875rem] text-destructive hover:border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => deleteChildAt(i)}
+                  title="刪除此子節點"
+                >
+                  刪除
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -272,6 +365,7 @@ function NodeEditorPanel({
   onChangePage,
   onClose,
   i18nKeys,
+  i18nPreview,
 }: {
   page: EditablePageDef;
   selectedPath: string;
@@ -279,6 +373,7 @@ function NodeEditorPanel({
   onChangePage: (next: EditablePageDef) => void;
   onClose: () => void;
   i18nKeys: string[];
+  i18nPreview: FlatDict;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -384,20 +479,24 @@ function NodeEditorPanel({
 
         {/* 內容：唯一可捲動區域，只編輯這一個節點。 */}
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {node.kind === "component" && node.children.length > 0 && (
-            <div className="mb-3 rounded-md border border-dashed border-border bg-secondary/50 px-3 py-2 text-[0.75rem] text-muted-foreground">
-              此節點有 {node.children.length}{" "}
-              個子節點，可直接在左側畫面上點選子元件來編輯它們。
-            </div>
-          )}
           <NodeEditor
             node={node}
             depth={0}
             onChange={updateNode}
             onDelete={deleteNode}
             i18nKeys={i18nKeys}
+            i18nPreview={i18nPreview}
             showChildren={false}
           />
+
+          {node.kind === "component" && (
+            <ChildNodesPanel
+              node={node}
+              onChange={updateNode}
+              onSelectPath={onSelectPath}
+              selectedPath={selectedPath}
+            />
+          )}
         </div>
 
         {/* Footer：刪除節點（放在面板底部，跟其他破壞性操作一致靠邊放） */}
@@ -441,7 +540,7 @@ export function LiveWorkspace() {
     status: "idle",
   });
   const [readBack, setReadBack] = useState<WriteBackState>({ status: "idle" });
-  const i18nKeys = useI18nKeys(app!);
+  const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
 
   // 目前編輯狀態轉回 PageDef 形狀（含 i18nBindings sidecar），只算一次，
   // 同時給預覽（DynamicRenderer）跟下載 JSON／寫入磁碟共用，避免重複呼叫 toPageDef。
@@ -707,6 +806,7 @@ export function LiveWorkspace() {
           onChangePage={setPage}
           onClose={() => setSelectedPath(null)}
           i18nKeys={i18nKeys}
+          i18nPreview={i18nPreview}
         />
       )}
     </div>
