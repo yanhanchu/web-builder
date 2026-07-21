@@ -69,7 +69,7 @@ export function writeI18nPlugin() {
           return;
         }
 
-        const { app, locales, format, keyTypes } = body ?? {};
+        const { app, locales, format, keyTypes, versionHistory } = body ?? {};
 
         if (!app || typeof app !== 'string') {
           sendJson(res, 400, { ok: false, error: '缺少必要欄位：app' });
@@ -84,7 +84,7 @@ export function writeI18nPlugin() {
           return;
         }
 
-        const result = writeAppToDisk({ app, locales, format, keyTypes });
+        const result = writeAppToDisk({ app, locales, format, keyTypes, versionHistory });
 
         if (!result.ok) {
           sendJson(res, 422, result);

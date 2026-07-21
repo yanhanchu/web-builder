@@ -116,6 +116,14 @@ export function appI18nFile(app, locale) {
   return resolveAppPath(app, 'i18n', `${locale}.json`);
 }
 
+/** 回傳該 app 底下 i18n 版本歷史檔案的路徑（data/{app}/i18n/versions.json）。
+ *  跟各語系檔案放在同一個 i18n/ 目錄底下，但檔名不是語系代碼，讀取語系清單
+ *  時（listJsonBasenames 過濾 *.meta 那段）要記得一併排除，避免被誤判成
+ *  一個叫做 "versions" 的語系。 */
+export function appI18nVersionsFile(app) {
+  return resolveAppPath(app, 'i18n', 'versions.json');
+}
+
 /** 回傳 data/ 底下某個「非 per-app」的全域檔案路徑（目前沒有任何 per-app 之外的資料在用這個 helper，theme.json 已改為 data/{app}/theme.json） */
 export function topLevelDataFile(filename) {
   if (!/^[a-zA-Z0-9_-]+\.json$/.test(filename)) {

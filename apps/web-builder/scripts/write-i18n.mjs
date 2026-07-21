@@ -14,6 +14,7 @@ import {
   writeJsonFile,
   appI18nDir,
   appI18nFile,
+  appI18nVersionsFile,
   ensureAppDir,
   listJsonBasenames,
   listAppDirs,
@@ -97,19 +98,57 @@ function isFlatJson(obj) {
 }
 
 /**
+ * 驗證版本歷史陣列的形狀（對應前端 `I18nVersion` / `I18nVersionHistory`，
+ * 見 src/utils/i18n-versions.ts）：每筆都要有 id/label/createdAt/parentId/
+ * snapshot/keyTypes，snapshot 是 locale -> flat dict，keyTypes 是 key -> type
+ * 的 flat 物件。找不到欄位（undefined）視為合法（純選填，沒有版本歷史的
+ * app 不受影響）。
+ */
+function isValidVersionHistory(history) {
+  if (history === undefined) return true;
+  if (!Array.isArray(history)) return false;
+  const seenIds = new Set();
+  for (const version of history) {
+    if (version == null || typeof version !== 'object' || Array.isArray(version)) return false;
+    if (typeof version.id !== 'string' || version.id.length === 0) return false;
+    if (seenIds.has(version.id)) return false;
+    seenIds.add(version.id);
+    if (typeof version.label !== 'string') return false;
+    if (typeof version.createdAt !== 'string') return false;
+    if (version.parentId !== null && typeof version.parentId !== 'string') return false;
+    if (version.snapshot == null || typeof version.snapshot !== 'object' || Array.isArray(version.snapshot)) {
+      return false;
+    }
+    for (const flatDict of Object.values(version.snapshot)) {
+      if (flatDict == null || typeof flatDict !== 'object' || Array.isArray(flatDict)) return false;
+      if (!Object.values(flatDict).every((v) => typeof v === 'string')) return false;
+    }
+    if (version.keyTypes == null || typeof version.keyTypes !== 'object' || Array.isArray(version.keyTypes)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * 寫入單一 app 底下所有語系的 JSON 檔案：
  * - `data/{app}/i18n/{locale}.json`：不含 metadata，格式與原本完全相同（flat 或 nested 的 value）。
  * - `data/{app}/i18n/{locale}.meta.json`：另外多寫一份含 metadata 的版本
  *   （`{ meta: { [key]: { type } }, data: <flat 或 nested 的 value> }`）。
+ * - `data/{app}/i18n/versions.json`：選填。若有提供 `versionHistory`，一併寫入
+ *   （見 i18n-versions.ts 的 I18nVersionHistory）。原本版本歷史只存在瀏覽器
+ *   localStorage，換瀏覽器/清快取就會遺失、也無法跟著 pages/i18n 一起走
+ *   版本控制（git diff 看得到），因此讓它跟語系資料一起參與寫回檔案系統。
  *
  * @param {object} params
  * @param {string} params.app
  * @param {Record<string, Record<string, string>>} params.locales  locale -> flat dict
  * @param {'flat' | 'nested'} params.format
  * @param {Record<string, string>} [params.keyTypes]  key -> type，用於含 metadata 的那份檔案
+ * @param {unknown} [params.versionHistory]  選填，該 app 的版本歷史陣列
  * @returns {{ ok: true, writtenFiles: string[] } | { ok: false, error: string }}
  */
-export function writeAppToDisk({ app, locales, format, keyTypes }) {
+export function writeAppToDisk({ app, locales, format, keyTypes, versionHistory }) {
   try {
     if (!isSafeSegment(app)) {
       return { ok: false, error: `不合法的 app 名稱：${app}` };
@@ -118,6 +157,9 @@ export function writeAppToDisk({ app, locales, format, keyTypes }) {
       if (!isSafeSegment(locale)) {
         return { ok: false, error: `不合法的語系代碼：${locale}` };
       }
+    }
+    if (!isValidVersionHistory(versionHistory)) {
+      return { ok: false, error: `app "${app}" 的 versionHistory 格式不合法` };
     }
 
     ensureAppDir(app);
@@ -143,6 +185,15 @@ export function writeAppToDisk({ app, locales, format, keyTypes }) {
       writtenFiles.push(toRelative(metaFilePath));
     }
 
+    // 3) 版本歷史（選填）：只在有提供時才寫入/覆寫，未提供時保留磁碟上原有的
+    // versions.json 不動（呼叫端若只是單純改翻譯內容、還沒建立新版本，不應該
+    // 把既有版本歷史意外清空）。
+    if (versionHistory !== undefined) {
+      const versionsFilePath = appI18nVersionsFile(app);
+      writeJsonFile(versionsFilePath, versionHistory);
+      writtenFiles.push(toRelative(versionsFilePath));
+    }
+
     return { ok: true, writtenFiles };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -157,7 +208,7 @@ export function writeAppToDisk({ app, locales, format, keyTypes }) {
  *
  * @param {object} params
  * @param {string} params.app
- * @returns {{ ok: true, app: string, locales: Record<string, Record<string,string>>, localeFiles: string[], keyTypes: Record<string,string> } | { ok: false, error: string }}
+ * @returns {{ ok: true, app: string, locales: Record<string, Record<string,string>>, localeFiles: string[], keyTypes: Record<string,string>, versionHistory: unknown[] } | { ok: false, error: string }}
  */
 export function readAppFromDisk({ app }) {
   try {
@@ -170,9 +221,11 @@ export function readAppFromDisk({ app }) {
       return { ok: false, error: `找不到 data/${app}/i18n/ 目錄` };
     }
 
-    // 只挑「主要」語系檔（排除 *.meta.json 本身，避免被誤判成一個叫做 xx.meta 的語系）
+    // 只挑「主要」語系檔（排除 *.meta.json 本身、以及版本歷史檔 versions.json，
+    // 避免被誤判成一個叫做 xx.meta 或 versions 的語系）
     const localeNames = listJsonBasenames(nsI18nDir)
       .filter((name) => !name.endsWith('.meta'))
+      .filter((name) => name !== 'versions')
       .filter(isSafeSegment);
     if (localeNames.length === 0) {
       return { ok: false, error: `data/${app}/i18n/ 底下沒有任何 .json 檔案` };
@@ -211,7 +264,17 @@ export function readAppFromDisk({ app }) {
       }
     }
 
-    return { ok: true, app, locales, localeFiles, keyTypes };
+    // 選擇性讀取版本歷史（不存在就回傳空陣列，不影響主要讀取結果；格式不合法
+    // 時視同不存在，不讓一份壞掉的 versions.json 擋住整個「從磁碟讀取」）。
+    let versionHistory = [];
+    const versionsFilePath = appI18nVersionsFile(app);
+    const versionsParsed = readJsonFile(versionsFilePath, undefined);
+    if (isValidVersionHistory(versionsParsed)) {
+      versionHistory = versionsParsed ?? [];
+      if (versionsParsed !== undefined) localeFiles.push(toRelative(versionsFilePath));
+    }
+
+    return { ok: true, app, locales, localeFiles, keyTypes, versionHistory };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

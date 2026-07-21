@@ -33,6 +33,7 @@ import {
 import { i18nStyles as styles } from '@/styles/i18n-styles';
 import { cn } from '@workspace/ui/utils/utils';
 import { useApp } from '@/hooks/context';
+import { ValueTypeField, isValidValueForType, valueTypeErrorMessage } from '@/components/value-type-input';
 
 /** 把版本的 ISO 時間字串轉成畫面上好讀的格式（本地時間，到分鐘）。 */
 function formatVersionTime(iso: string): string {
@@ -61,6 +62,13 @@ export function I18nManager() {
   const { app } = useApp();
   const [data, setData] = useState<I18nData>(() => loadI18nData());
   const [metaData, setMetaData] = useState<I18nMetaData>(() => loadI18nMetaData());
+  // 「草稿值」：使用者正在輸入、但格式還不合法（或還沒失焦確認）的值，跟
+  // 已經存進 `data` 的值分開放。輸入框顯示草稿優先於 `data`，這樣使用者
+  // 打字打到一半（格式暫時不合法）時畫面不會被打斷；只有驗證通過才寫進
+  // `data`（也就是實際會被存檔/顯示在頁面上的值），驗證不過就不寫入，
+  // 只在輸入框旁顯示錯誤訊息。key 格式："key\u0000locale"。
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [valueErrors, setValueErrors] = useState<Record<string, string>>({});
   const activeNs = app ?? null;
   const [newLocaleName, setNewLocaleName] = useState('');
   const [search, setSearch] = useState('');
@@ -256,6 +264,42 @@ export function I18nManager() {
     });
   }
 
+  /** 草稿 state 的複合 key，同一個 key 在不同語系的草稿彼此獨立。 */
+  function draftKey(key: string, locale: string): string {
+    return `${key}\u0000${locale}`;
+  }
+
+  /**
+   * 輸入框 onChange 時呼叫：先把輸入原封不動存成草稿（畫面即時顯示使用者
+   * 打的內容），再依這個 key 目前登記的型別驗證——通過才真的寫進 `data`
+   * （即存檔會用到的值），沒通過就只更新錯誤訊息、不寫入 `data`，維持
+   * `data` 裡的值是上一個合法值，避免不合法的內容被存檔。
+   */
+  function handleValueInput(key: string, locale: string, raw: string) {
+    const dk = draftKey(key, locale);
+    setDraftValues((prev) => ({ ...prev, [dk]: raw }));
+
+    const valueType = keyTypeOf(key);
+    if (isValidValueForType(valueType, raw)) {
+      setValueErrors((prev) => {
+        if (!(dk in prev)) return prev;
+        const next = { ...prev };
+        delete next[dk];
+        return next;
+      });
+      updateValue(key, locale, raw);
+    } else {
+      setValueErrors((prev) => ({ ...prev, [dk]: valueTypeErrorMessage(valueType) }));
+      // 驗證失敗：不呼叫 updateValue，`data` 裡維持上一個合法值不變。
+    }
+  }
+
+  /** 輸入框顯示用的值：有草稿（使用者正在編輯/曾經打過不合法內容）優先用草稿，否則用已存檔的值。 */
+  function displayValueOf(key: string, locale: string): string {
+    const dk = draftKey(key, locale);
+    return draftValues[dk] ?? data[activeNs ?? '']?.[locale]?.[key] ?? '';
+  }
+
   function keyTypeOf(key: string): ValueType {
     if (!activeNs) return DEFAULT_VALUE_TYPE;
     return metaData[activeNs]?.[key] ?? DEFAULT_VALUE_TYPE;
@@ -313,6 +357,19 @@ export function I18nManager() {
       const nsMeta = { ...(prev[activeNs] ?? {}) };
       delete nsMeta[key];
       return { ...prev, [activeNs]: nsMeta };
+    });
+    // 一併清掉這個 key 殘留的草稿/錯誤狀態，避免之後新增同名 key 時
+    // 意外繼承到舊的、其實已經不相關的錯誤訊息或未存檔草稿。
+    const prefix = `${key}\u0000`;
+    setDraftValues((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) if (k.startsWith(prefix)) delete next[k];
+      return next;
+    });
+    setValueErrors((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) if (k.startsWith(prefix)) delete next[k];
+      return next;
     });
   }
 
@@ -457,7 +514,9 @@ export function I18nManager() {
       return;
     }
     const keyTypes = metaData[activeNs] ?? {};
-    const result = await writeI18nToDisk(activeNs, nsData, exportFormat, keyTypes);
+    // 版本歷史一併寫回磁碟（見 write-i18n.mjs 的 versions.json），讓它不再
+    // 只活在瀏覽器 localStorage：換裝置、清快取、或直接看檔案系統時都還在。
+    const result = await writeI18nToDisk(activeNs, nsData, exportFormat, keyTypes, versionHistory);
     if (!result.ok) {
       showToast(`寫入檔案系統失敗：${result.error}`);
       return;
@@ -474,7 +533,7 @@ export function I18nManager() {
     if (!activeNs) return;
     if (
       !window.confirm(
-        `確定要用磁碟上 data/i18n/${activeNs}/ 底下的內容覆蓋目前瀏覽器中「${activeNs}」的所有語系嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
+        `確定要用磁碟上 data/i18n/${activeNs}/ 底下的內容覆蓋目前瀏覽器中「${activeNs}」的所有語系與版本歷史嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
       )
     ) {
       return;
@@ -484,10 +543,16 @@ export function I18nManager() {
       showToast(`讀取檔案系統失敗：${result.error}`);
       return;
     }
-    const { locales, localeFiles, keyTypes } = result;
+    const { locales, localeFiles, keyTypes, versionHistory: diskVersionHistory } = result;
     setData((prev) => ({ ...prev, [activeNs]: locales }));
     if (keyTypes) {
       setMetaData((prev) => ({ ...prev, [activeNs]: keyTypes }));
+    }
+    // 磁碟上的 versions.json 是目前唯一權威來源（跟 locales/keyTypes 一樣直接
+    // 整批覆蓋，不 merge）；沒有該檔案時 diskVersionHistory 會是空陣列，等同
+    // 「磁碟上沒有版本歷史」，同樣直接覆蓋掉瀏覽器端既有的版本歷史。
+    if (diskVersionHistory !== undefined) {
+      setVersionHistory(diskVersionHistory);
     }
     showToast(`已從磁碟讀取並覆蓋（${localeFiles.length} 個檔案）：${localeFiles.join(', ')}`);
   }
@@ -1054,7 +1119,7 @@ export function I18nManager() {
                           value={keyTypeOf(key)}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => setKeyType(key, e.target.value as ValueType)}
-                          title="這個 key 的值類型（僅作為 metadata 標記，不影響下方的編輯欄位）"
+                          title="這個 key 的值類型，決定下方輸入元件的樣式與存檔前的格式驗證"
                         >
                           {VALUE_TYPES.map((t) => (
                             <option key={t} value={t}>
@@ -1082,26 +1147,35 @@ export function I18nManager() {
                         {shownLocales.length === 0 && (
                           <p className={styles.emptyCell}>目前沒有勾選任何語系顯示，請在上方語系標籤點擊開啟。</p>
                         )}
-                        {shownLocales.map((locale) => (
-                          <div key={locale} className={styles.localeField}>
-                            <label className={styles.localeFieldLabel}>
-                              <span>{locale}</span>
-                              <button
-                                className={styles.linkBtn}
-                                onClick={() => handleExportOneLocale(locale)}
-                                title={`只匯出 ${locale}`}
-                              >
-                                匯出
-                              </button>
-                            </label>
-                            <textarea
-                              className={styles.valueInput}
-                              rows={2}
-                              value={data[activeNs]?.[locale]?.[key] ?? ''}
-                              onChange={(e) => updateValue(key, locale, e.target.value)}
-                            />
-                          </div>
-                        ))}
+                        {shownLocales.map((locale) => {
+                          const errorMsg = valueErrors[draftKey(key, locale)];
+                          return (
+                            <div key={locale} className={styles.localeField}>
+                              <label className={styles.localeFieldLabel}>
+                                <span>{locale}</span>
+                                <button
+                                  className={styles.linkBtn}
+                                  onClick={() => handleExportOneLocale(locale)}
+                                  title={`只匯出 ${locale}`}
+                                >
+                                  匯出
+                                </button>
+                              </label>
+                              <ValueTypeField
+                                valueType={keyTypeOf(key)}
+                                value={displayValueOf(key, locale)}
+                                onChange={(next) => handleValueInput(key, locale, next)}
+                                textareaClassName={cn(styles.valueInput, errorMsg && styles.valueInputError)}
+                                inputClassName={cn(styles.valueInput, errorMsg && styles.valueInputError)}
+                              />
+                              {errorMsg && (
+                                <p className={styles.valueError} role="alert">
+                                  ⚠ {errorMsg}（未通過驗證，尚未存檔）
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </details>
                   );

@@ -22,7 +22,12 @@ import { cn } from '@workspace/ui/utils/utils';
 import type { PagesData } from '@/types/pages-types';
 import { useApp } from '@/hooks/context';
 import { loadI18nData, saveI18nData, removeLocalAppI18n, renameLocalAppI18n } from '@/store/i18n-storage';
-import { removeLocalAppI18nVersions, renameLocalAppI18nVersions } from '@/store/i18n-version-storage';
+import {
+  removeLocalAppI18nVersions,
+  renameLocalAppI18nVersions,
+  loadI18nVersionHistory,
+  saveI18nVersionHistory,
+} from '@/store/i18n-version-storage';
 import { removeAppRoutes, renameAppRoutes } from '@/store/route-storage';
 import {
   removeAppFiles,
@@ -412,7 +417,10 @@ export function AppEditPage() {
       return;
     }
     setI18nWriteState({ status: 'saving' });
-    const result = await writeI18nToDisk(app, nsData, 'nested');
+    // 版本歷史一併寫回（跟 i18n-manager.tsx 的「寫入檔案系統」一致），
+    // 避免從這裡（設定頁的「資料同步」卡片）寫入時漏掉版本歷史。
+    const versionHistory = loadI18nVersionHistory(app);
+    const result = await writeI18nToDisk(app, nsData, 'nested', undefined, versionHistory);
     setI18nWriteState(
       result.ok
         ? { status: 'success', message: `✓ 已寫入 ${result.writtenFiles.join(', ')}` }
@@ -424,7 +432,7 @@ export function AppEditPage() {
     if (!app) return;
     if (
       !window.confirm(
-        `確定要用磁碟上 data/${app}/i18n/ 底下的內容覆蓋瀏覽器中「${app}」的所有語系嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
+        `確定要用磁碟上 data/${app}/i18n/ 底下的內容覆蓋瀏覽器中「${app}」的所有語系與版本歷史嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
       )
     ) {
       return;
@@ -438,6 +446,11 @@ export function AppEditPage() {
     const all = loadI18nData();
     const merged = { ...all, [app]: result.locales };
     saveI18nData(merged);
+    // 跟語系資料一樣直接整批覆蓋（不 merge）；磁碟上沒有 versions.json 時
+    // result.versionHistory 會是空陣列，等同清空瀏覽器端既有的版本歷史。
+    if (result.versionHistory !== undefined) {
+      saveI18nVersionHistory(app, result.versionHistory);
+    }
     setI18nReadState({
       status: 'success',
       message: `✓ 已從磁碟讀取並覆蓋瀏覽器資料（${result.localeFiles.join(', ')}）`,

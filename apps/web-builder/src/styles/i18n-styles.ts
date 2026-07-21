@@ -76,6 +76,9 @@ export const i18nStyles = {
     'min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 font-mono text-[0.8125rem] text-primary outline-none hover:border-border hover:bg-secondary focus:border-border focus:bg-secondary',
   valueInput:
     'w-full resize-y rounded-md border border-border bg-secondary px-2.5 py-2 font-sans text-[0.8125rem] text-foreground outline-none hover:border-muted-foreground focus:border-muted-foreground',
+  valueInputError:
+    'border-destructive hover:border-destructive focus:border-destructive',
+  valueError: 'text-[0.6875rem] text-destructive',
   iconDelete: 'shrink-0 cursor-pointer rounded-md border-none bg-transparent px-2 py-1 text-[0.6875rem] text-muted-foreground/70 hover:bg-secondary hover:text-destructive',
   emptyCell: 'p-8 text-center text-[0.8125rem] text-muted-foreground/70',
   empty: 'text-[0.8125rem] leading-relaxed text-muted-foreground/70',
