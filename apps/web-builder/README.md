@@ -1,7 +1,8 @@
 # apps/web-builder
 
 多頁面「網站建置器」：在瀏覽器裡編輯頁面內容、路由、i18n 翻譯、多個
-app（多站台）設定、檔案管理（本機 or S3），並附帶一套元件/函式的自動
+app（多站台）設定、檔案管理（本機 or S3）、資料管理（依 @workspace/ui
+組件共用型別做簡單 JSON 資料的 CRUD），並附帶一套元件/函式的自動
 文件系統（`/components`、`/functions`）。
 
 **開發模式（`vite dev`）本身就是「假後端」**：所有寫入操作都是透過
@@ -31,22 +32,23 @@ data/                       執行期資料（會被 dev server 的 /__api/* 讀
   {app}/theme.json             單一 app 的主題產生器（/theme）設定
   {app}/styles.css             單一 app 的主題產生器輸出的 CSS（theme.json 的衍生檔）
   {app}/i18n/{locale}.json     單一 app 的翻譯
+  {app}/records/{typeId}.json  單一 app 底下、某個 @workspace/ui 共用型別的資料紀錄（資料管理 /data）
 
 example.css                 tailwindcss v4 主題設定檔範例（/theme 產生器即是模仿此格式輸出）
 
 scripts/                    只在 `vite dev` 執行的 Node 端邏輯
   app-fs.mjs                   共用的安全檔案讀寫工具（路徑限制在 data/ 底下）
-  write-*.mjs                  各功能（apps/pages/i18n/routes/files/s3-presign）的實際讀寫邏輯
+  write-*.mjs                  各功能（apps/pages/i18n/routes/data-records/files/s3-presign）的實際讀寫邏輯
   write-*-plugin.mjs           對應的 Vite plugin，掛載 /__api/* middleware
   generate-pages.mjs           build 前把 data/{app}/pages.json 轉成靜態 route（pages-map.ts）
 
 src/
   App.tsx                     路由表（含 @workspace/ui 的文件頁 + 這個 app 自己的頁面）
-  pages/                       各功能頁面（設定/頁面編輯/i18n/路由/檔案管理）
+  pages/                       各功能頁面（設定/頁面編輯/i18n/路由/資料管理/檔案管理）
   store/                       localStorage 讀寫（跟 data/*.json 是兩份，dev 時可互相同步）
   lib/                         disk-api（呼叫 /__api/*）+ opfs-file-store 等瀏覽器端邏輯
   hooks/                   AppProvider context（目前正在編輯哪個 app）
-  types/                       AppSettings / PageDef / RouteEntry / FileEntry 等型別
+  types/                       AppSettings / PageDef / RouteEntry / FileEntry / DataRecordEntry 等型別
 ```
 
 ## 主題產生器（/theme）
@@ -84,6 +86,42 @@ Input/Avatar）展示套用目前主題設定後的實際樣子（見 `Component
 另外補了幾種常見的樣式呈現元件（Tabs 分頁切換、Toggle 開關、Progress 進度
 條、可移除的 Chips 標籤），同樣純粹用 CSS 自訂屬性局部套用，不依賴額外套件、
 不影響頁面其他部分的樣式。
+
+## 資料管理（/data）
+
+app 底下的子功能，跟「路由管理（/routes）」同一種最簡單的管理模式，
+只是這裡管理的資料形狀不是寫死的，而是使用者從 `@workspace/ui` 的
+「組件共用型別」清單裡選一個之後動態組出來的表單。
+
+流程：**選型別 => 編輯資料**
+
+- 型別來源：`@workspace/ui` 的 `allComponentTypes`（`packages/ui/data/component-types.json`，
+  由 `packages/ui/scripts/generate-docs.mjs` 掃描 `src/components/**` 的
+  props 型別後產生，見該套件 README）。每個型別有一個獨立的 `id`
+  （目前實作等於 TypeScript 型別名稱），不同組件的 props 若參照到同一個
+  interface/type，會共用同一筆型別定義，因此「資料管理」裡選到的型別
+  也是跨組件共用的。
+- 資料形狀：v1 只支援「簡單物件」欄位（`string` / `number` / `boolean`）
+  與「陣列<簡單物件>」（`string[]` / `number[]` / `boolean[]`）的編輯；
+  欄位型別若指向巢狀 interface、`ReactNode`、函式等複雜型別，表單會把
+  該欄位標示為「不支援編輯」，先讓使用者看得到、之後再完善。
+- 選定型別後，`/data` 會依該型別的欄位清單動態組一份表單，對這個
+  型別底下的資料做新增 / 修改 / 刪除，一個型別可以有多筆資料
+  （即整體效果等同「陣列<該型別>」）。
+
+檔案：
+
+- `src/types/data-manager-types.ts`：`DataRecordEntry` / `DataManagerData`、
+  簡單型別判斷（`classifySimpleType`）、陣列型別字串解析（`getArrayElementType`）
+- `src/store/data-manager-storage.ts`：localStorage 存取層（`app -> typeId -> DataRecordEntry[]`）
+- `src/pages/data-manager.tsx` + `src/styles/data-manager-styles.ts`：頁面本體（選型別 + CRUD 表單）
+- `src/lib/data-manager-disk-api.ts`：呼叫 `/__api/write-data-records` 的讀寫 API 呼叫層
+- `scripts/write-data-records.mjs` / `scripts/write-data-plugin.mjs`：驗證並讀寫
+  `data/{app}/records/{typeId}.json`
+
+跟路由管理同一套模式：編輯即時同步進瀏覽器 `localStorage`，「寫入檔案
+系統」「從檔案系統讀取（覆蓋）」兩個按鈕才會跟
+`data/{app}/records/{typeId}.json` 互動，僅 `npm run dev` 環境有效。
 
 ## 開發前要知道的事
 

@@ -1,0 +1,280 @@
+{
+  "types": [
+    {
+      "id": "BrandData",
+      "name": "BrandData",
+      "kind": "interface",
+      "description": "Brand / logo strings and image, used in the header and footer.",
+      "fields": [
+        {
+          "name": "toHome",
+          "required": true,
+          "type": "string",
+          "description": "href for the logo link (usually \"/\")"
+        },
+        {
+          "name": "ariaLabel",
+          "required": true,
+          "type": "string",
+          "description": "aria-label for the logo link"
+        },
+        {
+          "name": "mark",
+          "required": true,
+          "type": "string",
+          "description": "alt text for the logo mark image"
+        },
+        {
+          "name": "logoSrc",
+          "required": true,
+          "type": "string",
+          "description": "Logo image source"
+        },
+        {
+          "name": "wordmark",
+          "required": true,
+          "type": "{ lead: string; accent: string; }",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "id": "BrandProps",
+      "name": "BrandProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "data",
+          "required": true,
+          "type": "BrandData",
+          "description": "Brand strings and logo image, fully i18n-ready"
+        },
+        {
+          "name": "className",
+          "required": false,
+          "type": "string",
+          "description": "Additional class names merged onto the root anchor"
+        }
+      ]
+    },
+    {
+      "id": "ButtonProps",
+      "name": "ButtonProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "variant",
+          "required": false,
+          "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\"",
+          "description": "Visual style of the button"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\"",
+          "description": "Size of the button"
+        },
+        {
+          "name": "isLoading",
+          "required": false,
+          "type": "boolean",
+          "description": "Shows a loading spinner and disables interaction"
+        },
+        {
+          "name": "fullWidth",
+          "required": false,
+          "type": "boolean",
+          "description": "Stretches the button to fill its container width"
+        },
+        {
+          "name": "icon",
+          "required": false,
+          "type": "ReactNode",
+          "description": "Icon element rendered before the label"
+        },
+        {
+          "name": "children",
+          "required": true,
+          "type": "ReactNode",
+          "description": "Button label / content"
+        }
+      ]
+    },
+    {
+      "id": "CardHeaderProps",
+      "name": "CardHeaderProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Main heading text"
+        },
+        {
+          "name": "subtitle",
+          "required": false,
+          "type": "string",
+          "description": "Optional supporting text below the title"
+        }
+      ]
+    },
+    {
+      "id": "CardProps",
+      "name": "CardProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "interactive",
+          "required": false,
+          "type": "boolean",
+          "description": "Adds a hover elevation effect, useful for clickable cards"
+        },
+        {
+          "name": "padding",
+          "required": false,
+          "type": "number",
+          "description": "Internal padding in pixels"
+        },
+        {
+          "name": "children",
+          "required": true,
+          "type": "ReactNode",
+          "description": "Card content"
+        }
+      ]
+    },
+    {
+      "id": "HeaderProps",
+      "name": "HeaderProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "brand",
+          "required": true,
+          "type": "BrandData",
+          "description": "Brand strings and logo, forwarded to <Brand />"
+        },
+        {
+          "name": "primaryNav",
+          "required": true,
+          "type": "NavItem[]",
+          "description": "Primary navigation links, shown inline on desktop and in the mobile sheet"
+        },
+        {
+          "name": "themeOptions",
+          "required": true,
+          "type": "ThemeOption[]",
+          "description": "Theme toggle options, forwarded to <ThemeToggle />"
+        },
+        {
+          "name": "themeGroupLabel",
+          "required": true,
+          "type": "string",
+          "description": "Accessible label for the theme toggle radiogroup"
+        },
+        {
+          "name": "themeLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label shown next to the theme toggle in the mobile menu"
+        },
+        {
+          "name": "openMenuLabel",
+          "required": true,
+          "type": "string",
+          "description": "aria-label for the mobile menu button when the menu is closed"
+        },
+        {
+          "name": "closeMenuLabel",
+          "required": true,
+          "type": "string",
+          "description": "aria-label for the mobile menu button when the menu is open"
+        },
+        {
+          "name": "testNumber",
+          "required": false,
+          "type": "number",
+          "description": "aria-label for the mobile menu button when the menu is open"
+        }
+      ]
+    },
+    {
+      "id": "InputProps",
+      "name": "InputProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "label",
+          "required": false,
+          "type": "string",
+          "description": "Label displayed above the input"
+        },
+        {
+          "name": "error",
+          "required": false,
+          "type": "string",
+          "description": "Error message; when set, the input is styled as invalid"
+        },
+        {
+          "name": "helperText",
+          "required": false,
+          "type": "string",
+          "description": "Helper text displayed below the input when there is no error"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\"",
+          "description": "Visual size of the input"
+        }
+      ]
+    },
+    {
+      "id": "NavItem",
+      "name": "NavItem",
+      "kind": "interface",
+      "description": "Shared data shapes used across `ozsv` blocks and components.\n\nKeeping these in one module lets pages build a single data object\nand spread it into whichever blocks need it, without every block\nre-declaring the same shapes.\n\nA single navigation link.",
+      "fields": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string",
+          "description": "Visible label"
+        },
+        {
+          "name": "to",
+          "required": true,
+          "type": "string",
+          "description": "Destination href"
+        }
+      ]
+    },
+    {
+      "id": "ThemeOption",
+      "name": "ThemeOption",
+      "kind": "interface",
+      "description": "One option in the theme toggle control.",
+      "fields": [
+        {
+          "name": "value",
+          "required": true,
+          "type": "\"light\" | \"dark\" | \"system\"",
+          "description": "Theme value, e.g. \"light\" | \"dark\" | \"system\""
+        },
+        {
+          "name": "label",
+          "required": true,
+          "type": "string",
+          "description": "Accessible / tooltip label"
+        }
+      ]
+    }
+  ]
+}

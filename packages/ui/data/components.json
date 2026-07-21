@@ -34,7 +34,8 @@
         "defaultValue": null,
         "description": "Image URL. Falls back to initials when omitted or broken."
       }
-    ]
+    ],
+    "relatedTypeNames": []
   },
   {
     "id": "badge-badge",
@@ -64,6 +65,34 @@
         "defaultValue": "neutral",
         "description": "Semantic tone of the badge"
       }
+    ],
+    "relatedTypeNames": []
+  },
+  {
+    "id": "brand-brand",
+    "componentName": "Brand",
+    "filePath": "src/components/demo/brand.tsx",
+    "importPath": "components/demo/brand",
+    "description": "Site logo + wordmark, linking back to the homepage.\nPure presentation — all strings and the logo image come from `data`.",
+    "props": [
+      {
+        "name": "data",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo image, fully i18n-ready"
+      },
+      {
+        "name": "className",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Additional class names merged onto the root anchor"
+      }
+    ],
+    "relatedTypeNames": [
+      "BrandProps",
+      "BrandData"
     ]
   },
   {
@@ -115,6 +144,9 @@
         "defaultValue": "primary",
         "description": "Visual style of the button"
       }
+    ],
+    "relatedTypeNames": [
+      "ButtonProps"
     ]
   },
   {
@@ -145,6 +177,9 @@
         "defaultValue": "20",
         "description": "Internal padding in pixels"
       }
+    ],
+    "relatedTypeNames": [
+      "CardProps"
     ]
   },
   {
@@ -168,6 +203,80 @@
         "defaultValue": null,
         "description": "Optional supporting text below the title"
       }
+    ],
+    "relatedTypeNames": [
+      "CardHeaderProps"
+    ]
+  },
+  {
+    "id": "header-header",
+    "componentName": "Header",
+    "filePath": "src/components/demo/header.tsx",
+    "importPath": "components/demo/header",
+    "description": "Sticky site header with brand, primary navigation, theme toggle and a\ncollapsible mobile menu. Owns only its own open/closed UI state — all\ncopy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "closeMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      },
+      {
+        "name": "openMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is closed"
+      },
+      {
+        "name": "primaryNav",
+        "required": true,
+        "type": "NavItem[]",
+        "defaultValue": null,
+        "description": "Primary navigation links, shown inline on desktop and in the mobile sheet"
+      },
+      {
+        "name": "themeGroupLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the theme toggle radiogroup"
+      },
+      {
+        "name": "themeLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label shown next to the theme toggle in the mobile menu"
+      },
+      {
+        "name": "themeOptions",
+        "required": true,
+        "type": "ThemeOption[]",
+        "defaultValue": null,
+        "description": "Theme toggle options, forwarded to <ThemeToggle />"
+      },
+      {
+        "name": "testNumber",
+        "required": false,
+        "type": "number",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      }
+    ],
+    "relatedTypeNames": [
+      "HeaderProps",
+      "BrandData",
+      "NavItem",
+      "ThemeOption"
     ]
   },
   {
@@ -205,6 +314,9 @@
         "defaultValue": "md",
         "description": "Visual size of the input"
       }
+    ],
+    "relatedTypeNames": [
+      "InputProps"
     ]
   }
 ]

@@ -132,6 +132,11 @@ export function Layout() {
           路由管理
         </NavLink>
 
+        <NavLink to="/data" className={navItemClass}>
+          <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
+          資料管理
+        </NavLink>
+
         <NavLink to="/files" className={navItemClass}>
           <span className="size-[5px] shrink-0 rounded-full bg-border" aria-hidden="true" />
           檔案管理

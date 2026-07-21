@@ -7,6 +7,7 @@ import { writeI18nPlugin } from "./scripts/write-i18n-plugin.mjs";
 import { writePagesPlugin } from "./scripts/write-pages-plugin.mjs";
 import { writeAppsPlugin } from "./scripts/write-apps-plugin.mjs";
 import { writeRoutesPlugin } from "./scripts/write-routes-plugin.mjs";
+import { writeDataRecordsPlugin } from "./scripts/write-data-plugin.mjs";
 import { writeThemePlugin } from "./scripts/write-theme-plugin.mjs";
 import { writeFilesPlugin } from "./scripts/write-files-plugin.mjs";
 import { writeS3PresignPlugin } from "./scripts/write-s3-presign-plugin.mjs";
@@ -24,6 +25,10 @@ export default defineConfig({
   // （新增 / 刪除 / 重新命名 / 設定欄位），並同步聚合檔案。
   // writeRoutesPlugin() 同樣只在 dev 掛載，讓 /routes 頁面可以把編輯好的路由設定
   // 寫回 data/{app}/routes.json，或從磁碟讀回覆蓋 localStorage。
+  // writeDataRecordsPlugin() 同樣只在 dev 掛載，讓 /data 頁面（資料管理，
+  // app 底下的子功能：選一個 @workspace/ui 組件共用型別 => 對該型別的
+  // 簡單 JSON 資料做 CRUD）可以把編輯好的資料寫回
+  // data/{app}/records/{typeId}.json，或從磁碟讀回覆蓋 localStorage。
   // writeThemePlugin() 同樣只在 dev 掛載，讓 /theme 頁面可以把編輯好的主題設定
   // 寫回 data/{app}/theme.json + data/{app}/styles.css（每個 app 各自一份），
   // 或從磁碟讀回覆蓋前端狀態。
@@ -42,6 +47,7 @@ export default defineConfig({
     writePagesPlugin(),
     writeAppsPlugin(),
     writeRoutesPlugin(),
+    writeDataRecordsPlugin(),
     writeThemePlugin(),
     writeFilesPlugin(),
     writeS3PresignPlugin(),

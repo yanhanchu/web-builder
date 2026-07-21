@@ -9,6 +9,7 @@ import { PagesEditorIndex } from '@/pages/page-editor';
 import { I18nManager } from '@/pages/i18n-manager';
 import { AppListPage, AppEditPage } from '@/pages/settings';
 import { RouteManager } from '@/pages/route-manager';
+import { DataManager } from '@/pages/data-manager';
 import { FileManager } from '@/pages/file-manager';
 import { ThemeGenerator } from '@/pages/theme-generator';
 import { AppProvider } from '@/hooks/context';
@@ -89,6 +90,17 @@ const router = createBrowserRouter([
       //   /routes -> 目前 app 底下的路由設定管理
       // ---------------------------------------------------------------
       { path: 'routes', element: <RouteManager /> },
+
+      // ---------------------------------------------------------------
+      // 資料管理（/data）：app 底下的子功能，選一個 @workspace/ui 組件
+      // 共用的型別（見 packages/ui/data/component-types.json，由
+      // packages/ui/scripts/generate-docs.mjs 產生），對該型別的簡單 JSON
+      // 資料做 CRUD。跟「路由管理（/routes）」同一種最簡單的管理模式：
+      // 資料只存在瀏覽器 localStorage，另有「寫入檔案系統」「從檔案系統
+      // 讀取（覆蓋）」按鈕跟 data/{app}/records/{typeId}.json 互動。
+      //   /data -> 目前 app 底下的資料管理（選型別 => 編輯資料）
+      // ---------------------------------------------------------------
+      { path: 'data', element: <DataManager /> },
 
       // ---------------------------------------------------------------
       // 檔案管理（/files）：app 底下的子功能，管理這個 app 上傳的檔案

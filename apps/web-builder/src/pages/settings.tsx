@@ -29,6 +29,7 @@ import {
   saveI18nVersionHistory,
 } from '@/store/i18n-version-storage';
 import { removeAppRoutes, renameAppRoutes } from '@/store/route-storage';
+import { removeAppDataRecords, renameAppDataRecords } from '@/store/data-manager-storage';
 import {
   removeAppFiles,
   renameAppFiles,
@@ -536,6 +537,7 @@ export function AppEditPage() {
     renameLocalAppI18n(app!, newName);
     renameLocalAppI18nVersions(app!, newName);
     renameAppRoutes(app!, newName);
+    renameAppDataRecords(app!, newName);
     renameAppFiles(app!, newName);
     renameAppAutoSyncTargets(app!, newName);
     setApp(newName);
@@ -568,6 +570,7 @@ export function AppEditPage() {
       removeLocalAppI18n(app)
       removeLocalAppI18nVersions(app)
       removeAppRoutes(app)
+      removeAppDataRecords(app)
       removeAppFiles(app)
       removeAppAutoSyncTargets(app)
       navigate("/admin", { replace: true })

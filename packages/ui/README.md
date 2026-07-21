@@ -21,7 +21,7 @@ package（`browser`、`server`）不同，這裡**同時有兩種東西混在一
 | `globals.css` | `src/styles/globals.css` | Tailwind base + CSS 變數（顏色、字體） | 每個用到這個套件元件的 app，需自行 import 一次 |
 | `functions/*` | `src/functions/*.ts` | 純函式範例（`calculateOrderTotal` 等），用來展示「函式文件」產生器的效果 | `apps/web-builder` 的函式文件頁 |
 | `pages/generator/*`、`components/generator/*`、`lib/generator/*`、`styles/generator/*`、`types/generator/*` | `src/**/generator/**` | 元件/函式文件產生器本身（掃描 `.tsx`/`.ts`、產生 `data/*.json`、渲染文件頁面、就地編輯寫回原始碼） | 只有 `apps/web-builder` 用它來長出 `/components`、`/functions` 這類文件頁 |
-| `docs:generate` / `functions:generate` script | `scripts/generate-docs.mjs` / `scripts/generate-functions-docs.mjs` | 掃描 `src/components/**` / `src/functions/**`，產生 `data/components.json` / `data/functions.json` + `src/lib/generator/component-map.ts` | build/dev 前置作業，見下方 |
+| `docs:generate` / `functions:generate` script | `scripts/generate-docs.mjs` / `scripts/generate-functions-docs.mjs` | 掃描 `src/components/**` / `src/functions/**`，產生 `data/components.json`（含各 prop 的 `relatedTypeNames`）+ `data/component-types.json`（跨組件共用的詳細型別展開，含陣列型別）+ `data/functions.json` + `src/lib/generator/component-map.ts` | build/dev 前置作業，見下方 |
 | `write-back-plugin` | `scripts/write-back-plugin.mjs` | Vite plugin：文件頁面上「就地編輯 props/JSDoc 說明」直接寫回原始碼的 dev-only API | 掛在使用這個套件文件功能的 app 的 `vite.config.ts` |
 
 ## 怎麼引用
@@ -62,7 +62,14 @@ import '@workspace/ui/globals.css'; // 在 app 入口引入一次
    props 型別記得寫 JSDoc（會被 `docs:generate` 抽出來當文件說明）
 2. 在自己套件根目錄跑 `pnpm --filter @workspace/ui run docs:generate`，
    確認 `data/components.json` 有正確產生對應項目
-3. 若元件需要暴露新的 import 路徑，到 `package.json` 的 `exports`
+3. 若 props 型別參照到專案內定義的 interface / type（例如
+   `items: CardItem[]`），`docs:generate` 會額外把 `CardItem` 的詳細欄位
+   展開進 `data/component-types.json`（`ComponentTypeDoc`，含每個欄位完整
+   型別字串如 `string[]`、是否必填、JSDoc 說明），並給這個型別一個獨立
+   id（目前實作等於型別名稱），不同組件參照到同一個型別時會共用同一筆
+   `ComponentTypeDoc`，不會重複展開。這份型別資料同時也是
+   `apps/web-builder` 的「資料管理（/data）」子功能選型別時的資料來源。
+4. 若元件需要暴露新的 import 路徑，到 `package.json` 的 `exports`
    欄位確認 `./components/*` 這類萬用規則能涵蓋到，通常不需要額外新增
 
 ## 新增可被文件化的函式

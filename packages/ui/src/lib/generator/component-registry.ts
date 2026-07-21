@@ -1,10 +1,22 @@
 import rawData from '../../../data/components.json';
-import type { ComponentDoc } from '@workspace/ui/types/generator/component-types';
+import rawTypesData from '../../../data/component-types.json';
+import type { ComponentDoc, ComponentTypeDoc } from '@workspace/ui/types/generator/component-types';
 import { componentMap } from './component-map';
 
 // build time 產生的靜態資料，直接被打包進 bundle，
 // 因此組件清單頁 / 列表頁不需要任何 fetch 或 loading 狀態。
 export const allComponents: ComponentDoc[] = rawData as ComponentDoc[];
+
+/**
+ * 所有組件 props 用到的相關型別（跨組件共用，見 scripts/generate-docs.mjs）。
+ * 「資料管理」子功能（apps/web-builder/src/pages/data-manager.tsx）選型別時
+ * 就是從這份清單挑選。
+ */
+export const allComponentTypes: ComponentTypeDoc[] = (rawTypesData as { types: ComponentTypeDoc[] }).types;
+
+export function getComponentTypeById(id: string): ComponentTypeDoc | undefined {
+  return allComponentTypes.find((t) => t.id === id);
+}
 
 export function getComponentById(id: string): ComponentDoc | undefined {
   return allComponents.find((c) => c.id === id);
