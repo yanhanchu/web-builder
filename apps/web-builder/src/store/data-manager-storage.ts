@@ -1,18 +1,20 @@
-// localStorage 存取層：資料管理（app 底下的子功能）目前的編輯狀態。
+// localStorage 存取層：資料管理（v3）
 //
-// 跟 route-storage.ts 同一套「localStorage 為主要工作副本」模式，但資料
-// 形狀多一層 typeId（app -> typeId -> DataRecordEntry[]），因此不直接沿用
-// createAppKeyedStorage<T>，改成在同一個 storage key 底下存整份巢狀物件，
-// 操作時對「單一 app + 單一 typeId」這組 key 做讀寫。
+// 結構：data-manager:v3 -> { [app]: { [typeId]: { [datasetName]: Dataset } } }
 //
-// 跟 routes 同一套模式：localStorage 為主要工作副本，另有對應的
-// disk-api（src/lib/data-manager-disk-api.ts）與 write-data-plugin
-// （scripts/write-data-plugin.mjs），可手動「寫入檔案系統」「從檔案系統
-// 讀取（覆蓋）」到 data/{app}/records/{typeId}.json。
+// - v3 改用新的 DataManagerData 形狀（app -> typeId -> datasetName -> Dataset）
+// - v2/v1 的 key 是 data-manager:data，不衝突，舊資料自動被忽略
 
-import type { DataManagerData, DataRecordEntry } from '@/types/data-manager-types';
+import type {
+  DataManagerData,
+  Dataset,
+  DataRecordEntry,
+  RecordValue,
+} from '@/types/data-manager-types';
 
-const STORAGE_KEY = 'data-manager:data';
+const STORAGE_KEY = 'data-manager:v3';
+
+// ─── raw load / save ──────────────────────────────────────────────────────────
 
 function load(): DataManagerData {
   try {
@@ -28,19 +30,17 @@ function load(): DataManagerData {
   }
 }
 
-function save(data: DataManagerData): boolean {
-  let ok = true;
+function save(data: DataManagerData): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
-    ok = false;
+    // quota exceeded — 靜默失敗
   }
   notify(data);
-  return ok;
 }
 
-// 同分頁內變更通知，跟 storage.ts 的 createAppKeyedStorage 同樣理由：
-// 同一分頁內 setItem 不會觸發瀏覽器原生 storage event。
+// ─── 同分頁通知（不走瀏覽器 storage event） ──────────────────────────────────
+
 const listeners = new Set<(data: DataManagerData) => void>();
 
 function notify(data: DataManagerData): void {
@@ -49,10 +49,10 @@ function notify(data: DataManagerData): void {
 
 export function subscribeDataManagerData(fn: (data: DataManagerData) => void): () => void {
   listeners.add(fn);
-  return () => {
-    listeners.delete(fn);
-  };
+  return () => listeners.delete(fn);
 }
+
+// ─── 公開 API ─────────────────────────────────────────────────────────────────
 
 export function loadDataManagerData(): DataManagerData {
   return load();
@@ -62,52 +62,124 @@ export function saveDataManagerData(data: DataManagerData): void {
   save(data);
 }
 
-/** 取得某個 app 底下、某個型別 id 目前的資料紀錄，未曾編輯過時回傳空陣列 */
-export function loadTypeRecords(app: string, typeId: string): DataRecordEntry[] {
+/** 取得某 app + typeId 底下的所有 datasets（map by name） */
+export function loadDatasets(app: string, typeId: string): Record<string, Dataset> {
   const all = load();
-  return all[app]?.[typeId] ?? [];
+  return all[app]?.[typeId] ?? {};
 }
 
-/** 覆寫某個 app 底下、某個型別 id 的資料紀錄，其餘 app / typeId 維持不變 */
-export function saveTypeRecords(app: string, typeId: string, records: DataRecordEntry[]): void {
+/** 覆寫某 app + typeId 底下的所有 datasets */
+function saveDatasets(app: string, typeId: string, datasets: Record<string, Dataset>): void {
   const all = load();
   const appData = all[app] ?? {};
-  save({ ...all, [app]: { ...appData, [typeId]: records } });
+  save({ ...all, [app]: { ...appData, [typeId]: datasets } });
 }
 
-/** 取得某個 app 底下，目前有哪些型別 id 已經被編輯過（有 localStorage 紀錄），供列表用 */
-export function loadAppTypeIds(app: string): string[] {
-  const all = load();
-  return Object.keys(all[app] ?? {});
+/** 取得某個 dataset */
+export function loadDataset(app: string, typeId: string, datasetName: string): Dataset | undefined {
+  return loadDatasets(app, typeId)[datasetName];
 }
 
-/** 新增一筆資料紀錄到指定 app + typeId */
-export function addDataRecord(app: string, typeId: string, entry: DataRecordEntry): void {
-  const current = loadTypeRecords(app, typeId);
-  saveTypeRecords(app, typeId, [...current, entry]);
+/** 新增或覆寫一個 dataset */
+export function saveDataset(app: string, typeId: string, datasetName: string, dataset: Dataset): void {
+  const datasets = loadDatasets(app, typeId);
+  saveDatasets(app, typeId, { ...datasets, [datasetName]: dataset });
 }
 
-/** 更新指定 app + typeId 底下的一筆既有資料紀錄（依 id 比對） */
-export function updateDataRecord(app: string, typeId: string, id: string, value: Record<string, unknown>): void {
-  const current = loadTypeRecords(app, typeId);
-  saveTypeRecords(
-    app,
-    typeId,
-    current.map((r) => (r.id === id ? { ...r, value } : r))
-  );
+/** 刪除一個 dataset */
+export function removeDataset(app: string, typeId: string, datasetName: string): void {
+  const datasets = { ...loadDatasets(app, typeId) };
+  delete datasets[datasetName];
+  saveDatasets(app, typeId, datasets);
 }
 
-/** 刪除指定 app + typeId 底下的一筆資料紀錄 */
-export function removeDataRecord(app: string, typeId: string, id: string): void {
-  const current = loadTypeRecords(app, typeId);
-  saveTypeRecords(
-    app,
-    typeId,
-    current.filter((r) => r.id !== id)
-  );
+/** 重新命名一個 dataset */
+export function renameDataset(
+  app: string,
+  typeId: string,
+  oldName: string,
+  newName: string
+): void {
+  const datasets = { ...loadDatasets(app, typeId) };
+  if (!(oldName in datasets) || newName === oldName) return;
+  const ds = datasets[oldName];
+  datasets[newName] = { ...ds, name: newName } as Dataset;
+  delete datasets[oldName];
+  saveDatasets(app, typeId, datasets);
 }
 
-/** app 被刪除時，一併清掉 localStorage 裡對應的暫存資料。 */
+// ─── 陣列型 dataset：逐筆操作 ─────────────────────────────────────────────────
+
+/** 對 isArrayType=true 的 dataset 新增一筆 item */
+export function addItemToDataset(
+  app: string,
+  typeId: string,
+  datasetName: string,
+  entry: DataRecordEntry
+): void {
+  const ds = loadDataset(app, typeId, datasetName);
+  if (!ds || !ds.isArrayType) return;
+  saveDataset(app, typeId, datasetName, {
+    ...ds,
+    items: [...ds.items, entry],
+  });
+}
+
+/** 更新 isArrayType=true 的 dataset 中某一筆 item */
+export function updateItemInDataset(
+  app: string,
+  typeId: string,
+  datasetName: string,
+  id: string,
+  value: Record<string, RecordValue>,
+  i18nBindings?: Record<string, string>
+): void {
+  const ds = loadDataset(app, typeId, datasetName);
+  if (!ds || !ds.isArrayType) return;
+  saveDataset(app, typeId, datasetName, {
+    ...ds,
+    items: ds.items.map((r) =>
+      r.id === id ? { ...r, value, ...(i18nBindings !== undefined ? { i18nBindings } : {}) } : r
+    ),
+  });
+}
+
+/** 移除 isArrayType=true 的 dataset 中某一筆 item */
+export function removeItemFromDataset(
+  app: string,
+  typeId: string,
+  datasetName: string,
+  id: string
+): void {
+  const ds = loadDataset(app, typeId, datasetName);
+  if (!ds || !ds.isArrayType) return;
+  saveDataset(app, typeId, datasetName, {
+    ...ds,
+    items: ds.items.filter((r) => r.id !== id),
+  });
+}
+
+// ─── 單一物件型 dataset：整體更新 ────────────────────────────────────────────
+
+/** 更新 isArrayType=false 的 dataset 的 item（整份覆寫） */
+export function updateSingleDataset(
+  app: string,
+  typeId: string,
+  datasetName: string,
+  value: Record<string, RecordValue>,
+  i18nBindings?: Record<string, string>
+): void {
+  const ds = loadDataset(app, typeId, datasetName);
+  if (!ds || ds.isArrayType) return;
+  saveDataset(app, typeId, datasetName, {
+    ...ds,
+    item: value,
+    ...(i18nBindings !== undefined ? { i18nBindings } : {}),
+  });
+}
+
+// ─── app 生命週期 ──────────────────────────────────────────────────────────────
+
 export function removeAppDataRecords(app: string): void {
   const all = load();
   if (!(app in all)) return;
@@ -116,7 +188,6 @@ export function removeAppDataRecords(app: string): void {
   save(next);
 }
 
-/** app 被重新命名時，把 localStorage 裡的資料 key 一併搬移。 */
 export function renameAppDataRecords(oldName: string, newName: string): void {
   const all = load();
   if (!(oldName in all)) return;
@@ -124,4 +195,12 @@ export function renameAppDataRecords(oldName: string, newName: string): void {
   next[newName] = next[oldName];
   delete next[oldName];
   save(next);
+}
+
+// ─── 為了相容舊的 data-manager-disk-api（loadDataManagerData 結構） ──────────
+
+/** 取得某 app 底下有紀錄的 typeId 清單 */
+export function loadAppTypeIds(app: string): string[] {
+  const all = load();
+  return Object.keys(all[app] ?? {});
 }

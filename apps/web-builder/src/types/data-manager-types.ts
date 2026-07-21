@@ -1,83 +1,132 @@
-// 「資料管理」的型別定義。
+// 「資料管理」的型別定義（第三版）
 //
-// app 底下的子功能，跟「路由管理（/routes）」同一種最簡單的管理模式
-// （localStorage 為主要工作副本，另有 disk-api + write-plugin 手動同步到
-// data/{app}/records/{typeId}.json），只是這裡管理的資料形狀不是固定的
-// RouteEntry，而是「使用者選定的某個 @workspace/ui 組件型別（見
-// packages/ui/data/component-types.json，ComponentTypeDoc）」對應的一批
-// 簡單 JSON 資料。
+// 核心設計：
+//   - 選「組件（ComponentDoc）」，從其 relatedTypeNames 抓出「第一層複雜型別」
+//     （排除：aliasOf / 欄位含第三方 lib 型別 / Props 型別本身）
+//   - 每個複雜型別可建立無數份「命名資料集（dataset）」
+//     * isArrayType=true  (NavItem[], ThemeOption[])：一份 dataset 含多個物件
+//     * isArrayType=false (BrandData)              ：一份 dataset 是單一物件
+//   - 巢狀 inline 物件欄位（{ lead: string; accent: string; }）也支援編輯
 //
-// 流程：選型別（ComponentTypeDoc.id）=> 對該型別的資料做 CRUD。
-//
-// 目前只支援「簡單物件」與「陣列<簡單物件>」兩種編輯形態，也就是
-// ComponentTypeDoc.fields 裡每個欄位的型別必須可以用簡單 JSON 表達
-// （boolean / string / number，或它們的陣列），巢狀 object / 其他複雜
-// 型別（例如 ReactNode、函式、參照到另一個 interface 的欄位）在 v1 先不
-// 支援編輯，欄位層級會標示「不支援」，先讓使用者看得到、之後再完善。
+// localStorage 儲存：
+//   data-manager:v3 ->
+//     [app][typeId][datasetName] -> DataRecordEntry | DataRecordEntry[]
 
-/** 單筆資料紀錄：某個型別 id 底下的一筆簡單 JSON 物件 */
-export interface DataRecordEntry {
-  /** 前端產生的唯一識別碼（新增時用 crypto.randomUUID() 產生） */
-  id: string;
-  /**
-   * 實際資料內容，形狀對應 ComponentTypeDoc.fields。
-   * 只允許簡單 JSON 值：string / number / boolean / null，或上述型別的陣列。
-   */
-  value: Record<string, unknown>;
-}
+// ─── 基本 primitives ──────────────────────────────────────────────────────────
 
-/** 單一型別底下的資料集合 */
-export interface DataTypeRecords {
-  /** 對應 ComponentTypeDoc.id（見 @workspace/ui 的 component-types.json） */
-  typeId: string;
-  records: DataRecordEntry[];
-}
+export type SimpleKind = 'string' | 'number' | 'boolean';
 
-/**
- * data/{app}/records/{typeId}.json 的資料形狀：
- * app -> typeId -> 該型別底下的資料紀錄陣列。
- *
- * 跟 routes 同一套「localStorage 優先，手動同步到檔案系統」模式（見
- * README「App 管理」章節）。
- */
-export type DataManagerData = Record<string /* app */, Record<string /* typeId */, DataRecordEntry[]>>;
-
-/** 判斷一個型別欄位的 type 字串是否為目前支援編輯的「簡單型別」 */
-export type SimpleFieldKind = 'string' | 'number' | 'boolean' | 'unsupported';
-
-/** 判斷一個欄位型別字串是否為陣列寫法（例如 "string[]"），回傳去掉 `[]` 後的元素型別字串 */
-export function getArrayElementType(type: string): string | null {
-  const trimmed = type.trim();
-  if (trimmed.endsWith('[]')) {
-    return trimmed.slice(0, -2).trim();
-  }
-  const readonlyArrayMatch = trimmed.match(/^(?:ReadonlyArray|Array)<(.+)>$/);
-  if (readonlyArrayMatch) {
-    return readonlyArrayMatch[1].trim();
-  }
+/** 判斷一個型別字串是否為 array，回傳元素型別字串；否則回傳 null */
+export function getArrayElementType(typeStr: string): string | null {
+  const t = typeStr.trim();
+  if (t.endsWith('[]')) return t.slice(0, -2).trim();
+  const m = t.match(/^(?:ReadonlyArray|Array)<(.+)>$/);
+  if (m) return m[1].trim();
   return null;
 }
 
-/** 把一個（去掉陣列符號後的）型別字串判斷成目前支援的簡單型別種類之一 */
-export function classifySimpleType(type: string): SimpleFieldKind {
-  const trimmed = type.trim();
-  if (trimmed === 'string') return 'string';
-  if (trimmed === 'number') return 'number';
-  if (trimmed === 'boolean') return 'boolean';
-  return 'unsupported';
+/** string/number/boolean 三種 primitive */
+export function classifySimpleType(typeStr: string): SimpleKind | null {
+  const t = typeStr.trim();
+  if (t === 'string') return 'string';
+  if (t === 'number') return 'number';
+  if (t === 'boolean') return 'boolean';
+  return null;
 }
 
-/** 欄位層級的「這個欄位目前可不可以編輯」判斷結果 */
-export interface FieldEditability {
-  name: string;
-  required: boolean;
-  description: string;
-  /** 原始型別字串，例如 "string"、"number[]"、"SomeType" */
-  type: string;
-  /** 是否為陣列（陣列<簡單物件> 只支援陣列<string|number|boolean>，見下方 supported 判斷） */
-  isArray: boolean;
-  /** 陣列元素或純量本身的簡單型別種類 */
-  elementKind: SimpleFieldKind;
-  /** 這個欄位目前是否支援在「資料管理」畫面編輯 */
-  supported: boolean;
+// ─── 欄位形狀 ─────────────────────────────────────────────────────────────────
+
+/**
+ * 解析後的欄位描述（遞迴支援巢狀物件）。
+ * 只有 kind !== 'unsupported' 的欄位才會在 UI 顯示可編輯輸入框。
+ */
+export type ParsedField =
+  | { kind: 'string';   name: string; required: boolean; description: string; isArray: false }
+  | { kind: 'number';   name: string; required: boolean; description: string; isArray: false }
+  | { kind: 'boolean';  name: string; required: boolean; description: string; isArray: false }
+  | { kind: 'string';   name: string; required: boolean; description: string; isArray: true  }
+  | { kind: 'number';   name: string; required: boolean; description: string; isArray: true  }
+  | { kind: 'boolean';  name: string; required: boolean; description: string; isArray: true  }
+  | {
+      /** inline 物件：{ lead: string; accent: string; } 這類型別 */
+      kind: 'object';
+      name: string;
+      required: boolean;
+      description: string;
+      isArray: false;
+      children: ParsedField[];
+    }
+  | {
+      kind: 'object';
+      name: string;
+      required: boolean;
+      description: string;
+      isArray: true;
+      children: ParsedField[];
+    }
+  | { kind: 'unsupported'; name: string; required: boolean; description: string; rawType: string };
+
+// ─── 命名資料集（dataset） ─────────────────────────────────────────────────────
+
+/**
+ * 一筆資料物件的 value：遞迴 JSON-safe 結構。
+ * 巢狀物件欄位以 Record<string, RecordValue> 表示。
+ */
+export type RecordValue =
+  | string
+  | number
+  | boolean
+  | null
+  | RecordValue[]
+  | { [key: string]: RecordValue };
+
+export interface DataRecordEntry {
+  id: string;
+  value: Record<string, RecordValue>;
+  /**
+   * 哪些 string 欄位（含巢狀，用 "." 連接路徑）改成動態取 i18n 值。
+   * key 是欄位路徑（例如 "label" 或 "wordmark.lead"），value 是 i18n key 字串。
+   * 平行於 value，不嵌入 RecordValue，跟 page-editor 的 i18nPropBindings 設計一致。
+   */
+  i18nBindings?: Record<string, string>;
+}
+
+/**
+ * 一份命名資料集（dataset）。
+ * - isArrayType=true  → items 是多筆物件（NavItem[]）
+ * - isArrayType=false → item  是單一物件（BrandData）
+ */
+export type Dataset =
+  | { isArrayType: true;  name: string; items: DataRecordEntry[] }
+  | { isArrayType: false; name: string; item: Record<string, RecordValue>; i18nBindings?: Record<string, string> };
+
+// ─── storage 形狀 ─────────────────────────────────────────────────────────────
+
+/**
+ * localStorage 存的整份資料結構：
+ * app -> typeId -> datasetName -> Dataset
+ */
+export type DataManagerData = Record<
+  string,                      // app
+  Record<
+    string,                    // typeId
+    Record<string, Dataset>    // datasetName -> Dataset
+  >
+>;
+
+// ─── 可管理的複雜型別 ─────────────────────────────────────────────────────────
+
+/**
+ * 從 ComponentDoc.relatedTypeNames 解析出來的「可管理型別」：
+ * - typeId / typeName：對應 ComponentTypeDoc
+ * - isArrayType      ：這個型別在組件 props 裡是否以 T[] 形式出現
+ * - fields           ：解析後的欄位清單（已排除不支援的 top-level 型別；
+ *                       巢狀物件以 kind='object' 表示）
+ */
+export interface ManagedType {
+  typeId: string;
+  typeName: string;
+  /** 在組件 props 裡是否以 T[] 形式出現 */
+  isArrayType: boolean;
+  fields: ParsedField[];
 }

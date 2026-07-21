@@ -66,7 +66,11 @@ export function RouteManager() {
   }, [activeNs, refreshKey]);
 
   const [newPath, setNewPath] = useState('');
-  const [newTargetType, setNewTargetType] = useState<'page' | 'url'>('page');
+  // generatedPages 是 build-time 自動產生（npm run pages:generate），
+  // 尚未執行時清單為空。此時預設改選「自訂網址」，避免下拉選單空白選不到任何項目。
+  const [newTargetType, setNewTargetType] = useState<'page' | 'url'>(
+    generatedPages.length > 0 ? 'page' : 'url'
+  );
   const [newPageId, setNewPageId] = useState(generatedPages[0]?.id ?? '');
   const [newTargetUrl, setNewTargetUrl] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -128,8 +132,8 @@ export function RouteManager() {
       setError('路徑格式不合法，僅能包含英數字、連字號、底線與斜線');
       return;
     }
-    if (newTargetType === 'page' && !newPageId) {
-      setError('請選擇對應的頁面');
+    if (newTargetType === 'page' && (!newPageId || generatedPages.length === 0)) {
+      setError('請先執行 npm run pages:generate 產生頁面清單，或改選「自訂網址」');
       return;
     }
     if (newTargetType === 'url' && !isValidTargetUrl(newTargetUrl)) {
@@ -233,18 +237,28 @@ export function RouteManager() {
             <label className={styles.fieldLabel} htmlFor="route-page">
               對應頁面
             </label>
-            <select
-              id="route-page"
-              className={styles.select}
-              value={newPageId}
-              onChange={(e) => setNewPageId(e.target.value)}
-            >
-              {generatedPages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}（{p.id}）
-                </option>
-              ))}
-            </select>
+            {generatedPages.length === 0 ? (
+              <p className={cn(styles.hintText ?? 'mt-1 text-xs text-muted-foreground/80')}>
+                目前尚無已產生的頁面。請先執行{' '}
+                <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[0.75rem]">
+                  npm run pages:generate
+                </code>{' '}
+                產生頁面清單，或改選「自訂網址」。
+              </p>
+            ) : (
+              <select
+                id="route-page"
+                className={styles.select}
+                value={newPageId}
+                onChange={(e) => setNewPageId(e.target.value)}
+              >
+                {generatedPages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}（{p.id}）
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         ) : (
           <div className={styles.field}>

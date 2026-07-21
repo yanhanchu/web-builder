@@ -33,6 +33,10 @@ import {
   type StringLikeValueType,
 } from "@/components/value-type-input";
 import { PropMetaBadges } from "@/components/component-prop-meta";
+import { CollapsibleSection } from "@/components/collapsible-section";
+import { SeoEditor } from "@/components/seo-editor";
+import type { SeoLike } from "@/components/seo-editor";
+import { normalizePageSeo } from "@/types/pages-types";
 
 /**
  * data/pages.json 的編輯器。
@@ -1485,6 +1489,22 @@ export function PageDefEditor({
         </label>
       </div>
 
+      {/* 頁面層級 SEO —— 可收合，預設關閉，避免佔去編輯器大量空間 */}
+      <div className="mb-3">
+        <CollapsibleSection
+          title="SEO 設定（頁面層級）"
+          description="此頁面專屬的 SEO 設定，留空的欄位沿用 App 設定（/app）的 app 層級 SEO 值。"
+          defaultOpen={false}
+        >
+          <SeoEditor
+            seo={page.seo as SeoLike | undefined}
+            onChange={(next) =>
+              onChange({ ...page, seo: next as ReturnType<typeof normalizePageSeo> })
+            }
+          />
+        </CollapsibleSection>
+      </div>
+
       <div className={styles.childrenHeader}>
         <span>nodes ({page.nodes.length})</span>
         <div className={styles.headerActions}>
@@ -1529,6 +1549,8 @@ export interface EditablePageDef {
   id: string;
   title: string;
   nodes: EditableNode[];
+  /** 頁面層級 SEO（選填）。與 PageDef.seo 直接對應，編輯時同步回 PageDef。 */
+  seo?: import("@/types/pages-types").PageSeo;
 }
 
 export function toEditablePage(page: PageDef): EditablePageDef {
@@ -1538,6 +1560,7 @@ export function toEditablePage(page: PageDef): EditablePageDef {
     nodes: page.nodes.map((node, i) =>
       toEditable(node, nodePath("", i), page.i18nBindings),
     ),
+    seo: page.seo,
   };
 }
 
@@ -1551,6 +1574,7 @@ export function toPageDef(page: EditablePageDef): PageDef {
     id: page.id,
     title: page.title,
     nodes,
+    ...(page.seo !== undefined ? { seo: page.seo } : {}),
     ...(hasBindings ? { i18nBindings: outBindings } : {}),
   };
 }
@@ -1779,7 +1803,7 @@ export function PageEditorRoute() {
         <code>npm run dev</code>）才會覆寫 <code>data/{app}/pages.json</code>
         ，其他分頁 / <code>/live</code> 頁面會透過 HMR
         立即看到最新內容；按「從檔案系統讀取（覆蓋）」則反向把磁碟上的內容
-        覆蓋回瀏覽器的編輯狀態。也可以用「下載 JSON」或「列印」取得目前結果。
+        覆蓋回瀏覽器的���輯狀態。也可以用「下載 JSON」或「列印」取得目前結果。
       </p>
 
       <PageDefEditor page={page} onChange={setPage} />

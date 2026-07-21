@@ -15,7 +15,7 @@ export const routeManagerStyles = {
   addButton:
     'shrink-0 rounded-md border border-primary/40 bg-primary/10 px-3 py-[0.4375rem] text-[0.8125rem] font-semibold text-foreground transition-colors duration-150 hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50',
   errorText: 'mt-1 text-xs text-destructive',
-
+  hintText: 'mt-1 text-xs text-destructive',
   targetTypeRow: 'flex items-center gap-3 py-[0.4375rem] text-[0.8125rem] text-foreground',
   targetTypeOption: 'flex cursor-pointer items-center gap-1.5',
 

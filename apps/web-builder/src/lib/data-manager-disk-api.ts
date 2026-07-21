@@ -4,6 +4,9 @@
 // （覆蓋）」這兩個動作各自的 fetch 邏輯抽出來。
 //
 // 只在 `vite dev` 環境有效，見 scripts/write-data-plugin.mjs。
+//
+// v3：DataManagerData 結構改為 app -> typeId -> datasetName -> Dataset，
+// disk-api 本身只做 JSON 傳遞，不感知內部結構，所以這層不需要改。
 
 import type { DataManagerData } from '@/types/data-manager-types';
 
