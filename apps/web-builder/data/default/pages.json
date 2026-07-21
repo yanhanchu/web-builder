@@ -64,7 +64,16 @@
           }
         ]
       },
-      "新文字節點"
+      "新文字節點",
+      {
+        "component": "params-table-params-table"
+      },
+      {
+        "component": "avatar-avatar",
+        "props": {
+          "name": ""
+        }
+      }
     ]
   },
   {
@@ -89,6 +98,24 @@
             }
           }
         ]
+      },
+      {
+        "component": "avatar-avatar",
+        "props": {
+          "name": ""
+        }
+      }
+    ]
+  },
+  {
+    "id": "page-3",
+    "title": "新頁面",
+    "nodes": [
+      {
+        "component": "avatar-avatar",
+        "props": {
+          "name": ""
+        }
       }
     ]
   }

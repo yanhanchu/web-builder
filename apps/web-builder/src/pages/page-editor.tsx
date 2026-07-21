@@ -454,7 +454,7 @@ function I18nKeyPicker({
   return (
     <details
       ref={detailsRef}
-      className="group relative max-w-[220px] shrink-0"
+      className="group relative w-9 shrink-0"
       onToggle={(e) => {
         // 展開時把 filter 輸入框聚焦，收合時清掉 filter 字串（下次打開重新開始篩選）。
         const el = e.currentTarget;
@@ -470,13 +470,12 @@ function I18nKeyPicker({
       <summary
         className={cn(
           styles.select,
-          'flex cursor-pointer list-none items-center justify-between gap-1 truncate [&::-webkit-details-marker]:hidden',
+          'flex h-9 w-9 cursor-pointer list-none items-center justify-center px-0 [&::-webkit-details-marker]:hidden',
           value ? 'border-primary/40 text-primary' : 'text-muted-foreground'
         )}
-        title={value ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}` : '綁定 i18n key（顯示時動態換值）'}
+        title={value ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}（點擊變更或解除）` : '綁定 i18n key（顯示時動態換值）'}
       >
-        <span className="truncate">{value ? `🔗 ${value}` : '⛓️‍💥'}</span>
-        <span className="text-muted-foreground/50">▾</span>
+        🔗
       </summary>
 
       <div className="absolute right-0 z-10 mt-1 w-[280px] rounded-md border border-border bg-card p-2 shadow-lg">
@@ -864,21 +863,18 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
       </div>
 
       {node.kind === 'text' && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2">
+          <ValueTypeField
+            valueType={node.valueType ?? 'string'}
+            value={node.value}
+            disabled={Boolean(node.i18nKey)}
+            onChange={(next) => onChange({ ...node, value: next })}
+          />
+          <div className="flex flex-wrap items-center gap-2">
             <ValueTypeSelect
               value={node.valueType ?? 'string'}
               onChange={(nextType) => onChange({ ...node, valueType: nextType })}
-              className="shrink-0"
             />
-            <div className="flex-1">
-              <ValueTypeField
-                valueType={node.valueType ?? 'string'}
-                value={node.value}
-                disabled={Boolean(node.i18nKey)}
-                onChange={(next) => onChange({ ...node, value: next })}
-              />
-            </div>
             <I18nKeyPicker
               value={node.i18nKey}
               keys={i18nKeys}
@@ -890,15 +886,15 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                 onChange(next);
               }}
             />
+            {node.i18nKey && (
+              <span
+                className={styles.i18nStatus}
+                title={`已綁定 i18n key「${node.i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容，輸入框已停用；要改回手動輸入，請點左側 🔗 解除綁定`}
+              >
+                🔗 {node.i18nKey}
+              </span>
+            )}
           </div>
-          {node.i18nKey && (
-            <span
-              className={styles.i18nStatus}
-              title={`已綁定 i18n key「${node.i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容，輸入框已停用；要改回手動輸入，請在右側選單解除綁定`}
-            >
-              🔗 {node.i18nKey}
-            </span>
-          )}
         </div>
       )}
 
@@ -915,7 +911,10 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               {meta.props
                 .filter((p) => p.type !== 'ReactNode')
                 .map((p) => (
-                <label key={p.name} className={styles.propField}>
+                <label
+                  key={p.name}
+                  className={cn(styles.propField, p.type === 'string' && 'sm:col-span-full')}
+                >
                   <span className={styles.propLabel}>
                     {p.name}
                     {p.required && <span className={styles.required}>*</span>}
@@ -959,8 +958,23 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                     // email/url/phone/色碼/檔案路徑/markdown），依選擇渲染對應的輸入元件。
                     // `props[p.name]` 本身仍然只存純字串，型別選擇只存在編輯器 sidecar
                     // （`node.propValueTypes`），不影響輸出的 PageNode 結構。
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
+                    // 輸入框獨立一整行（避免被下拉選單、i18n 按鈕擠壓寬度），
+                    // 型別選單／i18n 綁定入口收在下面較窄的一行。
+                    <div className="flex flex-col gap-2">
+                      <ValueTypeField
+                        valueType={
+                          isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
+                            ? node.propValueTypes![p.name]
+                            : 'string'
+                        }
+                        value={propValueToInputString(node.props[p.name])}
+                        placeholder={p.defaultValue ?? ''}
+                        disabled={Boolean(node.i18nPropBindings?.[p.name])}
+                        onChange={(next) =>
+                          onChange({ ...node, props: { ...node.props, [p.name]: next } })
+                        }
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
                         <ValueTypeSelect
                           value={
                             isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
@@ -971,23 +985,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                             const nextTypes = { ...(node.propValueTypes ?? {}), [p.name]: nextType };
                             onChange({ ...node, propValueTypes: nextTypes });
                           }}
-                          className="shrink-0"
                         />
-                        <div className="min-w-0 flex-1">
-                          <ValueTypeField
-                            valueType={
-                              isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
-                                ? node.propValueTypes![p.name]
-                                : 'string'
-                            }
-                            value={propValueToInputString(node.props[p.name])}
-                            placeholder={p.defaultValue ?? ''}
-                            disabled={Boolean(node.i18nPropBindings?.[p.name])}
-                            onChange={(next) =>
-                              onChange({ ...node, props: { ...node.props, [p.name]: next } })
-                            }
-                          />
-                        </div>
                         <I18nKeyPicker
                           value={node.i18nPropBindings?.[p.name]}
                           keys={i18nKeys}
@@ -1053,7 +1051,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                   {node.i18nPropBindings?.[p.name] && (
                     <span
                       className={styles.i18nStatus}
-                      title={`已綁定 i18n key「${node.i18nPropBindings[p.name]}」，畫面顯示改用該 key 目前語系的翻譯內容，左側輸入框已停用；要改回手動輸入，請先解除綁定`}
+                      title={`已綁定 i18n key「${node.i18nPropBindings[p.name]}」，畫面顯示改用該 key 目前語系的翻譯內容，輸入框已停用；要改回手動輸入，請點 🔗 解除綁定`}
                     >
                       🔗 {node.i18nPropBindings[p.name]}
                     </span>

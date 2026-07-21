@@ -24,7 +24,7 @@ export const editorStyles = {
     'box-border w-full resize-y rounded-md border border-border bg-card p-2.5 font-sans text-sm text-foreground outline-none focus:border-primary',
   textFieldInput:
     'box-border w-full rounded-md border border-border bg-card px-2.5 py-2 font-mono text-sm font-normal tracking-normal text-foreground normal-case outline-none focus:border-primary',
-  propsGrid: 'my-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5 rounded-md border border-dashed border-border bg-card p-3',
+  propsGrid: 'my-2.5 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 rounded-md border border-dashed border-border bg-card p-3',
   propField: 'flex flex-col gap-1',
   propLabel: 'flex items-baseline gap-1.5 font-mono text-xs text-muted-foreground',
   propType: 'font-mono text-[0.6875rem] text-muted-foreground/70',

@@ -85,24 +85,37 @@ function NoAppNotice() {
   );
 }
 
-/** `/live` 索引：沒有選定頁面時，顯示目前 app 底下所有頁面的清單。 */
-function PageList({ app, pages }: { app: string; pages: PageDef[] }) {
+/** `/live` 索引：沒有選定頁面時，顯示目前 app 底下所有頁面的清單，並可直接新增頁面。 */
+function PageList({
+  app,
+  pages,
+  onAddPage,
+}: {
+  app: string;
+  pages: PageDef[];
+  onAddPage: () => void;
+}) {
   const navigate = useNavigate();
   return (
     <div className={pageWrapClass}>
       <div className={badgeClass}>
         即時預覽（編輯 data/pages.json 立即生效） · app: {app}
       </div>
-      <h1 className="mb-2 text-2xl font-extrabold tracking-tight">
-        「{app}」頁面清單
-      </h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          「{app}」頁面清單
+        </h1>
+        <button type="button" className={toolbarBtnPrimary} onClick={onAddPage}>
+          + 新增頁面
+        </button>
+      </div>
       <p className="mb-5 text-sm text-muted-foreground">
         選一個頁面即可在下方看到即時預覽，右上角可切換到編輯模式。
       </p>
       <ul className="flex list-none flex-col gap-2 p-0">
         {pages.length === 0 && (
           <li className="text-muted-foreground">
-            此 app 尚無任何頁面，可切換到編輯模式新增。
+            此 app 尚無任何頁面，點右上角「+ 新增頁面」開始。
           </li>
         )}
         {pages.map((p) => (
@@ -167,9 +180,7 @@ function ChildNodesPanel({
 }) {
   function addChild(kind: "text" | "component") {
     const child =
-      kind === "text"
-        ? makeNewTextNode()
-        : makeNewComponentNode(allComponents[0]?.id ?? "");
+      kind === "text" ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? "");
     onChange({ ...node, children: [...node.children, child] });
     // 新增後直接跳去編輯剛新增的子節點，減少「新增完還要自己回畫面找」的步驟。
     onSelectPath(`${selectedPath}.${node.children.length}`);
@@ -188,18 +199,10 @@ function ChildNodesPanel({
           子節點（{node.children.length}）
         </span>
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            className={toolbarBtn}
-            onClick={() => addChild("text")}
-          >
+          <button type="button" className={toolbarBtn} onClick={() => addChild("text")}>
             + 文字
           </button>
-          <button
-            type="button"
-            className={toolbarBtn}
-            onClick={() => addChild("component")}
-          >
+          <button type="button" className={toolbarBtn} onClick={() => addChild("component")}>
             + 元件
           </button>
         </div>
@@ -218,9 +221,7 @@ function ChildNodesPanel({
                 key={child.key}
                 className={cn(
                   "flex items-center justify-between gap-2 rounded-md border bg-card px-2.5 py-1.5",
-                  childPath === selectedPath
-                    ? "border-primary/50"
-                    : "border-border",
+                  childPath === selectedPath ? "border-primary/50" : "border-border",
                 )}
               >
                 <button
@@ -229,9 +230,7 @@ function ChildNodesPanel({
                   onClick={() => onSelectPath(childPath)}
                   title="編輯此子節點"
                 >
-                  <span className="mr-1 opacity-60">
-                    {child.kind === "component" ? "▢" : "❝"}
-                  </span>
+                  <span className="mr-1 opacity-60">{child.kind === "component" ? "▢" : "❝"}</span>
                   {nodeSummary(child)}
                 </button>
                 <button
@@ -621,9 +620,7 @@ export function LiveWorkspace() {
   function addRootNode(kind: "text" | "component") {
     if (!page) return;
     const node =
-      kind === "text"
-        ? makeNewTextNode()
-        : makeNewComponentNode(allComponents[0]?.id ?? "");
+      kind === "text" ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? "");
     const nextNodes = [...page.nodes, node];
     setPage({ ...page, nodes: nextNodes });
     setSelectedPath(String(nextNodes.length - 1));
@@ -635,9 +632,26 @@ export function LiveWorkspace() {
     if (pageId) navigate(`/live/${pageId}`, { replace: true });
   }
 
+  /**
+   * `/live` 索引頁「+ 新增頁面」：跟 `PagesEditorIndex.addPage`（`/live/edit`
+   * 那個表單式編輯器）同一種 id 命名規則（`page-{count+1}`），新增後立即把
+   * localStorage 更新、並直接導去該頁的編輯模式，減少「新增完還要自己找
+   * 剛新增的頁面」的步驟。
+   */
+  function addPage() {
+    if (!app) return;
+    const currentPages = nsPages ?? [];
+    const newId = `page-${currentPages.length + 1}`;
+    const nextPages: PageDef[] = [...currentPages, { id: newId, title: "新頁面", nodes: [] }];
+    const all = loadLocalPagesData();
+    saveLocalPagesData({ ...all, [app]: nextPages });
+    setNsPages(nextPages);
+    navigate(`/live/${newId}/edit`);
+  }
+
   // 沒有選定頁面：顯示清單。
   if (!pageId) {
-    return <PageList app={app} pages={nsPages ?? []} />;
+    return <PageList app={app} pages={nsPages ?? []} onAddPage={addPage} />;
   }
 
   if (!page || !original || !livePageDef) {
@@ -814,37 +828,12 @@ export function LiveWorkspace() {
           不會改變版面、不會推擠、不會縮排。 */}
       {editing ? (
         <>
-          {/* 新增「頁面根層級」節點：補上原本只能靠先選取既有節點才能新增子節點的缺口，
-              讓空白頁面 / 想在最外層加節點時，不需要繞路去 /live/:pageId/edit 頁的
-              PageDefEditor（那裡新增節點同樣可行，但這裡讓「在畫面上編輯」自成一套完整流程）。 */}
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2">
-            <span className="text-[0.75rem] font-semibold text-muted-foreground">
-              新增頁面節點
-            </span>
-            <button
-              type="button"
-              className={toolbarBtn}
-              onClick={() => addRootNode("text")}
-            >
-              + 文字
-            </button>
-            <button
-              type="button"
-              className={toolbarBtn}
-              onClick={() => addRootNode("component")}
-            >
-              + 元件
-            </button>
-          </div>
           {livePageDef.nodes.length === 0 && (
             <div className="mb-4 rounded-lg border border-dashed border-border bg-secondary/40 px-4 py-6 text-center text-sm text-muted-foreground">
               此頁面尚無任何節點，從下方按鈕新增第一個節點。
             </div>
           )}
-          <EditableCanvas
-            selectedPath={selectedPath}
-            onSelect={setSelectedPath}
-          >
+          <EditableCanvas selectedPath={selectedPath} onSelect={setSelectedPath}>
             <DynamicRenderer
               nodes={livePageDef.nodes}
               i18nBindings={livePageDef.i18nBindings}
@@ -852,6 +841,21 @@ export function LiveWorkspace() {
               editable
             />
           </EditableCanvas>
+
+          {/* 新增「頁面根層級」節點：補上原本只能靠先選取既有節點才能新增子節點的缺口，
+              讓空白頁面 / 想在最外層加節點時，不需要繞路去 /live/:pageId/edit 頁的
+              PageDefEditor（那裡新增節點同樣可行，但這裡讓「在畫面上編輯」自成一套完整流程）。 */}
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2">
+            <span className="text-[0.75rem] font-semibold text-muted-foreground">
+              新增頁面節點
+            </span>
+            <button type="button" className={toolbarBtn} onClick={() => addRootNode("text")}>
+              + 文字
+            </button>
+            <button type="button" className={toolbarBtn} onClick={() => addRootNode("component")}>
+              + 元件
+            </button>
+          </div>
         </>
       ) : (
         <DynamicRenderer
