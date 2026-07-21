@@ -1,5 +1,6 @@
 import type { AppsData, AppSettings } from '@/types/types';
 import type { PagesData, PageDef } from '@/types/pages-types';
+import { stripI18nAnnotations } from '@/lib/pages-i18n-annotations';
 
 // ---------------------------------------------------------------------------
 // 唯一資料來源：data/{app}/app.json、data/{app}/pages.json。
@@ -53,7 +54,14 @@ function buildPagesData(): PagesData {
   for (const [globPath, mod] of Object.entries(pagesModules)) {
     const app = appFromGlobPath(globPath);
     if (!app) continue;
-    result[app] = mod.default;
+    // data/{app}/pages.json 可能含有寫檔時附加的 __i18n/__text 標註（純粹
+    // 給人讀 JSON 用，見 pages-i18n-annotations.ts），讀進來組成 pagesData
+    // 之前先還原成單純的節點樹，避免這份純展示用的標註意外被當成真的 prop
+    // 或子節點內容渲染出來。
+    result[app] = mod.default.map((page) => ({
+      ...page,
+      nodes: stripI18nAnnotations(page.nodes),
+    }));
   }
   return result;
 }

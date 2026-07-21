@@ -1,76 +1,32 @@
 [
   {
-    "id": "avatar-avatar",
-    "componentName": "Avatar",
-    "filePath": "src/components/demo/avatar.tsx",
-    "importPath": "components/demo/avatar",
-    "description": "Displays a user's profile image, falling back to initials on error or when no src is given.",
+    "id": "brand-brand",
+    "componentName": "Brand",
+    "filePath": "src/components/ozsv/brand.tsx",
+    "importPath": "components/ozsv/brand",
+    "description": "Site logo + wordmark, linking back to the homepage.\nPure presentation — all strings and the logo image come from `data`.",
     "props": [
       {
-        "name": "name",
+        "name": "data",
         "required": true,
-        "type": "string",
+        "type": "BrandData",
         "defaultValue": null,
-        "description": "Full name used to derive fallback initials and the alt text"
+        "description": "Brand strings and logo image, fully i18n-ready"
       },
       {
-        "name": "ringColor",
-        "required": false,
-        "type": "string",
-        "defaultValue": null,
-        "description": "Shows a small colored ring around the avatar, e.g. for online status"
-      },
-      {
-        "name": "size",
-        "required": false,
-        "type": "number",
-        "defaultValue": "40",
-        "description": "Diameter of the avatar in pixels"
-      },
-      {
-        "name": "src",
+        "name": "className",
         "required": false,
         "type": "string",
         "defaultValue": null,
-        "description": "Image URL. Falls back to initials when omitted or broken."
-      }
-    ]
-  },
-  {
-    "id": "badge-badge",
-    "componentName": "Badge",
-    "filePath": "src/components/demo/badge.tsx",
-    "importPath": "components/demo/badge",
-    "description": "A compact label for statuses, counts, or tags.",
-    "props": [
-      {
-        "name": "children",
-        "required": true,
-        "type": "ReactNode",
-        "defaultValue": null,
-        "description": "Badge content"
-      },
-      {
-        "name": "dot",
-        "required": false,
-        "type": "boolean",
-        "defaultValue": "false",
-        "description": "Renders a small dot indicator before the label"
-      },
-      {
-        "name": "tone",
-        "required": false,
-        "type": "\"neutral\" | \"success\" | \"warning\" | \"danger\" | \"info\"",
-        "defaultValue": "neutral",
-        "description": "Semantic tone of the badge"
+        "description": "Additional class names merged onto the root anchor"
       }
     ]
   },
   {
     "id": "button-button",
     "componentName": "Button",
-    "filePath": "src/components/demo/button.tsx",
-    "importPath": "components/demo/button",
+    "filePath": "src/components/ozsv/button.tsx",
+    "importPath": "components/ozsv/button",
     "description": "The primary interactive control for triggering actions.\nUse `variant=\"danger\"` for destructive actions like delete.",
     "props": [
       {
@@ -118,92 +74,335 @@
     ]
   },
   {
-    "id": "card-card",
-    "componentName": "Card",
-    "filePath": "src/components/demo/card.tsx",
-    "importPath": "components/demo/card",
-    "description": "A container for grouping related content with consistent padding and border.",
+    "id": "contact-card-contact-card",
+    "componentName": "ContactCard",
+    "filePath": "src/components/ozsv/contact-card.tsx",
+    "importPath": "components/ozsv/contact-card",
+    "description": "Contact page's primary card: heading, intro, a prominent mailto CTA and\na bulleted list of suggested topics. All copy is supplied by the caller.",
+    "props": [
+      {
+        "name": "email",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Contact email shown as the CTA"
+      },
+      {
+        "name": "intro",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting intro paragraph"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Card heading"
+      },
+      {
+        "name": "topics",
+        "required": true,
+        "type": "string[]",
+        "defaultValue": null,
+        "description": "Bullet list of topics people can reach out about"
+      },
+      {
+        "name": "topicsTitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Heading above the topics list"
+      }
+    ]
+  },
+  {
+    "id": "cta-banner-cta-banner",
+    "componentName": "CtaBanner",
+    "filePath": "src/components/ozsv/cta-banner.tsx",
+    "importPath": "components/ozsv/cta-banner",
+    "description": "Full-width closing call-to-action banner with a decorative aurora\nbackground and a single mail button. All copy and the link are\nsupplied by the caller.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "ctaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button destination, e.g. \"mailto:hello@example.com\""
+      },
+      {
+        "name": "ctaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button label, e.g. \"Get in touch\""
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Banner heading"
+      }
+    ]
+  },
+  {
+    "id": "footer-footer",
+    "componentName": "Footer",
+    "filePath": "src/components/ozsv/footer.tsx",
+    "importPath": "components/ozsv/footer",
+    "description": "Site footer with brand/tagline, contact email, grouped link columns and a\ncopyright bar. Purely presentational — no dates or strings are computed\ninternally, so the caller controls the copyright year and wording.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "columns",
+        "required": true,
+        "type": "NavColumn[]",
+        "defaultValue": null,
+        "description": "Grouped link columns, e.g. Product / Company"
+      },
+      {
+        "name": "copyright",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Copyright line, e.g. \"© 2026 OZSV. All rights reserved.\""
+      },
+      {
+        "name": "email",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Contact email shown as a mailto link"
+      },
+      {
+        "name": "emailAriaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the email link"
+      },
+      {
+        "name": "meta",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary meta line shown next to the copyright, e.g. \"Made in Australia\""
+      },
+      {
+        "name": "tagline",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Short tagline shown under the brand mark"
+      }
+    ]
+  },
+  {
+    "id": "header-header",
+    "componentName": "Header",
+    "filePath": "src/components/ozsv/header.tsx",
+    "importPath": "components/ozsv/header",
+    "description": "Sticky site header with brand, primary navigation, theme toggle and a\ncollapsible mobile menu. Owns only its own open/closed UI state — all\ncopy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "closeMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      },
+      {
+        "name": "openMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is closed"
+      },
+      {
+        "name": "primaryNav",
+        "required": true,
+        "type": "NavItem[]",
+        "defaultValue": null,
+        "description": "Primary navigation links, shown inline on desktop and in the mobile sheet"
+      },
+      {
+        "name": "themeGroupLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the theme toggle radiogroup"
+      },
+      {
+        "name": "themeLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label shown next to the theme toggle in the mobile menu"
+      },
+      {
+        "name": "themeOptions",
+        "required": true,
+        "type": "ThemeOption[]",
+        "defaultValue": null,
+        "description": "Theme toggle options, forwarded to <ThemeToggle />"
+      }
+    ]
+  },
+  {
+    "id": "hero-hero",
+    "componentName": "Hero",
+    "filePath": "src/components/ozsv/hero.tsx",
+    "importPath": "components/ozsv/hero",
+    "description": "Full-width hero banner: eyebrow, headline, subtitle and a pair of CTAs.\nAll copy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "eyebrow",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small pill of text above the headline"
+      },
+      {
+        "name": "primaryCta",
+        "required": true,
+        "type": "{ label: string; to: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "secondaryCta",
+        "required": true,
+        "type": "{ label: string; to: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the headline"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "{ lead: string; accent: string; }",
+        "defaultValue": null,
+        "description": ""
+      }
+    ]
+  },
+  {
+    "id": "page-intro-page-intro",
+    "componentName": "PageIntro",
+    "filePath": "src/components/ozsv/page-intro.tsx",
+    "importPath": "components/ozsv/page-intro",
+    "description": "Simple centered page header used on content pages (About, legal\ndocuments, etc.): an optional eyebrow line, a large title and an\nintro paragraph inside a glass panel.",
+    "props": [
+      {
+        "name": "intro",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting intro paragraph under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Page heading"
+      },
+      {
+        "name": "eyebrow",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Optional small line above the title, e.g. \"Updated 1 July 2026\""
+      }
+    ]
+  },
+  {
+    "id": "section-list-section-list",
+    "componentName": "SectionList",
+    "filePath": "src/components/ozsv/section-list.tsx",
+    "importPath": "components/ozsv/section-list",
+    "description": "Stack of titled article cards, one per section. Used for the About\npage's \"what we do\" style sections and for legal document bodies.",
+    "props": [
+      {
+        "name": "sections",
+        "required": true,
+        "type": "Section[]",
+        "defaultValue": null,
+        "description": "Sections rendered as a vertical stack of cards, in order"
+      }
+    ]
+  },
+  {
+    "id": "site-shell-site-shell",
+    "componentName": "SiteShell",
+    "filePath": "src/components/ozsv/site-shell.tsx",
+    "importPath": "components/ozsv/site-shell",
+    "description": "Page chrome shared by every route: decorative aurora background, sticky\nheader, main content slot and footer. All copy/links are passed in via\n`header` and `footer` so this component has no i18n dependency of its own.",
     "props": [
       {
         "name": "children",
         "required": true,
         "type": "ReactNode",
         "defaultValue": null,
-        "description": "Card content"
+        "description": "Page content rendered between the header and footer"
       },
       {
-        "name": "interactive",
-        "required": false,
-        "type": "boolean",
-        "defaultValue": "false",
-        "description": "Adds a hover elevation effect, useful for clickable cards"
-      },
-      {
-        "name": "padding",
-        "required": false,
-        "type": "number",
-        "defaultValue": "20",
-        "description": "Internal padding in pixels"
-      }
-    ]
-  },
-  {
-    "id": "card-card-header",
-    "componentName": "CardHeader",
-    "filePath": "src/components/demo/card.tsx",
-    "importPath": "components/demo/card",
-    "description": "Header region for a Card, rendering a title and optional subtitle.",
-    "props": [
-      {
-        "name": "title",
+        "name": "footer",
         "required": true,
-        "type": "string",
+        "type": "FooterProps",
         "defaultValue": null,
-        "description": "Main heading text"
+        "description": "Data for the footer, forwarded to <Footer />"
       },
       {
-        "name": "subtitle",
-        "required": false,
-        "type": "string",
+        "name": "header",
+        "required": true,
+        "type": "HeaderProps",
         "defaultValue": null,
-        "description": "Optional supporting text below the title"
+        "description": "Data for the sticky header, forwarded to <Header />"
       }
     ]
   },
   {
-    "id": "input-input",
-    "componentName": "Input",
-    "filePath": "src/components/demo/input.tsx",
-    "importPath": "components/demo/input",
-    "description": "A labeled text input with built-in error and helper text states.",
+    "id": "value-props-value-props",
+    "componentName": "ValueProps",
+    "filePath": "src/components/ozsv/value-props.tsx",
+    "importPath": "components/ozsv/value-props",
+    "description": "Responsive grid of short value-proposition cards\n(3 columns on desktop, stacked on mobile).",
     "props": [
       {
-        "name": "error",
-        "required": false,
-        "type": "string",
+        "name": "items",
+        "required": true,
+        "type": "ValueProp[]",
         "defaultValue": null,
-        "description": "Error message; when set, the input is styled as invalid"
-      },
-      {
-        "name": "helperText",
-        "required": false,
-        "type": "string",
-        "defaultValue": null,
-        "description": "Helper text displayed below the input when there is no error"
-      },
-      {
-        "name": "label",
-        "required": false,
-        "type": "string",
-        "defaultValue": null,
-        "description": "Label displayed above the input"
-      },
-      {
-        "name": "size",
-        "required": false,
-        "type": "\"sm\" | \"md\" | \"lg\"",
-        "defaultValue": "md",
-        "description": "Visual size of the input"
+        "description": "Cards shown in the grid, in display order"
       }
     ]
   }

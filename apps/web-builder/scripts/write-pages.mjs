@@ -37,6 +37,27 @@ function isValidNode(node) {
   return true;
 }
 
+/** 驗證 i18nBindings 的形狀：{ text?: Record<path,key>, props?: Record<path, Record<propName,key>> }，
+ *  所有 key/value 都必須是字串。找不到欄位、或整個欄位不存在都算合法（純選填）。 */
+function isValidI18nBindings(bindings) {
+  if (bindings === undefined) return true;
+  if (bindings == null || typeof bindings !== 'object' || Array.isArray(bindings)) return false;
+  const { text, props, ...rest } = bindings;
+  if (Object.keys(rest).length > 0) return false;
+  if (text !== undefined) {
+    if (text == null || typeof text !== 'object' || Array.isArray(text)) return false;
+    if (!Object.values(text).every((v) => typeof v === 'string')) return false;
+  }
+  if (props !== undefined) {
+    if (props == null || typeof props !== 'object' || Array.isArray(props)) return false;
+    for (const perNodeProps of Object.values(props)) {
+      if (perNodeProps == null || typeof perNodeProps !== 'object' || Array.isArray(perNodeProps)) return false;
+      if (!Object.values(perNodeProps).every((v) => typeof v === 'string')) return false;
+    }
+  }
+  return true;
+}
+
 /** 驗證單一 app 底下的 PageDef[] 陣列，回傳清理過（只保留合法欄位）的陣列，失敗回傳 error 訊息 */
 function validateAppPages(app, pages) {
   if (!Array.isArray(pages)) {
@@ -67,15 +88,59 @@ function validateAppPages(app, pages) {
     if (!page.nodes.every(isValidNode)) {
       return { error: `app "${app}"：page "${page.id}" 內含格式不合法的節點` };
     }
+    if (!isValidI18nBindings(page.i18nBindings)) {
+      return { error: `app "${app}"：page "${page.id}" 的 i18nBindings 格式不合法` };
+    }
   }
 
-  const cleanPages = pages.map((page) => ({
-    id: page.id,
-    title: page.title,
-    nodes: page.nodes,
-  }));
+  // 保留 i18nBindings（若有）：先前這裡只複製 id/title/nodes，會讓每次「寫入
+  // 檔案系統」把使用者在 NodeEditor 綁定好的 i18n key 對照全部悄悄丟掉。
+  // 同時把 i18nBindings 攤平標註回每個節點的 props（見 annotateNodesWithI18n），
+  // 讓 pages.json 本身就看得出「哪個節點的哪個 prop 對應哪個 i18n key」，
+  // 不需要額外對照 path。
+  const cleanPages = pages.map((page) => {
+    const nodes = page.i18nBindings
+      ? annotateNodesWithI18n(page.nodes, page.i18nBindings)
+      : page.nodes;
+    return {
+      id: page.id,
+      title: page.title,
+      nodes,
+      ...(page.i18nBindings ? { i18nBindings: page.i18nBindings } : {}),
+    };
+  });
 
   return { cleanPages };
+}
+
+/**
+ * 把 i18nBindings（path -> key 的 sidecar）攤平標註回節點樹本身，純粹給
+ * `data/{app}/pages.json` 這份檔案「人類可讀」用：在對應節點的
+ * `props.__i18n` 加上 `{ [propName 或 "$text"]: i18nKey }`。
+ *
+ * 這個欄位只在寫檔時附加，不是真正的資料來源（i18nBindings 才是，前端
+ * 讀回來後仍是照 i18nBindings 還原成 nodeProps/i18nKey，見 page-editor.tsx
+ * 的 toEditable），也不會被 dynamic-renderer.tsx / generate-pages.mjs 拿來
+ * 渲染或生成——只是讓人（或 code review）打開 pages.json 就能直接看出綁定
+ * 關係，不需要另外對照一份用路徑索引的 sidecar。
+ */
+function annotateNodesWithI18n(nodes, bindings, path = '') {
+  return nodes.map((node, i) => {
+    const nodePath = path ? `${path}.${i}` : String(i);
+    if (typeof node === 'string') {
+      const key = bindings.text?.[nodePath];
+      return key ? { __text: node, __i18nKey: key } : node;
+    }
+    const propBindings = bindings.props?.[nodePath];
+    const next = { ...node };
+    if (propBindings && Object.keys(propBindings).length > 0) {
+      next.props = { ...(next.props ?? {}), __i18n: { ...propBindings } };
+    }
+    if (Array.isArray(node.children)) {
+      next.children = annotateNodesWithI18n(node.children, bindings, nodePath);
+    }
+    return next;
+  });
 }
 
 /**
@@ -129,6 +194,30 @@ export function writePagesToDisk({ pagesData }) {
 }
 
 /**
+ * 把 annotateNodesWithI18n 寫進去的 `props.__i18n` / `{ __text, __i18nKey }`
+ * 標註還原成一般節點：這些標註只是給人看 pages.json 用的展示層，讀回來給
+ * 前端（或再次寫入時當作輸入）時要拿掉，維持節點樹是單純的
+ * `string | ComponentNode`，跟 `i18nBindings` 各自的職責不混在一起。
+ */
+function stripI18nAnnotations(nodes) {
+  return nodes.map((node) => {
+    if (typeof node === 'string') return node;
+    if (node && typeof node === 'object' && '__text' in node && '__i18nKey' in node) {
+      return node.__text;
+    }
+    const next = { ...node };
+    if (next.props && typeof next.props === 'object' && '__i18n' in next.props) {
+      const { __i18n, ...restProps } = next.props;
+      next.props = restProps;
+    }
+    if (Array.isArray(next.children)) {
+      next.children = stripI18nAnnotations(next.children);
+    }
+    return next;
+  });
+}
+
+/**
  * 讀取目前磁碟上所有 app 的 pages.json，組成 PagesData
  * （`{ [app]: PageDef[] }`），供 GET API 使用。
  * （前端本身改用 import.meta.glob 靜態掃描，見 src/lib/app-data.ts，
@@ -137,7 +226,11 @@ export function writePagesToDisk({ pagesData }) {
 export function readAllPagesFromDisk() {
   const pagesData = {};
   for (const app of listAppDirs()) {
-    pagesData[app] = readJsonFile(appPagesFile(app), []);
+    const pages = readJsonFile(appPagesFile(app), []);
+    pagesData[app] = pages.map((page) => ({
+      ...page,
+      nodes: Array.isArray(page.nodes) ? stripI18nAnnotations(page.nodes) : page.nodes,
+    }));
   }
   return pagesData;
 }

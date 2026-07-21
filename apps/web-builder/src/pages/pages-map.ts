@@ -7,7 +7,7 @@
 // `() => import('./generated/xxx')` 並在路由端用 React.lazy 包裝。
 
 import type { ComponentType } from 'react';
-import { AboutPage } from './generated/about';
+
 
 export interface GeneratedPageEntry {
   id: string;
@@ -18,7 +18,7 @@ export interface GeneratedPageEntry {
 }
 
 export const generatedPages: GeneratedPageEntry[] = [
-  { id: "about", path: "about", title: "關於", Component: AboutPage },
+
 ];
 
 export function getGeneratedPageById(id: string): GeneratedPageEntry | undefined {

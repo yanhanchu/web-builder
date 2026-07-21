@@ -3,12 +3,12 @@
 //
 // 讀取 data/{app}/pages.json（該 app 底下的頁面陣列，每頁內容由
 // 組件節點遞迴組成），對照 data/components.json（由 generate-docs.mjs 產生的
-// 組件描述檔），靜態生成實際可執行的 .tsx 頁面檔到 src/pages/generated/。
+// 組件描述檔），靜態生成實際可執行的 .tsx 頁面檔到 data/generated/pages/。
 //
 // 用法：
 //   node scripts/generate-pages.mjs                        # 產生「default」app
 //   node scripts/generate-pages.mjs --app marketing  # 產生指定 app
-//   node scripts/generate-pages.mjs --pages ./data/marketing/pages.json --out ./src/pages/generated
+//   node scripts/generate-pages.mjs --pages ./data/marketing/pages.json --out ./data/generated/pages
 //
 // 設計重點：
 //   - 完全 build-time：輸出的是普通 .tsx 原始碼，不含任何 runtime JSON 解析或動態 import。
@@ -38,7 +38,7 @@ function parseArgs(argv) {
     // 自己的一份重複拷貝，預設直接指向 workspace 底下 packages/ui/data/components.json，
     // 避免兩處 components.json 各自過期、內容不一致。
     components: '../../packages/ui/data/components.json',
-    out: 'src/pages/generated',
+    out: 'data/generated/pages',
     app: 'default',
   };
   for (let i = 0; i < argv.length; i++) {
@@ -104,11 +104,41 @@ const componentsRaw = readJson(componentsPath, 'components.json');
 /** @type {Map<string, ComponentMeta>} */
 const componentById = new Map(componentsRaw.map((c) => [c.id, c]));
 
+/**
+ * 還原 `data/{app}/pages.json` 寫檔時附加的 __i18n/__text 標註（純粹給人讀
+ * pages.json 用，見 scripts/write-pages.mjs 的 annotateNodesWithI18n /
+ * src/lib/pages-i18n-annotations.ts），生成靜態頁面之前先拿掉，避免
+ * `__i18n`（一個物件）被當成一般 prop 傳給 renderProp 而噴出「型別不支援」。
+ */
+function stripI18nAnnotations(nodes) {
+  return nodes.map((node) => {
+    if (typeof node === 'string') return node;
+    if (node && typeof node === 'object' && '__text' in node && '__i18nKey' in node) {
+      return node.__text;
+    }
+    const next = { ...node };
+    if (next.props && typeof next.props === 'object' && '__i18n' in next.props) {
+      const { __i18n, ...restProps } = next.props;
+      next.props = restProps;
+    }
+    if (Array.isArray(next.children)) {
+      next.children = stripI18nAnnotations(next.children);
+    }
+    return next;
+  });
+}
+
 // pagesPath 直接指向單一 app 的 data/{app}/pages.json，
 // 內容本身就是該 app 的 PageDef[]（不再是 { [app]: PageDef[] } 的彙整形狀）。
 // 找不到檔案時視為「尚無頁面」，回傳 [] 並繼續（見 readPagesJsonWithDefault），
 // 避免新建 app、或第一次跑這支腳本時，因為 pages.json 還沒被建立就整個失敗。
-const pages = readPagesJsonWithDefault(pagesPath, `app "${app}" 的 pages.json`);
+const rawPages = readPagesJsonWithDefault(pagesPath, `app "${app}" 的 pages.json`);
+const pages = Array.isArray(rawPages)
+  ? rawPages.map((page) => ({
+      ...page,
+      nodes: Array.isArray(page.nodes) ? stripI18nAnnotations(page.nodes) : page.nodes,
+    }))
+  : rawPages;
 
 if (!Array.isArray(pages)) {
   console.error(`[generate-pages] "${pagesPath}" 的內容必須是陣列（多個頁面）`);
