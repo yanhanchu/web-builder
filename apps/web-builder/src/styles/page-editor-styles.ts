@@ -26,7 +26,7 @@ export const editorStyles = {
     'box-border w-full rounded-md border border-border bg-card px-2.5 py-2 font-mono text-sm font-normal tracking-normal text-foreground normal-case outline-none focus:border-primary',
   propsGrid: 'my-2.5 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 rounded-md border border-dashed border-border bg-card p-3',
   propField: 'flex flex-col gap-1',
-  propLabel: 'flex items-baseline gap-1.5 font-mono text-xs text-muted-foreground',
+  propLabel: 'flex flex-wrap items-center gap-1.5 font-mono text-xs text-muted-foreground',
   propType: 'font-mono text-[0.6875rem] text-muted-foreground/70',
   required: 'text-destructive',
   childrenBlock: 'mt-2.5 border-l-2 border-border pl-3',
@@ -53,7 +53,9 @@ export const editorStyles = {
   writeStatusError: 'text-destructive',
   addKeyRow: 'mb-4 flex gap-2',
   i18nStatus:
-    'inline-flex w-fit items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[0.6875rem] text-primary',
+    'inline-flex max-w-full items-center gap-1 rounded-full border border-primary/25 bg-primary/10 py-0.5 pr-1 pl-2 font-mono text-[0.6875rem] text-primary',
+  i18nStatusRemove:
+    'flex h-3.5 w-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full text-primary/70 leading-none hover:bg-primary/20 hover:text-primary',
   dragHandle:
     'flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/50 transition-colors duration-150 hover:bg-card hover:text-muted-foreground active:cursor-grabbing',
   nodeDragging: 'opacity-40',

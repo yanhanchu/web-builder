@@ -2,8 +2,8 @@
 // 若要修改頁面內容，請編輯來源 JSON 後重新執行 `npm run pages:generate`。
 
 import { Badge } from '@workspace/ui/components/demo/badge';
+import { Button } from '@workspace/ui/components/demo/button';
 import { Card, CardHeader } from '@workspace/ui/components/demo/card';
-import { Button } from '@workspace/ui/components/ui/button';
 
 /** 首頁 */
 export function HomePage() {

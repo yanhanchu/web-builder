@@ -23,6 +23,7 @@ import {
   WriteBackStatus,
   makeNewTextNode,
   makeNewComponentNode,
+  SAFE_ID_RE,
   type EditableNode,
   type EditablePageDef,
   type WriteBackState,
@@ -85,15 +86,17 @@ function NoAppNotice() {
   );
 }
 
-/** `/live` 索引：沒有選定頁面時，顯示目前 app 底下所有頁面的清單，並可直接新增頁面。 */
+/** `/live` 索引：沒有選定頁面時，顯示目前 app 底下所有頁面的清單，並可直接新增/編輯/刪除頁面。 */
 function PageList({
   app,
   pages,
   onAddPage,
+  onDeletePage,
 }: {
   app: string;
   pages: PageDef[];
   onAddPage: () => void;
+  onDeletePage: (id: string) => void;
 }) {
   const navigate = useNavigate();
   return (
@@ -110,7 +113,7 @@ function PageList({
         </button>
       </div>
       <p className="mb-5 text-sm text-muted-foreground">
-        選一個頁面即可在下方看到即時預覽，右上角可切換到編輯模式。
+        點頁面標題可看即時預覽；點「編輯」直接進入該頁的編輯模式（可改內容、id、title，或刪除頁面）。
       </p>
       <ul className="flex list-none flex-col gap-2 p-0">
         {pages.length === 0 && (
@@ -121,19 +124,37 @@ function PageList({
         {pages.map((p) => (
           <li
             key={p.id}
-            className="rounded-lg border border-border bg-card p-3"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3"
           >
-            <button
-              type="button"
-              className="cursor-pointer bg-transparent p-0 text-left text-primary hover:underline"
-              onClick={() => navigate(`/live/${p.id}`)}
-            >
-              {p.title}
-            </button>
-            <span className="ml-1.5 text-[0.85em] text-muted-foreground">
-              {" "}
-              ({p.id})
-            </span>
+            <div className="min-w-0">
+              <button
+                type="button"
+                className="cursor-pointer bg-transparent p-0 text-left text-primary hover:underline"
+                onClick={() => navigate(`/live/${p.id}`)}
+              >
+                {p.title || "(未命名)"}
+              </button>
+              <span className="ml-1.5 text-[0.85em] text-muted-foreground">
+                {" "}
+                ({p.id})
+              </span>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              <button
+                type="button"
+                className={toolbarBtn}
+                onClick={() => navigate(`/live/${p.id}/edit`)}
+              >
+                ✎ 編輯
+              </button>
+              <button
+                type="button"
+                className="cursor-pointer rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 font-sans text-xs font-medium text-destructive transition-colors duration-150 hover:bg-destructive/20"
+                onClick={() => onDeletePage(p.id)}
+              >
+                刪除
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -527,6 +548,106 @@ function NodeEditorPanel({
   );
 }
 
+/**
+ * 「編輯此頁」工具列展開的頁面本身設定：id / title 更改、刪除頁面。
+ * 跟節點編輯（NodeEditorPanel）是彼此獨立的兩件事——這裡動的是 `EditablePageDef`
+ * 的 `id`/`title` 本身，不是 `nodes` 樹，所以獨立成一個小面板，而不是塞進
+ * NodeEditorPanel（那裡只負責「選中的某個節點」）。
+ *
+ * id 變更會連動路由（`/live/:pageId`），因此改完 id 後直接 `navigate` 到新路徑，
+ * 避免畫面上的網址跟實際編輯中的頁面 id 不一致。
+ */
+function PageMetaPanel({
+  page,
+  onRename,
+  onDelete,
+}: {
+  page: EditablePageDef;
+  onRename: (next: { id: string; title: string }) => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [idDraft, setIdDraft] = useState(page.id);
+  const [titleDraft, setTitleDraft] = useState(page.title);
+  const idInvalid = idDraft.length > 0 && !SAFE_ID_RE.test(idDraft);
+
+  // 每次面板展開、或外部頁面切換時，草稿重置成目前值，避免殘留上一頁的編輯內容。
+  useEffect(() => {
+    if (open) {
+      setIdDraft(page.id);
+      setTitleDraft(page.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, page.id]);
+
+  function save() {
+    if (idInvalid || idDraft.trim() === "") return;
+    onRename({ id: idDraft, title: titleDraft });
+    setOpen(false);
+  }
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        className={toolbarBtn}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ⚙ 頁面設定（id / title / 刪除）
+      </button>
+
+      {open && (
+        <div className="mt-2 flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+          <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+            <span>id</span>
+            <input
+              className="box-border w-full rounded-md border border-border bg-secondary px-2.5 py-2 font-mono text-sm font-normal tracking-normal text-foreground normal-case outline-none focus:border-primary"
+              value={idDraft}
+              onChange={(e) => setIdDraft(e.target.value)}
+            />
+            {idInvalid && (
+              <span className="text-[0.6875rem] font-normal normal-case text-destructive">
+                id 只能包含英數字、底線、連字號
+              </span>
+            )}
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+            <span>title</span>
+            <input
+              className="box-border w-full rounded-md border border-border bg-secondary px-2.5 py-2 font-sans text-sm font-normal tracking-normal text-foreground normal-case outline-none focus:border-primary"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+            />
+          </label>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              className="cursor-pointer rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 font-sans text-xs font-medium text-destructive transition-colors duration-150 hover:bg-destructive/20"
+              onClick={onDelete}
+            >
+              刪除此頁面
+            </button>
+            <div className="flex gap-2">
+              <button type="button" className={toolbarBtn} onClick={() => setOpen(false)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className={toolbarBtnPrimary}
+                onClick={save}
+                disabled={idInvalid || idDraft.trim() === ""}
+              >
+                儲存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LiveWorkspace() {
   const { pageId } = useParams<{ pageId: string }>();
   const editMatch = useMemo(
@@ -649,9 +770,34 @@ export function LiveWorkspace() {
     navigate(`/live/${newId}/edit`);
   }
 
+  /** `/live` 清單頁的「刪除」：直接從陣列移除該頁並同步 localStorage，不需要先進去編輯模式。 */
+  function deletePageFromList(id: string) {
+    if (!app) return;
+    const currentPages = nsPages ?? [];
+    const target = currentPages.find((p) => p.id === id);
+    if (
+      !window.confirm(
+        `確定要刪除頁面「${target?.title || id}」（${id}）嗎？此動作無法復原（僅影響瀏覽器編輯狀態，需另外按「寫入檔案系統」才會真正覆寫磁碟）。`,
+      )
+    ) {
+      return;
+    }
+    const nextPages = currentPages.filter((p) => p.id !== id);
+    const all = loadLocalPagesData();
+    saveLocalPagesData({ ...all, [app]: nextPages });
+    setNsPages(nextPages);
+  }
+
   // 沒有選定頁面：顯示清單。
   if (!pageId) {
-    return <PageList app={app} pages={nsPages ?? []} onAddPage={addPage} />;
+    return (
+      <PageList
+        app={app}
+        pages={nsPages ?? []}
+        onAddPage={addPage}
+        onDeletePage={deletePageFromList}
+      />
+    );
   }
 
   if (!page || !original || !livePageDef) {
@@ -719,6 +865,43 @@ export function LiveWorkspace() {
     setPage(found ? toEditablePage(found) : null);
     setSelectedPath(null);
     setReadBack({ status: "success", message: result.message });
+  }
+
+  /**
+   * 頁面設定面板的「儲存」：同時處理 title 更改與 id 重新命名。
+   * id 若有變動，連同 localStorage 的整個 app 陣列一併替換 id，並把路由導向
+   * 新 id，確保網址、localStorage、畫面上的編輯 state 三者一致。
+   */
+  function renamePage(next: { id: string; title: string }) {
+    if (!app || !nsPages || !page) return;
+    const idChanged = next.id !== page.id;
+    const nextNsPages = nsPages.map((p) =>
+      p.id === page.id ? { ...toPageDef(page), id: next.id, title: next.title } : p,
+    );
+    const all = loadLocalPagesData();
+    saveLocalPagesData({ ...all, [app]: nextNsPages });
+    setNsPages(nextNsPages);
+    setPage({ ...page, id: next.id, title: next.title });
+    if (idChanged) {
+      navigate(`/live/${next.id}/edit`, { replace: true });
+    }
+  }
+
+  /** 刪除目前頁面：確認後從陣列移除、同步 localStorage，並導回頁面清單。 */
+  function deleteCurrentPage() {
+    if (!app || !nsPages || !page) return;
+    if (
+      !window.confirm(
+        `確定要刪除頁面「${page.title || page.id}」（${page.id}）嗎？此動作無法復原（僅影響瀏覽器編輯狀態，需另外按「寫入檔案系統」才會真正覆寫磁碟）。`,
+      )
+    ) {
+      return;
+    }
+    const nextNsPages = nsPages.filter((p) => p.id !== page.id);
+    const all = loadLocalPagesData();
+    saveLocalPagesData({ ...all, [app]: nextNsPages });
+    setNsPages(nextNsPages);
+    navigate("/live", { replace: true });
   }
 
   return (
@@ -820,6 +1003,11 @@ export function LiveWorkspace() {
       <div className={badgeClass}>
         即時預覽（編輯 data/pages.json 立即生效） · app: {app}
       </div>
+
+      {editing && (
+        <PageMetaPanel page={page} onRename={renamePage} onDelete={deleteCurrentPage} />
+      )}
+
       <h1 className="mb-4 text-2xl font-extrabold tracking-tight">
         {page.title}
       </h1>
