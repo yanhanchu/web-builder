@@ -1,23 +1,38 @@
-import type { DragEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { allComponents, getComponentById } from '@workspace/ui/lib/generator/component-registry';
-import type { PageDef, PageNode, ComponentNode, PagesData } from '@/types/pages-types';
-import { pagesData as initialPagesData } from '@/lib/data';
-import { loadLocalPagesData, saveLocalPagesData, resolveInitialAppPages } from '@/store/pages-storage';
-import { writePagesToDisk as writePagesToDiskApi, readPagesFromDisk } from '@/lib/pages-disk-api';
-import { loadI18nData } from '@/store/i18n-storage';
-import { collectAllKeys, type FlatDict } from '@/utils/i18n-utils';
-import { editorStyles as styles } from '@/styles/page-editor-styles';
-import { cn } from '@workspace/ui/utils/utils';
-import { useApp } from '@/hooks/context';
+import type { DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import {
-  ValueTypeSelect,
+  allComponents,
+  getComponentById,
+} from "@workspace/ui/lib/generator/component-registry";
+import type {
+  PageDef,
+  PageNode,
+  ComponentNode,
+  PagesData,
+} from "@/types/pages-types";
+import { pagesData as initialPagesData } from "@/lib/data";
+import {
+  loadLocalPagesData,
+  saveLocalPagesData,
+  resolveInitialAppPages,
+} from "@/store/pages-storage";
+import {
+  writePagesToDisk as writePagesToDiskApi,
+  readPagesFromDisk,
+} from "@/lib/pages-disk-api";
+import { loadI18nData } from "@/store/i18n-storage";
+import { collectAllKeys, type FlatDict } from "@/utils/i18n-utils";
+import { editorStyles as styles } from "@/styles/page-editor-styles";
+import { cn } from "@workspace/ui/utils/utils";
+import { useApp } from "@/hooks/context";
+import {
+  StringLikeValueTypeSelect,
   ValueTypeField,
   isStringLikeValueType,
   type StringLikeValueType,
-} from '@/components/value-type-input';
-import { PropMetaBadges } from '@/components/component-prop-meta';
+} from "@/components/value-type-input";
+import { PropMetaBadges } from "@/components/component-prop-meta";
 
 /**
  * data/pages.json 的編輯器。
@@ -66,10 +81,16 @@ function nextKey() {
 // （`PageDef.i18nBindings`），並不會出現在 `PageNode`/`ComponentNode` 裡，
 // 對 generate-pages.mjs、DynamicRenderer 既有邏輯完全透明。
 export type EditableNode =
-  | { key: string; kind: 'text'; value: string; i18nKey?: string; valueType?: StringLikeValueType }
   | {
       key: string;
-      kind: 'component';
+      kind: "text";
+      value: string;
+      i18nKey?: string;
+      valueType?: StringLikeValueType;
+    }
+  | {
+      key: string;
+      kind: "component";
       component: string;
       props: Record<string, unknown>;
       children: EditableNode[];
@@ -114,7 +135,10 @@ export type EditableNode =
  */
 export interface I18nPathBindings {
   text?: Record<string /* path */, string /* i18n key */>;
-  props?: Record<string /* path */, Record<string /* propName */, string /* i18n key */>>;
+  props?: Record<
+    string /* path */,
+    Record<string /* propName */, string /* i18n key */>
+  >;
 }
 
 function nodePath(prefix: string, index: number): string {
@@ -122,14 +146,17 @@ function nodePath(prefix: string, index: number): string {
 }
 
 /** 依 "0.2.1" 這種路徑字串，從 EditableNode[] 樹中找出對應節點。找不到回傳 undefined。 */
-export function findNodeByPath(nodes: EditableNode[], path: string): EditableNode | undefined {
-  const parts = path.split('.').map(Number);
+export function findNodeByPath(
+  nodes: EditableNode[],
+  path: string,
+): EditableNode | undefined {
+  const parts = path.split(".").map(Number);
   let list = nodes;
   let node: EditableNode | undefined;
   for (const idx of parts) {
     node = list[idx];
     if (!node) return undefined;
-    list = node.kind === 'component' ? node.children : [];
+    list = node.kind === "component" ? node.children : [];
   }
   return node;
 }
@@ -142,9 +169,9 @@ export function findNodeByPath(nodes: EditableNode[], path: string): EditableNod
 export function replaceNodeByPath(
   nodes: EditableNode[],
   path: string,
-  updater: (node: EditableNode) => EditableNode
+  updater: (node: EditableNode) => EditableNode,
 ): EditableNode[] {
-  const parts = path.split('.').map(Number);
+  const parts = path.split(".").map(Number);
   function recur(list: EditableNode[], depth: number): EditableNode[] {
     const idx = parts[depth];
     const node = list[idx];
@@ -152,7 +179,7 @@ export function replaceNodeByPath(
     const isLast = depth === parts.length - 1;
     const nextNode: EditableNode = isLast
       ? updater(node)
-      : node.kind === 'component'
+      : node.kind === "component"
         ? { ...node, children: recur(node.children, depth + 1) }
         : node;
     const copy = list.slice();
@@ -163,8 +190,11 @@ export function replaceNodeByPath(
 }
 
 /** 依路徑從 nodes 樹中刪除對應節點，回傳一棵新樹。 */
-export function removeNodeByPath(nodes: EditableNode[], path: string): EditableNode[] {
-  const parts = path.split('.').map(Number);
+export function removeNodeByPath(
+  nodes: EditableNode[],
+  path: string,
+): EditableNode[] {
+  const parts = path.split(".").map(Number);
   function recur(list: EditableNode[], depth: number): EditableNode[] {
     const idx = parts[depth];
     const isLast = depth === parts.length - 1;
@@ -174,7 +204,7 @@ export function removeNodeByPath(nodes: EditableNode[], path: string): EditableN
       return copy;
     }
     const node = list[idx];
-    if (!node || node.kind !== 'component') return list;
+    if (!node || node.kind !== "component") return list;
     const copy = list.slice();
     copy[idx] = { ...node, children: recur(node.children, depth + 1) };
     return copy;
@@ -189,19 +219,28 @@ export function removeNodeByPath(nodes: EditableNode[], path: string): EditableN
  * 誤判也無妨——UI 上一樣能繼續編輯，只是「當成節點樹」而非「當成純文字」。
  */
 function looksLikePageNode(value: unknown): value is PageNode {
-  if (typeof value === 'string') return true;
+  if (typeof value === "string") return true;
   return (
     !!value &&
-    typeof value === 'object' &&
+    typeof value === "object" &&
     !Array.isArray(value) &&
-    typeof (value as { component?: unknown }).component === 'string'
+    typeof (value as { component?: unknown }).component === "string"
   );
 }
 
-function toEditable(node: PageNode, path: string, bindings: I18nPathBindings | undefined): EditableNode {
-  if (typeof node === 'string') {
+function toEditable(
+  node: PageNode,
+  path: string,
+  bindings: I18nPathBindings | undefined,
+): EditableNode {
+  if (typeof node === "string") {
     const i18nKey = bindings?.text?.[path];
-    return { key: nextKey(), kind: 'text', value: node, ...(i18nKey ? { i18nKey } : {}) };
+    return {
+      key: nextKey(),
+      kind: "text",
+      value: node,
+      ...(i18nKey ? { i18nKey } : {}),
+    };
   }
   const propBindings = bindings?.props?.[path];
   const rawProps = { ...(node.props ?? {}) };
@@ -214,27 +253,29 @@ function toEditable(node: PageNode, path: string, bindings: I18nPathBindings | u
   const nodeProps: Record<string, EditableNode[]> = {};
   if (meta) {
     for (const p of meta.props) {
-      if (p.type !== 'ReactNode') continue;
+      if (p.type !== "ReactNode") continue;
       // "children" 這個 prop 名稱跟節點自己的 `children` 陣列意義重疊，且
       // 從不被 dynamic-renderer.tsx / generate-pages.mjs 拿來渲染，所以不
       // 特別解析成 nodeProps（否則會在編輯器多長出一塊沒有作用的重複區塊）。
-      if (p.name === 'children') continue;
+      if (p.name === "children") continue;
       const raw = rawProps[p.name];
       if (raw === undefined) continue;
       const asArray = Array.isArray(raw) ? raw : [raw];
       if (!asArray.every(looksLikePageNode)) continue;
       nodeProps[p.name] = asArray.map((child, i) =>
-        toEditable(child as PageNode, `${path}#${p.name}.${i}`, undefined)
+        toEditable(child as PageNode, `${path}#${p.name}.${i}`, undefined),
       );
       delete rawProps[p.name];
     }
   }
   return {
     key: nextKey(),
-    kind: 'component',
+    kind: "component",
     component: node.component,
     props: rawProps,
-    children: (node.children ?? []).map((child, i) => toEditable(child, nodePath(path, i), bindings)),
+    children: (node.children ?? []).map((child, i) =>
+      toEditable(child, nodePath(path, i), bindings),
+    ),
     ...(propBindings && Object.keys(propBindings).length > 0
       ? { i18nPropBindings: { ...propBindings } }
       : {}),
@@ -247,8 +288,12 @@ function toEditable(node: PageNode, path: string, bindings: I18nPathBindings | u
  * `outBindings`（呼叫端傳入一個空物件，這個函式會就地把它填滿）。
  * `path` 是目前節點在樹上的位置（見 `I18nPathBindings` 的路徑格式說明）。
  */
-function toPageNode(node: EditableNode, path: string, outBindings: I18nPathBindings): PageNode {
-  if (node.kind === 'text') {
+function toPageNode(
+  node: EditableNode,
+  path: string,
+  outBindings: I18nPathBindings,
+): PageNode {
+  if (node.kind === "text") {
     if (node.i18nKey) {
       outBindings.text ??= {};
       outBindings.text[path] = node.i18nKey;
@@ -263,13 +308,17 @@ function toPageNode(node: EditableNode, path: string, outBindings: I18nPathBindi
       mergedProps[propName] =
         children.length === 1
           ? toPageNode(children[0], `${path}#${propName}.0`, {})
-          : children.map((child, i) => toPageNode(child, `${path}#${propName}.${i}`, {}));
+          : children.map((child, i) =>
+              toPageNode(child, `${path}#${propName}.${i}`, {}),
+            );
     }
   }
   const out: ComponentNode = { component: node.component };
   if (Object.keys(mergedProps).length > 0) out.props = mergedProps;
   if (node.children.length > 0) {
-    out.children = node.children.map((child, i) => toPageNode(child, nodePath(path, i), outBindings));
+    out.children = node.children.map((child, i) =>
+      toPageNode(child, nodePath(path, i), outBindings),
+    );
   }
   if (node.i18nPropBindings && Object.keys(node.i18nPropBindings).length > 0) {
     outBindings.props ??= {};
@@ -279,7 +328,7 @@ function toPageNode(node: EditableNode, path: string, outBindings: I18nPathBindi
 }
 
 export function makeNewTextNode(): EditableNode {
-  return { key: nextKey(), kind: 'text', value: '新文字節點' };
+  return { key: nextKey(), kind: "text", value: "新文字節點" };
 }
 
 export function makeNewComponentNode(componentId: string): EditableNode {
@@ -292,25 +341,31 @@ export function makeNewComponentNode(componentId: string): EditableNode {
       }
     }
   }
-  return { key: nextKey(), kind: 'component', component: componentId, props, children: [] };
+  return {
+    key: nextKey(),
+    kind: "component",
+    component: componentId,
+    props,
+    children: [],
+  };
 }
 
 function defaultValueForType(type: string): unknown {
-  if (type === 'boolean') return false;
-  if (type === 'number') return 0;
-  if (type === 'ReactNode') return '';
-  return '';
+  if (type === "boolean") return false;
+  if (type === "number") return 0;
+  if (type === "ReactNode") return "";
+  return "";
 }
 
 function parsePropValue(raw: string, type: string): unknown {
-  if (type === 'boolean') return raw === 'true';
-  if (type === 'number') {
+  if (type === "boolean") return raw === "true";
+  if (type === "number") {
     const n = Number(raw);
     return Number.isNaN(n) ? 0 : n;
   }
   // string / string literal union / ReactNode / 其他：盡量嘗試 JSON 解析，
   // 讓使用者也能輸入物件/陣列這類複雜值；失敗就當純字串處理。
-  if (raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
+  if (raw.trim().startsWith("{") || raw.trim().startsWith("[")) {
     try {
       return JSON.parse(raw);
     } catch {
@@ -321,8 +376,8 @@ function parsePropValue(raw: string, type: string): unknown {
 }
 
 function propValueToInputString(value: unknown): string {
-  if (value == null) return '';
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (value == null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -344,19 +399,21 @@ function propValueToInputString(value: unknown): string {
 // ---------------------------------------------------------------------------
 
 type WriteBackState =
-  | { status: 'idle' }
-  | { status: 'saving' }
-  | { status: 'success'; message: string }
-  | { status: 'error'; message: string };
+  | { status: "idle" }
+  | { status: "saving" }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
 
-async function postPagesToDisk(pagesData: PagesData): Promise<{ ok: boolean; message: string }> {
+async function postPagesToDisk(
+  pagesData: PagesData,
+): Promise<{ ok: boolean; message: string }> {
   const result = await writePagesToDiskApi(pagesData);
   if (!result.ok) {
     return { ok: false, message: `寫入失敗：${result.error}` };
   }
   return {
     ok: true,
-    message: `✓ 已寫入 ${result.writtenFiles.join(', ')}（共 ${result.appCount} 個 app、${result.pageCount} 個頁面）`,
+    message: `✓ 已寫入 ${result.writtenFiles.join(", ")}（共 ${result.appCount} 個 app、${result.pageCount} 個頁面）`,
   };
 }
 
@@ -365,8 +422,11 @@ async function postPagesToDisk(pagesData: PagesData): Promise<{ ok: boolean; mes
  * 呼叫端負責決定要怎麼用這份資料覆蓋 localStorage / 目前的編輯 state。
  */
 async function fetchAppPagesFromDisk(
-  app: string
-): Promise<{ ok: true; pages: PageDef[]; message: string } | { ok: false; message: string }> {
+  app: string,
+): Promise<
+  | { ok: true; pages: PageDef[]; message: string }
+  | { ok: false; message: string }
+> {
   const result = await readPagesFromDisk();
   if (!result.ok) {
     return { ok: false, message: `讀取失敗：${result.error}` };
@@ -381,12 +441,14 @@ async function fetchAppPagesFromDisk(
 
 /** 顯示寫回狀態訊息的小元件 */
 function WriteBackStatus({ state }: { state: WriteBackState }) {
-  if (state.status === 'idle' || state.status === 'saving') return null;
+  if (state.status === "idle" || state.status === "saving") return null;
   return (
     <p
       className={cn(
         styles.writeStatus,
-        state.status === 'success' ? styles.writeStatusSuccess : styles.writeStatusError
+        state.status === "success"
+          ? styles.writeStatusSuccess
+          : styles.writeStatusError,
       )}
     >
       {state.message}
@@ -405,7 +467,10 @@ function WriteBackStatus({ state }: { state: WriteBackState }) {
  * （`previewDict`），供 `I18nKeyPicker` 在下拉選單裡顯示每個 key 目前綁定
  * 的翻譯內容當作預覽，不需要每個呼叫端各自重新讀一次 localStorage。
  */
-export function useI18nKeys(app: string | undefined): { keys: string[]; previewDict: FlatDict } {
+export function useI18nKeys(app: string | undefined): {
+  keys: string[];
+  previewDict: FlatDict;
+} {
   return useMemo(() => {
     if (!app) return { keys: [], previewDict: {} };
     const data = loadI18nData();
@@ -444,7 +509,7 @@ function I18nKeyPicker({
   previewDict: FlatDict;
   onChange: (key: string | undefined) => void;
 }) {
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState("");
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
   const filteredKeys = useMemo(() => {
@@ -455,7 +520,7 @@ function I18nKeyPicker({
 
   function choose(key: string | undefined) {
     onChange(key);
-    setFilter('');
+    setFilter("");
     if (detailsRef.current) detailsRef.current.open = false;
   }
 
@@ -470,20 +535,26 @@ function I18nKeyPicker({
         const el = e.currentTarget;
         if (el.open) {
           requestAnimationFrame(() => {
-            el.querySelector<HTMLInputElement>('input[data-i18n-filter]')?.focus();
+            el.querySelector<HTMLInputElement>(
+              "input[data-i18n-filter]",
+            )?.focus();
           });
         } else {
-          setFilter('');
+          setFilter("");
         }
       }}
     >
       <summary
         className={cn(
           styles.select,
-          'flex h-9 w-9 cursor-pointer list-none items-center justify-center px-0 [&::-webkit-details-marker]:hidden',
-          value ? 'border-primary/40 text-primary' : 'text-muted-foreground'
+          "flex h-9 w-9 cursor-pointer list-none items-center justify-center px-0 [&::-webkit-details-marker]:hidden",
+          value ? "border-primary/40 text-primary" : "text-muted-foreground",
         )}
-        title={value ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}（點擊變更或解除）` : '綁定 i18n key（顯示時動態換值）'}
+        title={
+          value
+            ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ""}（點擊變更或解除）`
+            : "綁定 i18n key（顯示時動態換值）"
+        }
       >
         🔗
       </summary>
@@ -495,7 +566,7 @@ function I18nKeyPicker({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="篩選 key…"
-          className={cn(styles.textFieldInput, 'mb-2 normal-case')}
+          className={cn(styles.textFieldInput, "mb-2 normal-case")}
         />
         <div className="max-h-[240px] overflow-y-auto">
           <button
@@ -507,7 +578,9 @@ function I18nKeyPicker({
           </button>
 
           {filteredKeys.length === 0 && (
-            <p className="px-2 py-1.5 text-[0.75rem] text-muted-foreground/70 italic">（找不到符合的 key）</p>
+            <p className="px-2 py-1.5 text-[0.75rem] text-muted-foreground/70 italic">
+              （找不到符合的 key）
+            </p>
           )}
 
           {filteredKeys.map((k) => {
@@ -517,15 +590,17 @@ function I18nKeyPicker({
                 key={k}
                 type="button"
                 className={cn(
-                  'block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs hover:bg-secondary',
-                  k === value ? 'bg-primary/10 text-primary' : 'text-foreground'
+                  "block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs hover:bg-secondary",
+                  k === value
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground",
                 )}
                 onClick={() => choose(k)}
               >
                 <div className="truncate font-mono">{k}</div>
                 {/* 目前語系（第一個語系）的內容預覽：截斷避免撐開下拉選單，找不到值時提示「無內容」 */}
                 <div className="truncate text-[0.6875rem] text-muted-foreground/70">
-                  {preview ? preview : '（此語系尚無內容）'}
+                  {preview ? preview : "（此語系尚無內容）"}
                 </div>
               </button>
             );
@@ -539,7 +614,9 @@ function I18nKeyPicker({
               onClick={() => choose(value)}
             >
               <div className="truncate font-mono">{value}</div>
-              <div className="truncate text-[0.6875rem]">（找不到此 key，點擊維持選取或改選其他 key）</div>
+              <div className="truncate text-[0.6875rem]">
+                （找不到此 key，點擊維持選取或改選其他 key）
+              </div>
             </button>
           )}
         </div>
@@ -553,10 +630,19 @@ function I18nKeyPicker({
  * 不需要重新打開 `I18nKeyPicker` 下拉選單找「不綁定 i18n」選項。
  * 文字節點（`i18nKey`）與 component 字串 prop（`i18nPropBindings[name]`）共用。
  */
-function I18nBoundBadge({ i18nKey, onUnbind }: { i18nKey: string; onUnbind: () => void }) {
+function I18nBoundBadge({
+  i18nKey,
+  onUnbind,
+}: {
+  i18nKey: string;
+  onUnbind: () => void;
+}) {
   return (
     <span className={styles.i18nStatus}>
-      <span className="truncate" title={`已綁定 i18n key「${i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容`}>
+      <span
+        className="truncate"
+        title={`已綁定 i18n key「${i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容`}
+      >
         🔗 {i18nKey}
       </span>
       <button
@@ -597,7 +683,10 @@ export interface NodeEditorProps {
  * 但 dragstart/dragover 監聽在整個節點卡片，因為 dataTransfer 需要拿得到
  * 完整的拖曳目標範圍）。
  */
-function useNodeDragReorder(count: number, onReorder: (from: number, to: number) => void) {
+function useNodeDragReorder(
+  count: number,
+  onReorder: (from: number, to: number) => void,
+) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
 
@@ -608,14 +697,14 @@ function useNodeDragReorder(count: number, onReorder: (from: number, to: number)
       dropPosition:
         overIndex === index && dragIndex !== null && dragIndex !== index
           ? index > dragIndex
-            ? 'after'
-            : 'before'
+            ? "after"
+            : "before"
           : null,
       onDragStart: (e) => {
         setDragIndex(index);
-        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.effectAllowed = "move";
         // Firefox 需要至少設定一次 data 才會啟動拖曳。
-        e.dataTransfer.setData('text/plain', String(index));
+        e.dataTransfer.setData("text/plain", String(index));
       },
       onDragEnter: (e) => {
         e.preventDefault();
@@ -625,7 +714,7 @@ function useNodeDragReorder(count: number, onReorder: (from: number, to: number)
       onDragOver: (e) => {
         // 一定要 preventDefault 瀏覽器才允許 drop。
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        e.dataTransfer.dropEffect = "move";
       },
       onDragEnd: () => {
         setDragIndex(null);
@@ -637,7 +726,8 @@ function useNodeDragReorder(count: number, onReorder: (from: number, to: number)
         const from = dragIndex;
         setDragIndex(null);
         setOverIndex(null);
-        if (from === null || from === index || from < 0 || from >= count) return;
+        if (from === null || from === index || from < 0 || from >= count)
+          return;
         onReorder(from, index);
       },
     };
@@ -649,7 +739,7 @@ function useNodeDragReorder(count: number, onReorder: (from: number, to: number)
 interface NodeDragProps {
   draggable: true;
   isDragging: boolean;
-  dropPosition: 'before' | 'after' | null;
+  dropPosition: "before" | "after" | null;
   onDragStart: (e: DragEvent) => void;
   onDragEnter: (e: DragEvent) => void;
   onDragOver: (e: DragEvent) => void;
@@ -704,8 +794,11 @@ function ReactNodePropEditor({
     onChange(copy);
   }
 
-  function addChild(kind: 'text' | 'component') {
-    const child = kind === 'text' ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? '');
+  function addChild(kind: "text" | "component") {
+    const child =
+      kind === "text"
+        ? makeNewTextNode()
+        : makeNewComponentNode(allComponents[0]?.id ?? "");
     onChange([...nodes, child]);
   }
 
@@ -720,20 +813,33 @@ function ReactNodePropEditor({
     <div className={styles.childrenBlock}>
       <div className={styles.childrenHeader}>
         <span>
-          {propName} <span className={styles.propType}>(ReactNode{required ? ' *' : ''})</span>
+          {propName}{" "}
+          <span className={styles.propType}>
+            (ReactNode{required ? " *" : ""})
+          </span>
         </span>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.smallBtn} onClick={() => addChild('text')}>
+          <button
+            type="button"
+            className={styles.smallBtn}
+            onClick={() => addChild("text")}
+          >
             + 文字
           </button>
-          <button type="button" className={styles.smallBtn} onClick={() => addChild('component')}>
+          <button
+            type="button"
+            className={styles.smallBtn}
+            onClick={() => addChild("component")}
+          >
             + 元件
           </button>
         </div>
       </div>
 
       {nodes.length === 0 && (
-        <p className={styles.emptyHint}>（此 prop 尚未放入任何節點，可用上方按鈕新增一個文字或元件）</p>
+        <p className={styles.emptyHint}>
+          （此 prop 尚未放入任何節點，可用上方按鈕新增一個文字或元件）
+        </p>
       )}
 
       {nodes.map((child, i) => (
@@ -754,25 +860,37 @@ function ReactNodePropEditor({
   );
 }
 
-export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDown, dragProps, i18nKeys, i18nPreview, showChildren = true }: NodeEditorProps) {
-  const meta = node.kind === 'component' ? getComponentById(node.component) : undefined;
+export function NodeEditor({
+  node,
+  depth,
+  onChange,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+  dragProps,
+  i18nKeys,
+  i18nPreview,
+  showChildren = true,
+}: NodeEditorProps) {
+  const meta =
+    node.kind === "component" ? getComponentById(node.component) : undefined;
 
   function updateChild(index: number, next: EditableNode) {
-    if (node.kind !== 'component') return;
+    if (node.kind !== "component") return;
     const children = node.children.slice();
     children[index] = next;
     onChange({ ...node, children });
   }
 
   function deleteChild(index: number) {
-    if (node.kind !== 'component') return;
+    if (node.kind !== "component") return;
     const children = node.children.slice();
     children.splice(index, 1);
     onChange({ ...node, children });
   }
 
   function moveChild(index: number, dir: -1 | 1) {
-    if (node.kind !== 'component') return;
+    if (node.kind !== "component") return;
     const target = index + dir;
     if (target < 0 || target >= node.children.length) return;
     const children = node.children.slice();
@@ -781,7 +899,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
   }
 
   function reorderChild(from: number, to: number) {
-    if (node.kind !== 'component') return;
+    if (node.kind !== "component") return;
     const children = node.children.slice();
     const [moved] = children.splice(from, 1);
     children.splice(to, 0, moved);
@@ -789,13 +907,16 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
   }
 
   const childDragProps = useNodeDragReorder(
-    node.kind === 'component' ? node.children.length : 0,
-    reorderChild
+    node.kind === "component" ? node.children.length : 0,
+    reorderChild,
   );
 
-  function addChild(kind: 'text' | 'component') {
-    if (node.kind !== 'component') return;
-    const child = kind === 'text' ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? '');
+  function addChild(kind: "text" | "component") {
+    if (node.kind !== "component") return;
+    const child =
+      kind === "text"
+        ? makeNewTextNode()
+        : makeNewComponentNode(allComponents[0]?.id ?? "");
     onChange({ ...node, children: [...node.children, child] });
   }
 
@@ -810,8 +931,8 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
         styles.node,
         depth > 0 && styles.nodeNested,
         dragProps?.isDragging && styles.nodeDragging,
-        dragProps?.dropPosition === 'before' && styles.nodeDropBefore,
-        dragProps?.dropPosition === 'after' && styles.nodeDropAfter
+        dragProps?.dropPosition === "before" && styles.nodeDropBefore,
+        dragProps?.dropPosition === "after" && styles.nodeDropAfter,
       )}
       style={depth > 0 ? { marginLeft: `${indentPx}px` } : undefined}
       draggable={dragProps?.draggable}
@@ -828,26 +949,31 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
           </span>
         )}
         {depth > 0 && (
-          <span className={styles.depthBadge} title={`巢狀層級：第 ${depth} 層`}>
+          <span
+            className={styles.depthBadge}
+            title={`巢狀層級：第 ${depth} 層`}
+          >
             L{depth}
           </span>
         )}
         <span
           className={cn(
             styles.kindBadge,
-            node.kind === 'component' ? styles.kindBadgeComponent : styles.kindBadgeText
+            node.kind === "component"
+              ? styles.kindBadgeComponent
+              : styles.kindBadgeText,
           )}
           data-kind={node.kind}
         >
-          {node.kind === 'text' ? '文字' : '元件'}
+          {node.kind === "text" ? "文字" : "元件"}
         </span>
 
-        {node.kind === 'component' && (
+        {node.kind === "component" && (
           <>
             {!getComponentById(node.component) && (
               <span
                 className={styles.kindBadge}
-                style={{ color: 'var(--destructive, #dc2626)' }}
+                style={{ color: "var(--destructive, #dc2626)" }}
                 title={`找不到 component id "${node.component}"，原始資料仍保留；請在下拉選單中選擇要更換成的元件，或直接刪除此節點`}
               >
                 ⚠ 未知元件
@@ -863,7 +989,8 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                 const keptProps: Record<string, unknown> = {};
                 if (newMeta) {
                   for (const p of newMeta.props) {
-                    if (p.name in node.props) keptProps[p.name] = node.props[p.name];
+                    if (p.name in node.props)
+                      keptProps[p.name] = node.props[p.name];
                   }
                 }
                 onChange({ ...node, component: newId, props: keptProps });
@@ -874,7 +1001,9 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                   而不是悄悄 fallback 選到清單第一項、掩蓋了資料本身的問題。
                   使用者仍可從清單選別的元件來替換掉它。 */}
               {!getComponentById(node.component) && (
-                <option value={node.component}>⚠ {node.component}（找不到，請更換）</option>
+                <option value={node.component}>
+                  ⚠ {node.component}（找不到，請更換）
+                </option>
               )}
               {allComponents.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -885,40 +1014,61 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
           </>
         )}
 
-        {node.kind === 'component' && node.children.length > 0 && (
-          <span className={styles.depthBadge} title={`共 ${node.children.length} 個子節點`}>
+        {node.kind === "component" && node.children.length > 0 && (
+          <span
+            className={styles.depthBadge}
+            title={`共 ${node.children.length} 個子節點`}
+          >
             ▾ {node.children.length}
           </span>
         )}
-        {node.kind === 'component' && Object.keys(node.props).length > 0 && (
-          <span className={styles.depthBadge} title={`共 ${Object.keys(node.props).length} 個已設定的 props`}>
+        {node.kind === "component" && Object.keys(node.props).length > 0 && (
+          <span
+            className={styles.depthBadge}
+            title={`共 ${Object.keys(node.props).length} 個已設定的 props`}
+          >
             ⚙ {Object.keys(node.props).length}
           </span>
         )}
 
         <div className={styles.headerActions}>
           {onMoveUp && (
-            <button type="button" className={styles.iconBtn} onClick={onMoveUp} title="上移">
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={onMoveUp}
+              title="上移"
+            >
               ↑
             </button>
           )}
           {onMoveDown && (
-            <button type="button" className={styles.iconBtn} onClick={onMoveDown} title="下移">
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={onMoveDown}
+              title="下移"
+            >
               ↓
             </button>
           )}
-          <button type="button" className={styles.iconBtnDanger} onClick={onDelete} title="刪除節點">
+          <button
+            type="button"
+            className={styles.iconBtnDanger}
+            onClick={onDelete}
+            title="刪除節點"
+          >
             刪除
           </button>
         </div>
       </div>
 
-      {node.kind === 'text' && (
+      {node.kind === "text" && (
         <div className="flex flex-col gap-2">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               <ValueTypeField
-                valueType={node.valueType ?? 'string'}
+                valueType={node.valueType ?? "string"}
                 value={node.value}
                 disabled={Boolean(node.i18nKey)}
                 onChange={(next) => onChange({ ...node, value: next })}
@@ -937,9 +1087,11 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <ValueTypeSelect
-              value={node.valueType ?? 'string'}
-              onChange={(nextType) => onChange({ ...node, valueType: nextType })}
+            <StringLikeValueTypeSelect
+              value={node.valueType ?? "string"}
+              onChange={(nextType) =>
+                onChange({ ...node, valueType: nextType })
+              }
             />
             {node.i18nKey && (
               <I18nBoundBadge
@@ -955,179 +1107,213 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
         </div>
       )}
 
-      {node.kind === 'component' && (
+      {node.kind === "component" && (
         <>
           {!meta && (
             <p className={styles.warning}>
-              ⚠ 找不到 component id "{node.component}"，請確認 data/components.json。
+              ⚠ 找不到 component id "{node.component}"，請確認
+              data/components.json。
             </p>
           )}
 
           {meta && meta.props.length > 0 && (
             <div className={styles.propsGrid}>
               {meta.props
-                .filter((p) => p.type !== 'ReactNode')
+                .filter((p) => p.type !== "ReactNode")
                 .map((p) => (
-                <label
-                  key={p.name}
-                  className={cn(styles.propField, p.type === 'string' && 'sm:col-span-full')}
-                >
-                  <span className={styles.propLabel}>
-                    {p.name}
-                    {p.required && <span className={styles.required}>*</span>}
-                    <span className={styles.propType}> {p.type}</span>
-                    <PropMetaBadges required={p.required} defaultValue={p.defaultValue} />
-                  </span>
+                  <label
+                    key={p.name}
+                    className={cn(
+                      styles.propField,
+                      p.type === "string" && "sm:col-span-full",
+                    )}
+                  >
+                    <span className={styles.propLabel}>
+                      {p.name}
+                      {p.required && <span className={styles.required}>*</span>}
+                      <span className={styles.propType}> {p.type}</span>
+                      <PropMetaBadges
+                        required={p.required}
+                        defaultValue={p.defaultValue}
+                      />
+                    </span>
 
-                  {p.type === 'boolean' ? (
-                    <select
-                      className={styles.select}
-                      value={String(Boolean(node.props[p.name]))}
-                      onChange={(e) =>
-                        onChange({
-                          ...node,
-                          props: { ...node.props, [p.name]: e.target.value === 'true' },
-                        })
-                      }
-                    >
-                      <option value="false">false</option>
-                      <option value="true">true</option>
-                    </select>
-                  ) : /^(".*"\s*\|\s*)+".*"$/.test(p.type) ? (
-                    <select
-                      className={styles.select}
-                      value={propValueToInputString(node.props[p.name])}
-                      onChange={(e) =>
-                        onChange({ ...node, props: { ...node.props, [p.name]: e.target.value } })
-                      }
-                    >
-                      <option value="">(未設定)</option>
-                      {p.type
-                        .split('|')
-                        .map((s) => s.trim().replace(/^"|"$/g, ''))
-                        .map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                    </select>
-                  ) : p.type === 'string' ? (
-                    // 純 `string` 型別的 prop：額外提供「輸入類型」選單（一般文字/多行/
-                    // email/url/phone/色碼/檔案路徑/markdown），依選擇渲染對應的輸入元件。
-                    // `props[p.name]` 本身仍然只存純字串，型別選擇只存在編輯器 sidecar
-                    // （`node.propValueTypes`），不影響輸出的 PageNode 結構。
-                    // 輸入框與 i18n 綁定按鈕同一行（按鈕固定在右側），
-                    // 型別選單／已綁定狀態收在下面較窄的一行。
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <ValueTypeField
-                            valueType={
-                              isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
-                                ? node.propValueTypes![p.name]
-                                : 'string'
-                            }
-                            value={propValueToInputString(node.props[p.name])}
-                            placeholder={p.defaultValue ?? ''}
-                            disabled={Boolean(node.i18nPropBindings?.[p.name])}
-                            onChange={(next) =>
-                              onChange({ ...node, props: { ...node.props, [p.name]: next } })
-                            }
-                          />
-                        </div>
-                        <I18nKeyPicker
-                          value={node.i18nPropBindings?.[p.name]}
-                          keys={i18nKeys}
-                          previewDict={i18nPreview}
-                          onChange={(key) => {
-                            const nextBindings = { ...(node.i18nPropBindings ?? {}) };
-                            if (key) nextBindings[p.name] = key;
-                            else delete nextBindings[p.name];
-                            const next = { ...node };
-                            if (Object.keys(nextBindings).length > 0) {
-                              next.i18nPropBindings = nextBindings;
-                            } else {
-                              delete next.i18nPropBindings;
-                            }
-                            onChange(next);
-                          }}
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ValueTypeSelect
-                          value={
-                            isStringLikeValueType(node.propValueTypes?.[p.name] ?? '')
-                              ? node.propValueTypes![p.name]
-                              : 'string'
-                          }
-                          onChange={(nextType) => {
-                            const nextTypes = { ...(node.propValueTypes ?? {}), [p.name]: nextType };
-                            onChange({ ...node, propValueTypes: nextTypes });
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <input
-                        className={cn(styles.textFieldInput, 'flex-1')}
-                        type={p.type === 'number' ? 'number' : 'text'}
-                        value={propValueToInputString(node.props[p.name])}
-                        placeholder={p.defaultValue ?? ''}
-                        disabled={Boolean(node.i18nPropBindings?.[p.name])}
+                    {p.type === "boolean" ? (
+                      <select
+                        className={styles.select}
+                        value={String(Boolean(node.props[p.name]))}
                         onChange={(e) =>
                           onChange({
                             ...node,
                             props: {
                               ...node.props,
-                              [p.name]: parsePropValue(e.target.value, p.type),
+                              [p.name]: e.target.value === "true",
                             },
                           })
                         }
-                      />
-                      {/* 只有字串型別（非 number）的 prop 才提供 i18n 綁定，
+                      >
+                        <option value="false">false</option>
+                        <option value="true">true</option>
+                      </select>
+                    ) : /^(".*"\s*\|\s*)+".*"$/.test(p.type) ? (
+                      <select
+                        className={styles.select}
+                        value={propValueToInputString(node.props[p.name])}
+                        onChange={(e) =>
+                          onChange({
+                            ...node,
+                            props: { ...node.props, [p.name]: e.target.value },
+                          })
+                        }
+                      >
+                        <option value="">(未設定)</option>
+                        {p.type
+                          .split("|")
+                          .map((s) => s.trim().replace(/^"|"$/g, ""))
+                          .map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                      </select>
+                    ) : p.type === "string" ? (
+                      // 純 `string` 型別的 prop：額外提供「輸入類型」選單（一般文字/多行/
+                      // email/url/phone/色碼/檔案路徑/markdown），依選擇渲染對應的輸入元件。
+                      // `props[p.name]` 本身仍然只存純字串，型別選擇只存在編輯器 sidecar
+                      // （`node.propValueTypes`），不影響輸出的 PageNode 結構。
+                      // 輸入框與 i18n 綁定按鈕同一行（按鈕固定在右側），
+                      // 型別選單／已綁定狀態收在下面較窄的一行。
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <ValueTypeField
+                              valueType={
+                                isStringLikeValueType(
+                                  node.propValueTypes?.[p.name] ?? "",
+                                )
+                                  ? node.propValueTypes![p.name]
+                                  : "string"
+                              }
+                              value={propValueToInputString(node.props[p.name])}
+                              placeholder={p.defaultValue ?? ""}
+                              disabled={Boolean(
+                                node.i18nPropBindings?.[p.name],
+                              )}
+                              onChange={(next) =>
+                                onChange({
+                                  ...node,
+                                  props: { ...node.props, [p.name]: next },
+                                })
+                              }
+                            />
+                          </div>
+                          <I18nKeyPicker
+                            value={node.i18nPropBindings?.[p.name]}
+                            keys={i18nKeys}
+                            previewDict={i18nPreview}
+                            onChange={(key) => {
+                              const nextBindings = {
+                                ...(node.i18nPropBindings ?? {}),
+                              };
+                              if (key) nextBindings[p.name] = key;
+                              else delete nextBindings[p.name];
+                              const next = { ...node };
+                              if (Object.keys(nextBindings).length > 0) {
+                                next.i18nPropBindings = nextBindings;
+                              } else {
+                                delete next.i18nPropBindings;
+                              }
+                              onChange(next);
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StringLikeValueTypeSelect
+                            value={
+                              isStringLikeValueType(
+                                node.propValueTypes?.[p.name] ?? "",
+                              )
+                                ? node.propValueTypes![p.name]
+                                : "string"
+                            }
+                            onChange={(nextType) => {
+                              const nextTypes = {
+                                ...(node.propValueTypes ?? {}),
+                                [p.name]: nextType,
+                              };
+                              onChange({ ...node, propValueTypes: nextTypes });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          className={cn(styles.textFieldInput, "flex-1")}
+                          type={p.type === "number" ? "number" : "text"}
+                          value={propValueToInputString(node.props[p.name])}
+                          placeholder={p.defaultValue ?? ""}
+                          disabled={Boolean(node.i18nPropBindings?.[p.name])}
+                          onChange={(e) =>
+                            onChange({
+                              ...node,
+                              props: {
+                                ...node.props,
+                                [p.name]: parsePropValue(
+                                  e.target.value,
+                                  p.type,
+                                ),
+                              },
+                            })
+                          }
+                        />
+                        {/* 只有字串型別（非 number）的 prop 才提供 i18n 綁定，
                           number 型別在畫面上不會是「文案」，綁定意義不大。
                           純 `string` 型別已改用上面的分支處理，這裡剩下的是
                           非 number、非純 string 的其他型別（例如未知/複雜型別 fallback）。 */}
-                      {p.type !== 'number' && (
-                        <I18nKeyPicker
-                          value={node.i18nPropBindings?.[p.name]}
-                          keys={i18nKeys}
-                          previewDict={i18nPreview}
-                          onChange={(key) => {
-                            const nextBindings = { ...(node.i18nPropBindings ?? {}) };
-                            if (key) nextBindings[p.name] = key;
-                            else delete nextBindings[p.name];
-                            const next = { ...node };
-                            if (Object.keys(nextBindings).length > 0) {
-                              next.i18nPropBindings = nextBindings;
-                            } else {
-                              delete next.i18nPropBindings;
-                            }
-                            onChange(next);
-                          }}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {node.i18nPropBindings?.[p.name] && (
-                    <I18nBoundBadge
-                      i18nKey={node.i18nPropBindings[p.name]}
-                      onUnbind={() => {
-                        const nextBindings = { ...(node.i18nPropBindings ?? {}) };
-                        delete nextBindings[p.name];
-                        const next = { ...node };
-                        if (Object.keys(nextBindings).length > 0) {
-                          next.i18nPropBindings = nextBindings;
-                        } else {
-                          delete next.i18nPropBindings;
-                        }
-                        onChange(next);
-                      }}
-                    />
-                  )}
-                </label>
-              ))}
+                        {p.type !== "number" && (
+                          <I18nKeyPicker
+                            value={node.i18nPropBindings?.[p.name]}
+                            keys={i18nKeys}
+                            previewDict={i18nPreview}
+                            onChange={(key) => {
+                              const nextBindings = {
+                                ...(node.i18nPropBindings ?? {}),
+                              };
+                              if (key) nextBindings[p.name] = key;
+                              else delete nextBindings[p.name];
+                              const next = { ...node };
+                              if (Object.keys(nextBindings).length > 0) {
+                                next.i18nPropBindings = nextBindings;
+                              } else {
+                                delete next.i18nPropBindings;
+                              }
+                              onChange(next);
+                            }}
+                          />
+                        )}
+                      </div>
+                    )}
+                    {node.i18nPropBindings?.[p.name] && (
+                      <I18nBoundBadge
+                        i18nKey={node.i18nPropBindings[p.name]}
+                        onUnbind={() => {
+                          const nextBindings = {
+                            ...(node.i18nPropBindings ?? {}),
+                          };
+                          delete nextBindings[p.name];
+                          const next = { ...node };
+                          if (Object.keys(nextBindings).length > 0) {
+                            next.i18nPropBindings = nextBindings;
+                          } else {
+                            delete next.i18nPropBindings;
+                          }
+                          onChange(next);
+                        }}
+                      />
+                    )}
+                  </label>
+                ))}
             </div>
           )}
 
@@ -1140,7 +1326,7 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               // metadata 裡剛好也宣告了一個叫 children 的 ReactNode prop，
               // 這裡就會多長出一塊「看起來能編輯、但編輯了畫面不會變」的
               // 重複區塊，因此排除掉，統一只保留下方那塊真正有作用的。
-              .filter((p) => p.type === 'ReactNode' && p.name !== 'children')
+              .filter((p) => p.type === "ReactNode" && p.name !== "children")
               .map((p) => (
                 <ReactNodePropEditor
                   key={p.name}
@@ -1173,16 +1359,26 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
               <div className={styles.childrenHeader}>
                 <span>children ({node.children.length})</span>
                 <div className={styles.headerActions}>
-                  <button type="button" className={styles.smallBtn} onClick={() => addChild('text')}>
+                  <button
+                    type="button"
+                    className={styles.smallBtn}
+                    onClick={() => addChild("text")}
+                  >
                     + 文字
                   </button>
-                  <button type="button" className={styles.smallBtn} onClick={() => addChild('component')}>
+                  <button
+                    type="button"
+                    className={styles.smallBtn}
+                    onClick={() => addChild("component")}
+                  >
                     + 元件
                   </button>
                 </div>
               </div>
 
-              {node.children.length === 0 && <p className={styles.emptyHint}>（無子節點）</p>}
+              {node.children.length === 0 && (
+                <p className={styles.emptyHint}>（無子節點）</p>
+              )}
 
               {node.children.map((child, i) => (
                 <NodeEditor
@@ -1192,7 +1388,11 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
                   onChange={(next) => updateChild(i, next)}
                   onDelete={() => deleteChild(i)}
                   onMoveUp={i > 0 ? () => moveChild(i, -1) : undefined}
-                  onMoveDown={i < node.children.length - 1 ? () => moveChild(i, 1) : undefined}
+                  onMoveDown={
+                    i < node.children.length - 1
+                      ? () => moveChild(i, 1)
+                      : undefined
+                  }
                   dragProps={childDragProps(i)}
                   i18nKeys={i18nKeys}
                   i18nPreview={i18nPreview}
@@ -1202,7 +1402,8 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
           ) : (
             node.children.length > 0 && (
               <p className={styles.emptyHint}>
-                （此節點有 {node.children.length} 個子節點；在上方畫面點選子節點即可個別編輯）
+                （此節點有 {node.children.length}{" "}
+                個子節點；在上方畫面點選子節點即可個別編輯）
               </p>
             )
           )}
@@ -1251,8 +1452,11 @@ export function PageDefEditor({
   const { app } = useApp();
   const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
 
-  function addNode(kind: 'text' | 'component') {
-    const node = kind === 'text' ? makeNewTextNode() : makeNewComponentNode(allComponents[0]?.id ?? '');
+  function addNode(kind: "text" | "component") {
+    const node =
+      kind === "text"
+        ? makeNewTextNode()
+        : makeNewComponentNode(allComponents[0]?.id ?? "");
     onChange({ ...page, nodes: [...page.nodes, node] });
   }
 
@@ -1266,7 +1470,7 @@ export function PageDefEditor({
             value={page.id}
             onChange={(e) => {
               if (SAFE_ID_RE.test(e.target.value)) {
-                onChange({ ...page, id: e.target.value })
+                onChange({ ...page, id: e.target.value });
               }
             }}
           />
@@ -1318,7 +1522,7 @@ export function PageDefEditor({
         />
       ))}
     </div>
-  )
+  );
 }
 
 export interface EditablePageDef {
@@ -1331,13 +1535,17 @@ export function toEditablePage(page: PageDef): EditablePageDef {
   return {
     id: page.id,
     title: page.title,
-    nodes: page.nodes.map((node, i) => toEditable(node, nodePath('', i), page.i18nBindings)),
+    nodes: page.nodes.map((node, i) =>
+      toEditable(node, nodePath("", i), page.i18nBindings),
+    ),
   };
 }
 
 export function toPageDef(page: EditablePageDef): PageDef {
   const outBindings: I18nPathBindings = {};
-  const nodes = page.nodes.map((node, i) => toPageNode(node, nodePath('', i), outBindings));
+  const nodes = page.nodes.map((node, i) =>
+    toPageNode(node, nodePath("", i), outBindings),
+  );
   const hasBindings = Boolean(outBindings.text || outBindings.props);
   return {
     id: page.id,
@@ -1368,16 +1576,21 @@ export function PageEditorRoute() {
   // fallback 到磁碟初始值。這裡編輯單一頁面，但存放/同步的單位仍是整個陣列，
   // 這樣兩個編輯器（單頁 / 整個 app）看到的資料才會一致。
   const [nsPages, setNsPages] = useState<PageDef[] | null>(() =>
-    app ? resolveInitialAppPages(app, diskNsPages) : null
+    app ? resolveInitialAppPages(app, diskNsPages) : null,
   );
-  const original = useMemo(() => nsPages?.find((p) => p.id === pageId), [nsPages, pageId]);
+  const original = useMemo(
+    () => nsPages?.find((p) => p.id === pageId),
+    [nsPages, pageId],
+  );
   const [page, setPage] = useState<EditablePageDef | null>(() =>
-    original ? toEditablePage(original) : null
+    original ? toEditablePage(original) : null,
   );
   const printRef = useRef<HTMLPreElement>(null);
   const [showJson, setShowJson] = useState(false);
-  const [writeBack, setWriteBack] = useState<WriteBackState>({ status: 'idle' });
-  const [readBack, setReadBack] = useState<WriteBackState>({ status: 'idle' });
+  const [writeBack, setWriteBack] = useState<WriteBackState>({
+    status: "idle",
+  });
+  const [readBack, setReadBack] = useState<WriteBackState>({ status: "idle" });
 
   // app 切換時重新從 localStorage / 磁碟載入該 app 的頁面陣列
   useEffect(() => {
@@ -1401,7 +1614,9 @@ export function PageEditorRoute() {
   // 讀取才碰檔案系統」的核心：不需要按任何按鈕，編輯過程本身就已經是持久化的。
   useEffect(() => {
     if (!app || !nsPages || !page) return;
-    const nextNsPages = nsPages.map((p) => (p.id === page.id ? toPageDef(page) : p));
+    const nextNsPages = nsPages.map((p) =>
+      p.id === page.id ? toPageDef(page) : p,
+    );
     const all = loadLocalPagesData();
     saveLocalPagesData({ ...all, [app]: nextNsPages });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1424,7 +1639,8 @@ export function PageEditorRoute() {
     return (
       <div className={styles.page}>
         <p className={styles.warning}>
-          ⚠ 在 app <code>{app}</code> 底下找不到 id 為 <code>{pageId}</code> 的頁面。
+          ⚠ 在 app <code>{app}</code> 底下找不到 id 為 <code>{pageId}</code>{" "}
+          的頁面。
         </p>
         <p>
           <Link to="/live">回到頁面清單</Link>
@@ -1436,11 +1652,11 @@ export function PageEditorRoute() {
   const currentJson = JSON.stringify(toPageDef(page), null, 2);
 
   function download() {
-    const blob = new Blob([currentJson], { type: 'application/json' });
+    const blob = new Blob([currentJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${page!.id || 'page'}.json`;
+    a.download = `${page!.id || "page"}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1457,11 +1673,11 @@ export function PageEditorRoute() {
   function reset() {
     idCounter = 0;
     setPage(toEditablePage(original!));
-    setWriteBack({ status: 'idle' });
+    setWriteBack({ status: "idle" });
   }
 
   async function writeToDisk() {
-    setWriteBack({ status: 'saving' });
+    setWriteBack({ status: "saving" });
     // localStorage 裡目前這個 app 的完整陣列（含這個頁面剛編輯的內容）
     // 已經是最新的，直接用它跟其餘 app（維持 initialPagesData 最初載入
     // 時的內容）合併後一次性寫回磁碟。
@@ -1469,21 +1685,24 @@ export function PageEditorRoute() {
     const nsToWrite = local[app!] ?? nsPages!;
     const merged: PagesData = { ...initialPagesData, [app!]: nsToWrite };
     const result = await postPagesToDisk(merged);
-    setWriteBack({ status: result.ok ? 'success' : 'error', message: result.message });
+    setWriteBack({
+      status: result.ok ? "success" : "error",
+      message: result.message,
+    });
   }
 
   async function readFromDisk() {
     if (
       !window.confirm(
-        `確定要用磁碟上 data/${app}/pages.json 的內容覆蓋瀏覽器中「${app}」目前的編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
+        `確定要用磁碟上 data/${app}/pages.json 的內容覆蓋瀏覽器中「${app}」目前的編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。`,
       )
     ) {
       return;
     }
-    setReadBack({ status: 'saving' });
+    setReadBack({ status: "saving" });
     const result = await fetchAppPagesFromDisk(app!);
     if (!result.ok) {
-      setReadBack({ status: 'error', message: result.message });
+      setReadBack({ status: "error", message: result.message });
       return;
     }
     const all = loadLocalPagesData();
@@ -1492,7 +1711,7 @@ export function PageEditorRoute() {
     idCounter = 0;
     const found = result.pages.find((p) => p.id === pageId);
     setPage(found ? toEditablePage(found) : null);
-    setReadBack({ status: 'success', message: result.message });
+    setReadBack({ status: "success", message: result.message });
   }
 
   return (
@@ -1505,30 +1724,44 @@ export function PageEditorRoute() {
           <button type="button" className={styles.smallBtn} onClick={reset}>
             重設為原始 JSON
           </button>
-          <button type="button" className={styles.smallBtn} onClick={() => setShowJson((v) => !v)}>
-            {showJson ? '隱藏 JSON' : '預覽 JSON'}
+          <button
+            type="button"
+            className={styles.smallBtn}
+            onClick={() => setShowJson((v) => !v)}
+          >
+            {showJson ? "隱藏 JSON" : "預覽 JSON"}
           </button>
-          <button type="button" className={styles.primaryBtn} onClick={download}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={download}
+          >
             下載 JSON
           </button>
-          <button type="button" className={styles.primaryBtn} onClick={printJson}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={printJson}
+          >
             列印 JSON
           </button>
           <button
             type="button"
             className={styles.smallBtn}
             onClick={readFromDisk}
-            disabled={readBack.status === 'saving'}
+            disabled={readBack.status === "saving"}
           >
-            {readBack.status === 'saving' ? '讀取中…' : '從檔案系統讀取（覆蓋）'}
+            {readBack.status === "saving"
+              ? "讀取中…"
+              : "從檔案系統讀取（覆蓋）"}
           </button>
           <button
             type="button"
             className={styles.successBtn}
             onClick={writeToDisk}
-            disabled={writeBack.status === 'saving'}
+            disabled={writeBack.status === "saving"}
           >
-            {writeBack.status === 'saving' ? '寫入中…' : '寫入檔案系統'}
+            {writeBack.status === "saving" ? "寫入中…" : "寫入檔案系統"}
           </button>
         </div>
       </div>
@@ -1537,13 +1770,15 @@ export function PageEditorRoute() {
       <WriteBackStatus state={readBack} />
 
       <h1>
-        編輯頁面：{page.title || page.id} <span className={styles.id}>（app: {app}）</span>
+        編輯頁面：{page.title || page.id}{" "}
+        <span className={styles.id}>（app: {app}）</span>
       </h1>
       <p className={styles.hint}>
-        所有編輯即時同步到瀏覽器 <code>localStorage</code>，重新整理分頁不會遺失。
-        只有按「寫入檔案系統」（僅限 <code>npm run dev</code>）才會覆寫{' '}
-        <code>data/{app}/pages.json</code>，其他分頁 / <code>/live</code>{' '}
-        頁面會透過 HMR 立即看到最新內容；按「從檔案系統讀取（覆蓋）」則反向把磁碟上的內容
+        所有編輯即時同步到瀏覽器 <code>localStorage</code>
+        ，重新整理分頁不會遺失。 只有按「寫入檔案系統」（僅限{" "}
+        <code>npm run dev</code>）才會覆寫 <code>data/{app}/pages.json</code>
+        ，其他分頁 / <code>/live</code> 頁面會透過 HMR
+        立即看到最新內容；按「從檔案系統讀取（覆蓋）」則反向把磁碟上的內容
         覆蓋回瀏覽器的編輯狀態。也可以用「下載 JSON」或「列印」取得目前結果。
       </p>
 
@@ -1568,11 +1803,13 @@ export function PagesEditorIndex() {
   const { app } = useApp();
   const diskNsInitial = app ? initialPagesData[app] : undefined;
   const [pages, setPages] = useState<EditablePageDef[]>(() =>
-    app ? resolveInitialAppPages(app, diskNsInitial).map(toEditablePage) : []
+    app ? resolveInitialAppPages(app, diskNsInitial).map(toEditablePage) : [],
   );
   const [showJson, setShowJson] = useState(false);
-  const [writeBack, setWriteBack] = useState<WriteBackState>({ status: 'idle' });
-  const [readBack, setReadBack] = useState<WriteBackState>({ status: 'idle' });
+  const [writeBack, setWriteBack] = useState<WriteBackState>({
+    status: "idle",
+  });
+  const [readBack, setReadBack] = useState<WriteBackState>({ status: "idle" });
 
   // app 切換時重新從 localStorage / 磁碟載入
   useEffect(() => {
@@ -1581,7 +1818,9 @@ export function PagesEditorIndex() {
       return;
     }
     idCounter = 0;
-    setPages(resolveInitialAppPages(app, initialPagesData[app]).map(toEditablePage));
+    setPages(
+      resolveInitialAppPages(app, initialPagesData[app]).map(toEditablePage),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app]);
 
@@ -1616,7 +1855,7 @@ export function PagesEditorIndex() {
 
   function addPage() {
     const id = `page-${pages.length + 1}`;
-    setPages([...pages, { id, title: '新頁面', nodes: [] }]);
+    setPages([...pages, { id, title: "新頁面", nodes: [] }]);
   }
 
   function deletePage(index: number) {
@@ -1628,9 +1867,9 @@ export function PagesEditorIndex() {
   const allJson = JSON.stringify(pages.map(toPageDef), null, 2);
 
   function download() {
-    const blob = new Blob([allJson], { type: 'application/json' });
+    const blob = new Blob([allJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `${app}.pages.json`;
     document.body.appendChild(a);
@@ -1645,31 +1884,37 @@ export function PagesEditorIndex() {
   }
 
   async function writeToDisk() {
-    setWriteBack({ status: 'saving' });
-    const merged: PagesData = { ...initialPagesData, [app!]: pages.map(toPageDef) };
+    setWriteBack({ status: "saving" });
+    const merged: PagesData = {
+      ...initialPagesData,
+      [app!]: pages.map(toPageDef),
+    };
     const result = await postPagesToDisk(merged);
-    setWriteBack({ status: result.ok ? 'success' : 'error', message: result.message });
+    setWriteBack({
+      status: result.ok ? "success" : "error",
+      message: result.message,
+    });
   }
 
   async function readFromDisk() {
     if (
       !window.confirm(
-        `確定要用磁碟上 data/${app}/pages.json 的內容覆蓋瀏覽器中「${app}」目前的編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。`
+        `確定要用磁碟上 data/${app}/pages.json 的內容覆蓋瀏覽器中「${app}」目前的編輯狀態嗎？此動作無法復原（會直接覆蓋，不會 merge）。`,
       )
     ) {
       return;
     }
-    setReadBack({ status: 'saving' });
+    setReadBack({ status: "saving" });
     const result = await fetchAppPagesFromDisk(app!);
     if (!result.ok) {
-      setReadBack({ status: 'error', message: result.message });
+      setReadBack({ status: "error", message: result.message });
       return;
     }
     const all = loadLocalPagesData();
     saveLocalPagesData({ ...all, [app!]: result.pages });
     idCounter = 0;
     setPages(result.pages.map(toEditablePage));
-    setReadBack({ status: 'success', message: result.message });
+    setReadBack({ status: "success", message: result.message });
   }
 
   return (
@@ -1679,30 +1924,44 @@ export function PagesEditorIndex() {
           ← 回到即時預覽清單
         </Link>
         <div className={styles.toolbarActions}>
-          <button type="button" className={styles.smallBtn} onClick={() => setShowJson((v) => !v)}>
-            {showJson ? '隱藏 JSON' : '預覽整份 JSON'}
+          <button
+            type="button"
+            className={styles.smallBtn}
+            onClick={() => setShowJson((v) => !v)}
+          >
+            {showJson ? "隱藏 JSON" : "預覽整份 JSON"}
           </button>
-          <button type="button" className={styles.primaryBtn} onClick={download}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={download}
+          >
             下載整份 pages.json
           </button>
-          <button type="button" className={styles.primaryBtn} onClick={printJson}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={printJson}
+          >
             列印整份 JSON
           </button>
           <button
             type="button"
             className={styles.smallBtn}
             onClick={readFromDisk}
-            disabled={readBack.status === 'saving'}
+            disabled={readBack.status === "saving"}
           >
-            {readBack.status === 'saving' ? '讀取中…' : '從檔案系統讀取（覆蓋）'}
+            {readBack.status === "saving"
+              ? "讀取中…"
+              : "從檔案系統讀取（覆蓋）"}
           </button>
           <button
             type="button"
             className={styles.successBtn}
             onClick={writeToDisk}
-            disabled={writeBack.status === 'saving'}
+            disabled={writeBack.status === "saving"}
           >
-            {writeBack.status === 'saving' ? '寫入中…' : '寫入檔案系統'}
+            {writeBack.status === "saving" ? "寫入中…" : "寫入檔案系統"}
           </button>
         </div>
       </div>
@@ -1714,10 +1973,11 @@ export function PagesEditorIndex() {
         編輯所有頁面 <span className={styles.id}>（app: {app}）</span>
       </h1>
       <p className={styles.hint}>
-        所有編輯（新增/刪除/修改頁面）即時同步到瀏覽器 <code>localStorage</code>，
-        重新整理分頁不會遺失。可個別展開頁面編輯，或直接下載/列印整份陣列；
-        按「寫入檔案系統」（僅限 <code>npm run dev</code>）可將目前整份陣列直接覆寫
-        <code>data/{app}/pages.json</code>，透過 HMR 讓 <code>/live</code>{' '}
+        所有編輯（新增/刪除/修改頁面）即時同步到瀏覽器 <code>localStorage</code>
+        ， 重新整理分頁不會遺失。可個別展開頁面編輯，或直接下載/列印整份陣列；
+        按「寫入檔案系統」（僅限 <code>npm run dev</code>
+        ）可將目前整份陣列直接覆寫
+        <code>data/{app}/pages.json</code>，透過 HMR 讓 <code>/live</code>{" "}
         頁面立即反映最新內容；按「從檔案系統讀取（覆蓋）」則反向把磁碟上的內容覆蓋回
         瀏覽器的編輯狀態。
       </p>
@@ -1727,9 +1987,13 @@ export function PagesEditorIndex() {
       </button>
 
       {pages.map((p, i) => (
-        <details key={p.id + i} className={styles.pageDetails} open={pages.length <= 2}>
+        <details
+          key={p.id + i}
+          className={styles.pageDetails}
+          open={pages.length <= 2}
+        >
           <summary className={styles.pageSummary}>
-            {p.title || '(未命名)'} <span className={styles.id}>({p.id})</span>
+            {p.title || "(未命名)"} <span className={styles.id}>({p.id})</span>
             <button
               type="button"
               className={styles.iconBtnDanger}
