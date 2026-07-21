@@ -76,6 +76,26 @@ function readJson(filePath, label) {
   }
 }
 
+/**
+ * 讀 pages.json 專用：檔案不存在時視為「這個 app 還沒有任何頁面」，
+ * 回傳空陣列並繼續（而不是讓整個 build/dev 直接失敗）——新建 app、
+ * 或第一次導入這套機制時，pages.json 本來就還沒被寫入過是正常狀態。
+ * 檔案存在但不是合法 JSON 仍視為錯誤，直接中止（避免悄悄吃掉真正壞掉的資料）。
+ */
+function readPagesJsonWithDefault(filePath, label) {
+  if (!existsSync(filePath)) {
+    console.warn(`[generate-pages] 找不到${label}: ${filePath}，視為尚無頁面（[]）並繼續`);
+    return [];
+  }
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8'));
+  } catch (err) {
+    console.error(`[generate-pages] ${label} 不是合法 JSON: ${filePath}`);
+    console.error(err.message);
+    process.exit(1);
+  }
+}
+
 /** @typedef {{ id: string; componentName: string; importPath: string }} ComponentMeta */
 
 /** @type {ComponentMeta[]} */
@@ -86,7 +106,9 @@ const componentById = new Map(componentsRaw.map((c) => [c.id, c]));
 
 // pagesPath 直接指向單一 app 的 data/{app}/pages.json，
 // 內容本身就是該 app 的 PageDef[]（不再是 { [app]: PageDef[] } 的彙整形狀）。
-const pages = readJson(pagesPath, `app "${app}" 的 pages.json`);
+// 找不到檔案時視為「尚無頁面」，回傳 [] 並繼續（見 readPagesJsonWithDefault），
+// 避免新建 app、或第一次跑這支腳本時，因為 pages.json 還沒被建立就整個失敗。
+const pages = readPagesJsonWithDefault(pagesPath, `app "${app}" 的 pages.json`);
 
 if (!Array.isArray(pages)) {
   console.error(`[generate-pages] "${pagesPath}" 的內容必須是陣列（多個頁面）`);
@@ -180,6 +202,16 @@ function renderNode(node, depth, usedComponentIds) {
   }
 
   usedComponentIds.add(component);
+
+  // "children" 一律用節點自己的 `children` 陣列（→ JSX 子元素）表示，
+  // 不透過 props 傳遞；若資料裡的 props 混入了 "children" 欄位（例如舊資料、
+  // 手動編輯失誤），視為不合法，直接報錯，避免生成同時有
+  // `children="..."` attribute 又有實際 JSX children 的錯誤輸出。
+  if (props && Object.prototype.hasOwnProperty.call(props, 'children')) {
+    throw new Error(
+      `節點 "${component}" 的 props 不應包含 "children" 欄位，請改用節點的 "children" 陣列（JSX 子元素）: ${JSON.stringify(node)}`
+    );
+  }
 
   // 產生 props 字串（每個 prop 各自一行，方便 diff 閱讀）
   const propEntries = Object.entries(props ?? {});

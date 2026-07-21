@@ -11,9 +11,6 @@ export function HomePage() {
     <div className="mx-auto max-w-[720px] px-6 pt-8 pb-16" data-page-id="home">
       <h1>首頁</h1>
       <Card
-        interactive={true}
-        padding={24}
-        children="test"
       >
         <Button
           variant="primary"

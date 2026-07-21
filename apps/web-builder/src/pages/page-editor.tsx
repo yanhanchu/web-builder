@@ -205,11 +205,20 @@ function toEditable(node: PageNode, path: string, bindings: I18nPathBindings | u
   }
   const propBindings = bindings?.props?.[path];
   const rawProps = { ...(node.props ?? {}) };
+  // 防呆：若來源資料（舊資料、手動編輯過的 JSON）的 props 裡混入了
+  // "children" 欄位，直接在讀入時就丟掉，避免它繼續當成一般 prop 被顯示
+  // /編輯，最後又寫回 props.children（跟節點自己的 children 陣列衝突，
+  // generate-pages.mjs 也會直接拒絕這種資料）。
+  delete rawProps.children;
   const meta = getComponentById(node.component);
   const nodeProps: Record<string, EditableNode[]> = {};
   if (meta) {
     for (const p of meta.props) {
       if (p.type !== 'ReactNode') continue;
+      // "children" 這個 prop 名稱跟節點自己的 `children` 陣列意義重疊，且
+      // 從不被 dynamic-renderer.tsx / generate-pages.mjs 拿來渲染，所以不
+      // 特別解析成 nodeProps（否則會在編輯器多長出一塊沒有作用的重複區塊）。
+      if (p.name === 'children') continue;
       const raw = rawProps[p.name];
       if (raw === undefined) continue;
       const asArray = Array.isArray(raw) ? raw : [raw];
@@ -834,28 +843,46 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
         </span>
 
         {node.kind === 'component' && (
-          <select
-            className={styles.select}
-            value={node.component}
-            onChange={(e) => {
-              const newId = e.target.value;
-              const newMeta = getComponentById(newId);
-              // 切換元件時保留使用者已輸入的、仍存在於新元件 props 定義中的值
-              const keptProps: Record<string, unknown> = {};
-              if (newMeta) {
-                for (const p of newMeta.props) {
-                  if (p.name in node.props) keptProps[p.name] = node.props[p.name];
+          <>
+            {!getComponentById(node.component) && (
+              <span
+                className={styles.kindBadge}
+                style={{ color: 'var(--destructive, #dc2626)' }}
+                title={`找不到 component id "${node.component}"，原始資料仍保留；請在下拉選單中選擇要更換成的元件，或直接刪除此節點`}
+              >
+                ⚠ 未知元件
+              </span>
+            )}
+            <select
+              className={styles.select}
+              value={node.component}
+              onChange={(e) => {
+                const newId = e.target.value;
+                const newMeta = getComponentById(newId);
+                // 切換元件時保留使用者已輸入的、仍存在於新元件 props 定義中的值
+                const keptProps: Record<string, unknown> = {};
+                if (newMeta) {
+                  for (const p of newMeta.props) {
+                    if (p.name in node.props) keptProps[p.name] = node.props[p.name];
+                  }
                 }
-              }
-              onChange({ ...node, component: newId, props: keptProps });
-            }}
-          >
-            {allComponents.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.componentName} ({c.id})
-              </option>
-            ))}
-          </select>
+                onChange({ ...node, component: newId, props: keptProps });
+              }}
+            >
+              {/* 目前值若不在元件庫清單中（例如元件已被移除/改名），額外插入一個
+                  對應的 option，讓 <select> 能正確顯示「目前是這個未知值」，
+                  而不是悄悄 fallback 選到清單第一項、掩蓋了資料本身的問題。
+                  使用者仍可從清單選別的元件來替換掉它。 */}
+              {!getComponentById(node.component) && (
+                <option value={node.component}>⚠ {node.component}（找不到，請更換）</option>
+              )}
+              {allComponents.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.componentName} ({c.id})
+                </option>
+              ))}
+            </select>
+          </>
         )}
 
         {node.kind === 'component' && node.children.length > 0 && (
@@ -1106,7 +1133,14 @@ export function NodeEditor({ node, depth, onChange, onDelete, onMoveUp, onMoveDo
 
           {meta &&
             meta.props
-              .filter((p) => p.type === 'ReactNode')
+              // "children" 這個 prop 名稱跟節點自己的 children 陣列（下方那塊，
+              // 真正會被渲染出來的）語意重疊，但實際上完全是兩份不同的資料
+              // （dynamic-renderer.tsx / generate-pages.mjs 都只認節點的
+              // `children` 陣列，不會讀 `props.children`）。過去若某個元件的
+              // metadata 裡剛好也宣告了一個叫 children 的 ReactNode prop，
+              // 這裡就會多長出一塊「看起來能編輯、但編輯了畫面不會變」的
+              // 重複區塊，因此排除掉，統一只保留下方那塊真正有作用的。
+              .filter((p) => p.type === 'ReactNode' && p.name !== 'children')
               .map((p) => (
                 <ReactNodePropEditor
                   key={p.name}

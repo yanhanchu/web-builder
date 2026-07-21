@@ -1,4 +1,4 @@
-import { createElement, Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Component, createElement, Fragment, useEffect, useState, type ReactNode } from 'react';
 import { getComponentById, loadComponentModule } from '@workspace/ui/lib/generator/component-registry';
 import type { PageDef, PageNode } from '@/types/pages-types';
 import { loadI18nData } from '@/store/i18n-storage';
@@ -85,6 +85,46 @@ function useModuleCacheVersion() {
 }
 
 /**
+ * 包住單一節點的 render 結果：某些元件在特定 props 組合下 render 時會直接
+ * throw（例如 Avatar 必填欄位沒填），若不攔截，會讓 React 整棵樹（往上到
+ * 最近的 error boundary，這裡沒有的話就是整個 app）連帶炸掉，使用者連
+ * 「選取這個節點來修正/刪除它」的機會都沒有。
+ *
+ * 這裡用 class component 實作 `getDerivedStateFromError`（React 目前仍只有
+ * class component 能攔截 render 階段的錯誤），每個節點各自包一層，錯誤只會
+ * 侷限在這一個節點，兄弟節點與其餘畫面不受影響。抓到錯誤後改用
+ * `renderFallback` 畫一個跟「找不到 component id」一致的可點選佔位框
+ * （帶 data-node-path/data-node-kind），編輯模式下仍可被選取、更換或刪除；
+ * 原始 JSON 資料完全不變，只是換一種方式呈現「這個節點目前壞掉了」。
+ *
+ * `resetKey` 變動（節點的 props/component id 改變）時重新嘗試 render 一次，
+ * 讓使用者在面板改完設定、修好問題後畫面能立即恢復正常，不需要重新整理頁面。
+ */
+class NodeErrorBoundary extends Component<
+  { resetKey: string; renderFallback: (message: string) => ReactNode; children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidUpdate(prevProps: { resetKey: string }) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return this.props.renderFallback(this.state.error.message || String(this.state.error));
+    }
+    return this.props.children;
+  }
+}
+
+/**
  * 寬鬆判斷一個 prop 值是否「看起來像」PageNode（component 節點），用來決定
  * 是否要把它當成子節點樹遞迴渲染，而不是原封不動當作 prop 值傳下去。純字串
  * 不算在內——一般字串 prop 太常見，交由 `props[name]` 原樣傳遞即可，只有帶
@@ -96,6 +136,40 @@ function isPageNodeLike(value: unknown): value is PageNode {
     typeof value === 'object' &&
     !Array.isArray(value) &&
     typeof (value as { component?: unknown }).component === 'string'
+  );
+}
+
+/**
+ * 「這個節點目前壞掉了」的共用佔位畫面：找不到 component id、或 render 時
+ * throw（NodeErrorBoundary 攔截到）都用同一種呈現方式，讓使用者一眼就能
+ * 認出這類節點，並在編輯模式下維持可點選（帶 data-node-path/data-node-kind）。
+ * 非編輯模式（純預覽）不需要互動性，只顯示簡短警告文字。
+ */
+function renderBrokenNodePlaceholder(
+  key: string | number,
+  path: string,
+  editable: boolean,
+  label: string,
+  message: string
+): ReactNode {
+  if (!editable) {
+    return (
+      <span key={key} className="text-destructive">
+        ⚠ {label}：{message}
+      </span>
+    );
+  }
+  return (
+    <span
+      key={key}
+      data-node-path={path}
+      data-node-kind="component"
+      data-node-broken="true"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-destructive/50 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive"
+      title={`${label}：${message}（點選以修改或刪除此節點，原始資料仍會保留）`}
+    >
+      ⚠ {label}
+    </span>
   );
 }
 
@@ -139,11 +213,17 @@ function renderNode(
 
   const meta = getComponentById(component);
   if (!meta) {
-    return (
-      <span key={key} className="text-destructive">
-        ⚠ 找不到 component id "{component}"（請確認 data/components.json 存在此
-        id，或先執行 npm run docs:generate）
-      </span>
+    // 找不到對應 component id（例如元件庫改版、id 被改名，或資料本身壞掉）。
+    // 編輯模式下仍要帶 data-node-path/data-node-kind，否則外層的點擊代理
+    // （EditableCanvas 的 closest('[data-node-path]')）永遠找不到這個節點，
+    // 使用者會卡在「看得到但選不到、刪不掉」的狀態。純預覽（非 editable）
+    // 則維持原本的警告文字，不需要可互動性。
+    return renderBrokenNodePlaceholder(
+      key,
+      path,
+      editable,
+      `未知元件「${component}」`,
+      `找不到 component id "${component}"（請確認 data/components.json 存在此 id，或先執行 npm run docs:generate）`
     );
   }
 
@@ -216,10 +296,33 @@ function renderNode(
     ? { 'data-node-path': path, 'data-node-kind': 'component' }
     : undefined;
 
-  return createElement(
+  const element = createElement(
     entry.Component!,
     { key, ...resolvedProps, ...editableProps },
     ...(childNodes ?? [])
+  );
+
+  // resetKey 隨這個節點的 component id / props / children 內容變化，讓面板
+  // 修改完設定後（例如補上必填欄位）能立即跳出「壞掉」狀態、重新嘗試 render，
+  // 不需要重新整理整頁。
+  const resetKey = JSON.stringify({ component, props: withI18n, children });
+
+  return (
+    <NodeErrorBoundary
+      key={key}
+      resetKey={resetKey}
+      renderFallback={(message) =>
+        renderBrokenNodePlaceholder(
+          key,
+          path,
+          editable,
+          `${meta.componentName} 渲染失敗`,
+          message
+        )
+      }
+    >
+      {element}
+    </NodeErrorBoundary>
   );
 }
 

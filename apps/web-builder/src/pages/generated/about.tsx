@@ -19,6 +19,9 @@ export function AboutPage() {
           size={48}
         />
       </Card>
+      <Avatar
+        name=""
+      />
     </div>
   );
 }

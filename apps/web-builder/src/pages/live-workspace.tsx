@@ -92,13 +92,18 @@ function PageList({
   pages,
   onAddPage,
   onDeletePage,
+  onSyncAll,
+  syncAll,
 }: {
   app: string;
   pages: PageDef[];
   onAddPage: () => void;
   onDeletePage: (id: string) => void;
+  onSyncAll: () => void;
+  syncAll: WriteBackState;
 }) {
   const navigate = useNavigate();
+  const isSyncing = syncAll.status === "saving";
   return (
     <div className={pageWrapClass}>
       <div className={badgeClass}>
@@ -108,12 +113,33 @@ function PageList({
         <h1 className="text-2xl font-extrabold tracking-tight">
           「{app}」頁面清單
         </h1>
-        <button type="button" className={toolbarBtnPrimary} onClick={onAddPage}>
-          + 新增頁面
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={cn(toolbarBtn, "disabled:cursor-not-allowed disabled:opacity-60")}
+            onClick={onSyncAll}
+            disabled={isSyncing}
+            title={`一次把「${app}」底下所有頁面的編輯狀態寫回 data/${app}/pages.json`}
+          >
+            {isSyncing ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Spinner /> 同步中…
+              </span>
+            ) : (
+              "⇪ 一鍵同步至檔案系統"
+            )}
+          </button>
+          <button type="button" className={toolbarBtnPrimary} onClick={onAddPage}>
+            + 新增頁面
+          </button>
+        </div>
       </div>
+      {(syncAll.status === "success" || syncAll.status === "error") && (
+        <WriteBackStatus state={syncAll} />
+      )}
       <p className="mb-5 text-sm text-muted-foreground">
-        點頁面標題可看即時預覽；點「編輯」直接進入該頁的編輯模式（可改內容、id、title，或刪除頁面）。
+        點頁面標題可看即時預覽；點「編輯」直接進入該頁的編輯模式（可改內容、id、title，或刪除頁面）。「一鍵同步至檔案系統」會把此
+        app 底下所有頁面目前的編輯狀態一次寫回磁碟，不需要一頁一頁進去按「寫入檔案系統」。
       </p>
       <ul className="flex list-none flex-col gap-2 p-0">
         {pages.length === 0 && (
@@ -179,7 +205,12 @@ function nodeSummary(node: EditableNode): string {
         : text
       : "(空白文字)";
   }
-  return node.component || "(未選擇元件)";
+  const known = allComponents.some((c) => c.id === node.component);
+  return node.component
+    ? known
+      ? node.component
+      : `⚠ ${node.component}（未知）`
+    : "(未選擇元件)";
 }
 
 /**
@@ -424,12 +455,15 @@ function NodeEditorPanel({
   }, [onClose]);
 
   const node = findNodeByPath(page.nodes, selectedPath);
+
+  // 麵包屑：從根到目前節點的每一層路徑（"0" → "0.2" → "0.2.1" …），
+  // 用來讓 header 可以點回任何一個上層節點，而不是只能一次往上一層。
   const pathParts = selectedPath.split(".");
-  const parentPath =
-    pathParts.length > 1 ? pathParts.slice(0, -1).join(".") : null;
-  const parentNode = parentPath
-    ? findNodeByPath(page.nodes, parentPath)
-    : undefined;
+  const ancestorPaths = pathParts.slice(0, -1).map((_, i) => pathParts.slice(0, i + 1).join("."));
+  const breadcrumb = ancestorPaths
+    .map((p) => ({ path: p, node: findNodeByPath(page.nodes, p) }))
+    .filter((entry): entry is { path: string; node: EditableNode } => !!entry.node);
+  const parentPath = ancestorPaths.length > 0 ? ancestorPaths[ancestorPaths.length - 1] : null;
 
   if (!node) return null;
 
@@ -470,45 +504,80 @@ function NodeEditorPanel({
         role="dialog"
         aria-label={`編輯節點：${nodeSummary(node)}`}
       >
-        {/* Header：麵包屑（回到上一層）+ 節點摘要 + 關閉 */}
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-card/95 px-4 py-3 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-2">
-            {parentPath && (
-              <button
-                type="button"
-                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-150 hover:border-muted-foreground hover:bg-secondary hover:text-foreground"
-                onClick={() => onSelectPath(parentPath)}
-                title={
-                  parentNode
-                    ? `回到上層：${nodeSummary(parentNode)}`
-                    : "回到上層"
-                }
-              >
-                ↑
-              </button>
-            )}
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
-              {node.kind === "component" ? "▢" : "❝"}
-            </span>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-bold text-foreground">
-                {nodeSummary(node)}
-              </div>
-              <div className="truncate font-mono text-[0.6875rem] text-muted-foreground/70">
-                {node.kind === "component" ? "元件節點" : "文字節點"} · path:{" "}
-                {selectedPath}
+        {/* Header：麵包屑（可點回任一上層節點）+ 節點摘要 + 關閉 */}
+        <div className="flex flex-col gap-2 border-b border-border bg-card/95 px-4 py-3 backdrop-blur">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              {parentPath && (
+                <button
+                  type="button"
+                  className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-150 hover:border-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={() => onSelectPath(parentPath)}
+                  title="回到上層"
+                >
+                  ↑
+                </button>
+              )}
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
+                {node.kind === "component" ? "▢" : "❝"}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-foreground">
+                  {nodeSummary(node)}
+                </div>
+                <div className="truncate font-mono text-[0.6875rem] text-muted-foreground/70">
+                  {node.kind === "component" ? "元件節點" : "文字節點"} · path:{" "}
+                  {selectedPath}
+                </div>
               </div>
             </div>
+            <button
+              type="button"
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors duration-150 hover:border-border hover:bg-secondary hover:text-foreground"
+              onClick={onClose}
+              aria-label="收合編輯面板"
+              title="收合（Esc）"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors duration-150 hover:border-border hover:bg-secondary hover:text-foreground"
-            onClick={onClose}
-            aria-label="收合編輯面板"
-            title="收合（Esc）"
+
+          {/* 麵包屑列：根 → … → 上層，點任一層可直接跳過去；目前節點本身不可點。 */}
+          <nav
+            className="flex min-w-0 items-center gap-1 overflow-x-auto text-[0.6875rem] text-muted-foreground"
+            aria-label="節點層級"
           >
-            ✕
-          </button>
+            <button
+              type="button"
+              className="shrink-0 cursor-pointer rounded bg-transparent px-1 py-0.5 hover:text-primary hover:underline"
+              onClick={() => onSelectPath(null)}
+              title="回到畫面（取消選取）"
+            >
+              根
+            </button>
+            {breadcrumb.map(({ path, node: ancestor }) => (
+              <span key={path} className="flex shrink-0 items-center gap-1">
+                <span className="opacity-50">/</span>
+                <button
+                  type="button"
+                  className="max-w-[9rem] cursor-pointer truncate rounded bg-transparent px-1 py-0.5 text-left hover:text-primary hover:underline"
+                  onClick={() => onSelectPath(path)}
+                  title={nodeSummary(ancestor)}
+                >
+                  {nodeSummary(ancestor)}
+                </button>
+              </span>
+            ))}
+            <span className="flex shrink-0 items-center gap-1">
+              <span className="opacity-50">/</span>
+              <span
+                className="max-w-[9rem] truncate px-1 py-0.5 font-semibold text-foreground"
+                title={nodeSummary(node)}
+              >
+                {nodeSummary(node)}
+              </span>
+            </span>
+          </nav>
         </div>
 
         {/* 內容：唯一可捲動區域，只編輯這一個節點。 */}
@@ -674,6 +743,10 @@ export function LiveWorkspace() {
     status: "idle",
   });
   const [readBack, setReadBack] = useState<WriteBackState>({ status: "idle" });
+  // 「一鍵同步」（在頁面清單，不進入單頁編輯）：把目前 app 底下*所有*頁面
+  // 的 localStorage 編輯狀態一次寫回磁碟，跟單頁編輯模式裡的「寫入檔案系統」
+  // 共用同一個 postPagesToDisk，差別只在於這裡是在清單頁觸發、不需要先選頁面。
+  const [syncAll, setSyncAll] = useState<WriteBackState>({ status: "idle" });
   const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
 
   // 目前編輯狀態轉回 PageDef 形狀（含 i18nBindings sidecar），只算一次，
@@ -788,6 +861,25 @@ export function LiveWorkspace() {
     setNsPages(nextPages);
   }
 
+  /**
+   * 「一鍵同步」：把目前 app 底下所有頁面（localStorage 中的完整陣列）
+   * 一次寫回 data/{app}/pages.json，不需要一頁一頁進去按「寫入檔案系統」。
+   * 跟單頁編輯模式的 writeToDisk 邏輯一致（都是 app 陣列整批覆寫），
+   * 只是這裡不需要先有 `page`/`nsPages` 以外的東西，適合在清單頁直接用。
+   */
+  async function syncAllPagesToDisk() {
+    if (!app) return;
+    setSyncAll({ status: "saving" });
+    const local = loadLocalPagesData();
+    const nsToWrite = local[app] ?? nsPages ?? [];
+    const merged: PagesData = { ...initialPagesData, [app]: nsToWrite };
+    const result = await postPagesToDisk(merged);
+    setSyncAll({
+      status: result.ok ? "success" : "error",
+      message: result.message,
+    });
+  }
+
   // 沒有選定頁面：顯示清單。
   if (!pageId) {
     return (
@@ -796,6 +888,8 @@ export function LiveWorkspace() {
         pages={nsPages ?? []}
         onAddPage={addPage}
         onDeletePage={deletePageFromList}
+        onSyncAll={syncAllPagesToDisk}
+        syncAll={syncAll}
       />
     );
   }

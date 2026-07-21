@@ -1,73 +1,5 @@
 [
   {
-    "id": "home",
-    "title": "首頁",
-    "nodes": [
-      {
-        "component": "card-card",
-        "props": {
-          "interactive": true,
-          "padding": 24,
-          "children": "test"
-        },
-        "children": [
-          {
-            "component": "button-button",
-            "props": {
-              "variant": "primary",
-              "size": "md"
-            },
-            "children": [
-              "立即開始"
-            ]
-          },
-          "test"
-        ]
-      },
-      {
-        "component": "card-card",
-        "props": {
-          "interactive": true,
-          "padding": 16
-        },
-        "children": [
-          {
-            "component": "card-card-header",
-            "props": {
-              "title": "巢狀範例"
-            }
-          },
-          {
-            "component": "badge-badge",
-            "props": {
-              "tone": "info"
-            },
-            "children": [
-              "外層文字 - ",
-              {
-                "component": "badge-badge",
-                "props": {
-                  "tone": "warning",
-                  "dot": true
-                },
-                "children": [
-                  "內層 Badge（示範多層遞迴）"
-                ]
-              }
-            ]
-          },
-          {
-            "component": "badge-badge",
-            "children": [
-              "新文字節點"
-            ]
-          }
-        ]
-      },
-      "新文字節點"
-    ]
-  },
-  {
     "id": "about",
     "title": "關於",
     "nodes": [
@@ -89,6 +21,12 @@
             }
           }
         ]
+      },
+      {
+        "component": "avatar-avatar",
+        "props": {
+          "name": ""
+        }
       }
     ]
   }
