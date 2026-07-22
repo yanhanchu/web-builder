@@ -25,12 +25,15 @@ import {
   type StringLikeValueType,
 } from "@/components/value-type-input";
 import { PropMetaBadges } from "@/components/component-prop-meta";
+import { BindingPicker } from "@/components/binding-picker";
 import {
   type Binding,
   type BindingMap,
+  type BindingKind,
   findByPath,
   nodePath,
   propPath,
+  propTypeToBindable,
 } from "@/types/binding-types";
 
 /**
@@ -297,6 +300,10 @@ function toPageNode(
   }
   return out;
 }
+
+/** 目前 BindingPicker 開放的 kind：僅 i18n。dataRecord 需要 typeId 推導邏輯
+ *  （見 data-manager.tsx 的 relatedTypeNames 推導），這裡尚未串接，先不開放。 */
+const AVAILABLE_BINDING_KINDS: BindingKind[] = ["i18n"];
 
 /** 從一組 Binding[] 中取出 kind="i18n" 的 refKey（目前綁定的 i18n key）。 */
 function i18nRefKey(bindings: Binding[] | undefined): string | undefined {
@@ -669,6 +676,8 @@ export interface NodeEditorProps {
   onMoveDown?: () => void;
   /** 拖拉排序：由外層（父層的 nodes/children 陣列）提供，把自己從 from 移到 to。 */
   dragProps?: NodeDragProps;
+  /** 目前 app，供 BindingPicker 查詢可綁定的候選項使用。 */
+  app: string;
   /** 目前 app 底下可選的 i18n key 清單，供「綁定 i18n key」下拉選單使用。 */
   i18nKeys: string[];
   /** 目前語系（第一個語系）的 key -> 內容，供下拉選單顯示每個 key 的預覽文字。 */
@@ -765,6 +774,7 @@ function ReactNodePropEditor({
   required,
   nodes,
   depth,
+  app,
   i18nKeys,
   i18nPreview,
   onChange,
@@ -773,6 +783,7 @@ function ReactNodePropEditor({
   required: boolean;
   nodes: EditableNode[];
   depth: number;
+  app: string;
   i18nKeys: string[];
   i18nPreview: FlatDict;
   onChange: (next: EditableNode[]) => void;
@@ -855,6 +866,7 @@ function ReactNodePropEditor({
           onMoveUp={i > 0 ? () => moveChild(i, -1) : undefined}
           onMoveDown={i < nodes.length - 1 ? () => moveChild(i, 1) : undefined}
           dragProps={dragProps(i)}
+          app={app}
           i18nKeys={i18nKeys}
           i18nPreview={i18nPreview}
         />
@@ -871,6 +883,7 @@ export function NodeEditor({
   onMoveUp,
   onMoveDown,
   dragProps,
+  app,
   i18nKeys,
   i18nPreview,
   showChildren = true,
@@ -1077,13 +1090,18 @@ export function NodeEditor({
                 onChange={(next) => onChange({ ...node, value: next })}
               />
             </div>
-            <I18nKeyPicker
-              value={i18nRefKey(node.bindings)}
-              keys={i18nKeys}
-              previewDict={i18nPreview}
-              onChange={(key) => {
+            <BindingPicker
+              current={node.bindings?.find((b) => b.kind === "i18n")}
+              availableKinds={AVAILABLE_BINDING_KINDS}
+              targetType="string"
+              app={app}
+              onChange={(binding) => {
                 const next = { ...node } as typeof node;
-                const bindings = withI18nRefKey(next.bindings, key, "");
+                const bindings = withI18nRefKey(
+                  next.bindings,
+                  binding?.refKey,
+                  "",
+                );
                 if (bindings.length > 0) next.bindings = bindings;
                 else delete next.bindings;
                 onChange(next);
@@ -1213,15 +1231,18 @@ export function NodeEditor({
                               }
                             />
                           </div>
-                          <I18nKeyPicker
-                            value={i18nRefKey(node.propBindings?.[p.name])}
-                            keys={i18nKeys}
-                            previewDict={i18nPreview}
-                            onChange={(key) => {
+                          <BindingPicker
+                            current={node.propBindings?.[p.name]?.find(
+                              (b) => b.kind === "i18n",
+                            )}
+                            availableKinds={AVAILABLE_BINDING_KINDS}
+                            targetType="string"
+                            app={app}
+                            onChange={(binding) => {
                               const nextBindings = withPropI18nRefKey(
                                 node.propBindings,
                                 p.name,
-                                key,
+                                binding?.refKey,
                               );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
@@ -1280,15 +1301,18 @@ export function NodeEditor({
                           純 `string` 型別已改用上面的分支處理，這裡剩下的是
                           非 number、非純 string 的其他型別（例如未知/複雜型別 fallback）。 */}
                         {p.type !== "number" && (
-                          <I18nKeyPicker
-                            value={i18nRefKey(node.propBindings?.[p.name])}
-                            keys={i18nKeys}
-                            previewDict={i18nPreview}
-                            onChange={(key) => {
+                          <BindingPicker
+                            current={node.propBindings?.[p.name]?.find(
+                              (b) => b.kind === "i18n",
+                            )}
+                            availableKinds={AVAILABLE_BINDING_KINDS}
+                            targetType={propTypeToBindable(p.type)}
+                            app={app}
+                            onChange={(binding) => {
                               const nextBindings = withPropI18nRefKey(
                                 node.propBindings,
                                 p.name,
-                                key,
+                                binding?.refKey,
                               );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
@@ -1343,6 +1367,7 @@ export function NodeEditor({
                   required={p.required}
                   nodes={node.nodeProps?.[p.name] ?? []}
                   depth={depth}
+                  app={app}
                   i18nKeys={i18nKeys}
                   i18nPreview={i18nPreview}
                   onChange={(nextNodes) => {
@@ -1403,6 +1428,7 @@ export function NodeEditor({
                       : undefined
                   }
                   dragProps={childDragProps(i)}
+                  app={app}
                   i18nKeys={i18nKeys}
                   i18nPreview={i18nPreview}
                 />

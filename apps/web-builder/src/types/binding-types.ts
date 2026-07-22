@@ -2,8 +2,8 @@
 // 改成動態參照另一份資料（i18n key / 路由 id / 檔案 id / data record 等），
 // 而不是寫死的字面內容。
 
-/** 目前支援的綁定種類，之後要擴充 route/file/dataRecord 只需在這裡加一個字串。 */
-export type BindingKind = "i18n";
+/** 目前支援的綁定種類，之後要擴充 route/file 只需在這裡加一個字串。 */
+export type BindingKind = "i18n" | "dataRecord";
 
 /**
  * 單一綁定：某個 path 對應到哪種 kind、綁定到哪個 key。
@@ -89,4 +89,51 @@ export function findByPath<T>(
     list = getChildren(node) ?? [];
   }
   return node;
+}
+
+// ---------------------------------------------------------------------------
+// BindableValueType：跨 kind 共用的「值型別」詞彙。
+//
+// component prop（ComponentTypeFieldDoc.type，字串）、data record 欄位
+// （ParsedField.kind）、i18n key（ValueType）各自有自己的型別系統，
+// 彼此形狀不同、無法直接比較。這裡定義一個共同詞彙，各系統只需要提供一個
+// 「把自己的型別翻成這個詞彙」的函式，比對邏輯只需要認得這一種詞彙，
+// 不用同時認識四套系統。
+//
+// 目前只涵蓋基本型別；巢狀物件、陣列、component/node 型別（例如 icon 這種
+// 「值其實是塞一個組件」的 prop）一律先歸類 `unsupported`（不開放綁定），
+// 之後有需要時再細分。
+// ---------------------------------------------------------------------------
+
+export type BindableValueType = "string" | "number" | "boolean" | "unsupported";
+
+/** 把 component prop 的型別字串（ComponentTypeFieldDoc.type / PropDoc.type）翻成 BindableValueType。 */
+export function propTypeToBindable(type: string): BindableValueType {
+  if (type === "string" || type === "number" || type === "boolean") return type;
+  return "unsupported";
+}
+
+/** 把 data record 欄位的 kind（ParsedField.kind）翻成 BindableValueType。 */
+export function dataFieldKindToBindable(
+  kind: "string" | "number" | "boolean" | "object" | "unsupported",
+  isArray: boolean,
+): BindableValueType {
+  if (isArray) return "unsupported";
+  if (kind === "string" || kind === "number" || kind === "boolean") return kind;
+  return "unsupported";
+}
+
+/** 把 i18n key 的 ValueType（見 @/utils/i18n-utils）翻成 BindableValueType。 */
+export function i18nValueTypeToBindable(
+  valueType: "string" | "number" | "boolean" | "date" | "multiline" | "email" | "url" | "phone" | "color" | "file" | "markdown",
+): BindableValueType {
+  if (valueType === "number" || valueType === "boolean") return valueType;
+  // date/multiline/email/url/phone/color/file/markdown 都是「字串的呈現方式」，
+  // 實際存的值仍是 string，因此都歸類 string。
+  return "string";
+}
+
+/** target 是否允許被綁定：目前排除 unsupported，其餘（string/number/boolean）皆可。 */
+export function isBindableValueType(type: BindableValueType): boolean {
+  return type !== "unsupported";
 }

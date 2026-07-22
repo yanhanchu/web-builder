@@ -446,6 +446,7 @@ function NodeEditorPanel({
   onSelectPath,
   onChangePage,
   onClose,
+  app,
   i18nKeys,
   i18nPreview,
 }: {
@@ -454,6 +455,7 @@ function NodeEditorPanel({
   onSelectPath: (path: string | null) => void;
   onChangePage: (next: EditablePageDef) => void;
   onClose: () => void;
+  app: string;
   i18nKeys: string[];
   i18nPreview: FlatDict;
 }) {
@@ -604,6 +606,7 @@ function NodeEditorPanel({
             depth={0}
             onChange={updateNode}
             onDelete={deleteNode}
+            app={app}
             i18nKeys={i18nKeys}
             i18nPreview={i18nPreview}
             showChildren={false}
@@ -1193,6 +1196,7 @@ export function LiveWorkspace() {
           onSelectPath={setSelectedPath}
           onChangePage={setPage}
           onClose={() => setSelectedPath(null)}
+          app={app}
           i18nKeys={i18nKeys}
           i18nPreview={i18nPreview}
         />
