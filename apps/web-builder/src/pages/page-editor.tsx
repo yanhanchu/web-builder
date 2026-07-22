@@ -1,5 +1,5 @@
 import type { DragEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   allComponents,
   getComponentById,
@@ -14,8 +14,6 @@ import {
   writePagesToDisk as writePagesToDiskApi,
   readPagesFromDisk,
 } from "@/lib/pages-disk-api";
-import { loadI18nData } from "@/store/i18n-storage";
-import { collectAllKeys, type FlatDict } from "@/utils/i18n-utils";
 import { editorStyles as styles } from "@/styles/page-editor-styles";
 import { cn } from "@workspace/ui/utils/utils";
 import {
@@ -35,6 +33,7 @@ import {
   propPath,
   propTypeToBindable,
 } from "@/types/binding-types";
+import { getManagedTypes } from "@/lib/component-type-resolver";
 
 /**
  * data/pages.json 的編輯器。
@@ -301,36 +300,32 @@ function toPageNode(
   return out;
 }
 
-/** 目前 BindingPicker 開放的 kind：僅 i18n。dataRecord 需要 typeId 推導邏輯
- *  （見 data-manager.tsx 的 relatedTypeNames 推導），這裡尚未串接，先不開放。 */
-const AVAILABLE_BINDING_KINDS: BindingKind[] = ["i18n"];
-
-/** 從一組 Binding[] 中取出 kind="i18n" 的 refKey（目前綁定的 i18n key）。 */
-function i18nRefKey(bindings: Binding[] | undefined): string | undefined {
-  return bindings?.find((b) => b.kind === "i18n")?.refKey;
+/** 從一組 Binding[] 中取出第一個綁定（任何 kind）。沒有則 undefined。 */
+function boundBinding(bindings: Binding[] | undefined): Binding | undefined {
+  return bindings?.[0];
 }
 
-/** 設定（或移除）一組 Binding[] 裡的 i18n 綁定，回傳新的 Binding[]（可能為空陣列）。 */
-function withI18nRefKey(
+/** 設定（或移除）一組 Binding[] 裡某個 kind 的綁定，回傳新的 Binding[]（可能為空陣列）。 */
+function replaceBinding(
   bindings: Binding[] | undefined,
-  refKey: string | undefined,
-  path: string,
+  binding: Binding | null,
+  currentKind: BindingKind | undefined,
 ): Binding[] {
-  const rest = (bindings ?? []).filter((b) => b.kind !== "i18n");
-  return refKey ? [...rest, { kind: "i18n", path, refKey }] : rest;
+  const kindToRemove = binding ? binding.kind : currentKind;
+  if (!kindToRemove) return bindings ?? [];
+  const rest = (bindings ?? []).filter((b) => b.kind !== kindToRemove);
+  return binding ? [...rest, binding] : rest;
 }
 
-/**
- * 設定（或移除）component 節點某個 prop 的 i18n 綁定，回傳新的
- * `propBindings`（`propName -> Binding[]`）；該 prop 綁定變空時整個 key 一併移除。
- */
-function withPropI18nRefKey(
+/** 設定（或移除）component 節點某個 prop 的綁定，回傳新的 propBindings；該 prop 綁定變空時整個 key 一併移除。 */
+function replacePropBinding(
   propBindings: Record<string, Binding[]> | undefined,
   propName: string,
-  refKey: string | undefined,
+  binding: Binding | null,
+  currentKind: BindingKind | undefined,
 ): Record<string, Binding[]> {
   const next = { ...(propBindings ?? {}) };
-  const updated = withI18nRefKey(next[propName], refKey, "");
+  const updated = replaceBinding(next[propName], binding, currentKind);
   if (updated.length > 0) next[propName] = updated;
   else delete next[propName];
   return next;
@@ -465,201 +460,27 @@ function WriteBackStatus({ state }: { state: WriteBackState }) {
   );
 }
 
-/**
- * 讀取「目前 app」底下所有語系聯集出的 i18n key 清單，供節點編輯器的
- * 「綁定 i18n key」下拉選單使用。跟 `/i18n` 頁面一樣直接讀
- * localStorage（`loadI18nData()`），不特別做即時訂閱更新——切換頁面或
- * 重新整理即可看到最新 key 清單，避免這裡為了一個下拉選單多接一套
- * subscribe 機制。
- *
- * 除了 key 清單本身，也一併回傳「該 app 第一個語系」的完整字典
- * （`previewDict`），供 `I18nKeyPicker` 在下拉選單裡顯示每個 key 目前綁定
- * 的翻譯內容當作預覽，不需要每個呼叫端各自重新讀一次 localStorage。
- */
-export function useI18nKeys(app: string | undefined): {
-  keys: string[];
-  previewDict: FlatDict;
-} {
-  return useMemo(() => {
-    if (!app) return { keys: [], previewDict: {} };
-    const data = loadI18nData();
-    const nsData = data[app];
-    if (!nsData) return { keys: [], previewDict: {} };
-    const firstLocale = Object.keys(nsData).sort()[0];
-    return {
-      keys: collectAllKeys(nsData),
-      previewDict: firstLocale ? nsData[firstLocale] : {},
-    };
-  }, [app]);
-}
-
-/**
- * 「綁定 i18n key」的下拉選單，文字節點與 string 型別的 props 共用。
- * `value` 是目前綁定的 key（未綁定為 undefined/空字串）；選擇「不綁定」
- * 會呼叫 `onChange(undefined)`，讓呼叫端把對應的綁定欄位整個移除。
- *
- * 跟原本的原生 `<select>`比起來，多了兩個功能：
- *   - 上方一個簡易 filter 輸入框，key 數量一多可以快速縮小範圍（不分大小寫，
- *     比對 key 字串本身）。
- *   - 每個 key 選項旁邊會顯示一小段目前語系（`previewDict`）的翻譯內容預覽，
- *     方便在不切到 `/i18n` 頁面的情況下，大致確認選到的是不是對的 key。
- * 用原生 `<select>` 做不到「選項旁邊放預覽文字＋上方放搜尋框」，因此改用
- * `<details>/<summary>` + 純 HTML 清單自己刻一個小型下拉選單，維持零額外
- * 套件依賴、鍵盤 Esc/點外側收合都用原生行為（`<details>` 內建）。
- */
-function I18nKeyPicker({
-  value,
-  keys,
-  previewDict,
-  onChange,
-}: {
-  value: string | undefined;
-  keys: string[];
-  previewDict: FlatDict;
-  onChange: (key: string | undefined) => void;
-}) {
-  const [filter, setFilter] = useState("");
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-
-  const filteredKeys = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return keys;
-    return keys.filter((k) => k.toLowerCase().includes(q));
-  }, [keys, filter]);
-
-  function choose(key: string | undefined) {
-    onChange(key);
-    setFilter("");
-    if (detailsRef.current) detailsRef.current.open = false;
-  }
-
-  const currentPreview = value ? previewDict[value] : undefined;
-
-  return (
-    <details
-      ref={detailsRef}
-      className="group relative w-9 shrink-0"
-      onToggle={(e) => {
-        // 展開時把 filter 輸入框聚焦，收合時清掉 filter 字串（下次打開重新開始篩選）。
-        const el = e.currentTarget;
-        if (el.open) {
-          requestAnimationFrame(() => {
-            el.querySelector<HTMLInputElement>(
-              "input[data-i18n-filter]",
-            )?.focus();
-          });
-        } else {
-          setFilter("");
-        }
-      }}
-    >
-      <summary
-        className={cn(
-          styles.select,
-          "flex h-9 w-9 cursor-pointer list-none items-center justify-center px-0 [&::-webkit-details-marker]:hidden",
-          value ? "border-primary/40 text-primary" : "text-muted-foreground",
-        )}
-        title={
-          value
-            ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ""}（點擊變更或解除）`
-            : "綁定 i18n key（顯示時動態換值）"
-        }
-      >
-        🔗
-      </summary>
-
-      <div className="absolute right-0 z-10 mt-1 w-[280px] rounded-md border border-border bg-card p-2 shadow-lg">
-        <input
-          data-i18n-filter
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="篩選 key…"
-          className={cn(styles.textFieldInput, "mb-2 normal-case")}
-        />
-        <div className="max-h-[240px] overflow-y-auto">
-          <button
-            type="button"
-            className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-secondary"
-            onClick={() => choose(undefined)}
-          >
-            不綁定 i18n
-          </button>
-
-          {filteredKeys.length === 0 && (
-            <p className="px-2 py-1.5 text-[0.75rem] text-muted-foreground/70 italic">
-              （找不到符合的 key）
-            </p>
-          )}
-
-          {filteredKeys.map((k) => {
-            const preview = previewDict[k];
-            return (
-              <button
-                key={k}
-                type="button"
-                className={cn(
-                  "block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs hover:bg-secondary",
-                  k === value
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground",
-                )}
-                onClick={() => choose(k)}
-              >
-                <div className="truncate font-mono">{k}</div>
-                {/* 目前語系（第一個語系）的內容預覽：截斷避免撐開下拉選單，找不到值時提示「無內容」 */}
-                <div className="truncate text-[0.6875rem] text-muted-foreground/70">
-                  {preview ? preview : "（此語系尚無內容）"}
-                </div>
-              </button>
-            );
-          })}
-
-          {/* 綁定的 key 若因為刪除等原因已不在目前 key 清單中，仍保留原本的值可見、可解除 */}
-          {value && !keys.includes(value) && (
-            <button
-              type="button"
-              className="block w-full cursor-pointer rounded bg-destructive/10 px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/20"
-              onClick={() => choose(value)}
-            >
-              <div className="truncate font-mono">{value}</div>
-              <div className="truncate text-[0.6875rem]">
-                （找不到此 key，點擊維持選取或改選其他 key）
-              </div>
-            </button>
-          )}
-        </div>
-      </div>
-    </details>
-  );
-}
-
-/**
- * 顯示「已綁定 i18n key」狀態的小徽章，帶一個內嵌的 ✕ 按鈕可以直接解除綁定，
- * 不需要重新打開 `I18nKeyPicker` 下拉選單找「不綁定 i18n」選項。
- * 文字節點（`bindings`）與 component 字串 prop（`propBindings[name]`）共用，
- * 兩者都是透過 `i18nRefKey()` 從 Binding[] 中取出目前綁定的 i18n key。
- */
-function I18nBoundBadge({
-  i18nKey,
+/** 顯示「已綁定」狀態的小徽章，帶一個內嵌的 ✕ 按鈕可以直接解除綁定。 */
+function BoundBadge({
+  binding,
   onUnbind,
 }: {
-  i18nKey: string;
+  binding: Binding;
   onUnbind: () => void;
 }) {
   return (
     <span className={styles.i18nStatus}>
       <span
         className="truncate"
-        title={`已綁定 i18n key「${i18nKey}」，畫面顯示改用該 key 目前語系的翻譯內容`}
+        title={`已綁定 ${binding.kind}「${binding.refKey}」`}
       >
-        🔗 {i18nKey}
+        🔗 {binding.refKey}
       </span>
       <button
         type="button"
         className={styles.i18nStatusRemove}
         onClick={onUnbind}
-        title="解除 i18n 綁定"
+        title="解除綁定"
       >
         ✕
       </button>
@@ -678,10 +499,6 @@ export interface NodeEditorProps {
   dragProps?: NodeDragProps;
   /** 目前 app，供 BindingPicker 查詢可綁定的候選項使用。 */
   app: string;
-  /** 目前 app 底下可選的 i18n key 清單，供「綁定 i18n key」下拉選單使用。 */
-  i18nKeys: string[];
-  /** 目前語系（第一個語系）的 key -> 內容，供下拉選單顯示每個 key 的預覽文字。 */
-  i18nPreview: FlatDict;
   /** 是否要遞迴渲染 children（單一節點編輯面板只想編輯這一個節點本身時可關閉）。預設 true。 */
   showChildren?: boolean;
 }
@@ -775,8 +592,6 @@ function ReactNodePropEditor({
   nodes,
   depth,
   app,
-  i18nKeys,
-  i18nPreview,
   onChange,
 }: {
   propName: string;
@@ -784,8 +599,6 @@ function ReactNodePropEditor({
   nodes: EditableNode[];
   depth: number;
   app: string;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
   onChange: (next: EditableNode[]) => void;
 }) {
   function updateChild(index: number, next: EditableNode) {
@@ -867,8 +680,6 @@ function ReactNodePropEditor({
           onMoveDown={i < nodes.length - 1 ? () => moveChild(i, 1) : undefined}
           dragProps={dragProps(i)}
           app={app}
-          i18nKeys={i18nKeys}
-          i18nPreview={i18nPreview}
         />
       ))}
     </div>
@@ -884,12 +695,17 @@ export function NodeEditor({
   onMoveDown,
   dragProps,
   app,
-  i18nKeys,
-  i18nPreview,
   showChildren = true,
 }: NodeEditorProps) {
   const meta =
     node.kind === "component" ? getComponentById(node.component) : undefined;
+  const managedTypes = useMemo(
+    () => (meta ? getManagedTypes(meta) : []),
+    [meta],
+  );
+  const dataRecordTypeIds = managedTypes;
+  const propBindingKinds: BindingKind[] =
+    managedTypes.length > 0 ? ["i18n", "dataRecord"] : ["i18n"];
 
   function updateChild(index: number, next: EditableNode) {
     if (node.kind !== "component") return;
@@ -1086,22 +902,19 @@ export function NodeEditor({
               <ValueTypeField
                 valueType={node.valueType ?? "string"}
                 value={node.value}
-                disabled={Boolean(i18nRefKey(node.bindings))}
+                disabled={Boolean(boundBinding(node.bindings))}
                 onChange={(next) => onChange({ ...node, value: next })}
               />
             </div>
             <BindingPicker
-              current={node.bindings?.find((b) => b.kind === "i18n")}
-              availableKinds={AVAILABLE_BINDING_KINDS}
+              current={boundBinding(node.bindings)}
+              availableKinds={["i18n"]}
               targetType="string"
               app={app}
               onChange={(binding) => {
                 const next = { ...node } as typeof node;
-                const bindings = withI18nRefKey(
-                  next.bindings,
-                  binding?.refKey,
-                  "",
-                );
+                const currentKind = node.bindings?.[0]?.kind;
+                const bindings = replaceBinding(next.bindings, binding, currentKind);
                 if (bindings.length > 0) next.bindings = bindings;
                 else delete next.bindings;
                 onChange(next);
@@ -1115,12 +928,13 @@ export function NodeEditor({
                 onChange({ ...node, valueType: nextType })
               }
             />
-            {i18nRefKey(node.bindings) && (
-              <I18nBoundBadge
-                i18nKey={i18nRefKey(node.bindings)!}
+            {boundBinding(node.bindings) && (
+              <BoundBadge
+                binding={boundBinding(node.bindings)!}
                 onUnbind={() => {
                   const next = { ...node } as typeof node;
-                  const bindings = withI18nRefKey(next.bindings, undefined, "");
+                  const currentKind = node.bindings?.[0]?.kind;
+                  const bindings = replaceBinding(next.bindings, null, currentKind);
                   if (bindings.length > 0) next.bindings = bindings;
                   else delete next.bindings;
                   onChange(next);
@@ -1221,7 +1035,7 @@ export function NodeEditor({
                               value={propValueToInputString(node.props[p.name])}
                               placeholder={p.defaultValue ?? ""}
                               disabled={Boolean(
-                                i18nRefKey(node.propBindings?.[p.name]),
+                                boundBinding(node.propBindings?.[p.name]),
                               )}
                               onChange={(next) =>
                                 onChange({
@@ -1232,17 +1046,18 @@ export function NodeEditor({
                             />
                           </div>
                           <BindingPicker
-                            current={node.propBindings?.[p.name]?.find(
-                              (b) => b.kind === "i18n",
-                            )}
-                            availableKinds={AVAILABLE_BINDING_KINDS}
+                            current={boundBinding(node.propBindings?.[p.name])}
+                            availableKinds={propBindingKinds}
                             targetType="string"
                             app={app}
+                            dataRecordTypeIds={dataRecordTypeIds}
                             onChange={(binding) => {
-                              const nextBindings = withPropI18nRefKey(
+                              const currentKind = node.propBindings?.[p.name]?.[0]?.kind;
+                              const nextBindings = replacePropBinding(
                                 node.propBindings,
                                 p.name,
-                                binding?.refKey,
+                                binding,
+                                currentKind,
                               );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
@@ -1281,7 +1096,7 @@ export function NodeEditor({
                           value={propValueToInputString(node.props[p.name])}
                           placeholder={p.defaultValue ?? ""}
                           disabled={Boolean(
-                            i18nRefKey(node.propBindings?.[p.name]),
+                            boundBinding(node.propBindings?.[p.name]),
                           )}
                           onChange={(e) =>
                             onChange({
@@ -1302,17 +1117,18 @@ export function NodeEditor({
                           非 number、非純 string 的其他型別（例如未知/複雜型別 fallback）。 */}
                         {p.type !== "number" && (
                           <BindingPicker
-                            current={node.propBindings?.[p.name]?.find(
-                              (b) => b.kind === "i18n",
-                            )}
-                            availableKinds={AVAILABLE_BINDING_KINDS}
+                            current={boundBinding(node.propBindings?.[p.name])}
+                            availableKinds={propBindingKinds}
                             targetType={propTypeToBindable(p.type)}
                             app={app}
+                            dataRecordTypeIds={dataRecordTypeIds}
                             onChange={(binding) => {
-                              const nextBindings = withPropI18nRefKey(
+                              const currentKind = node.propBindings?.[p.name]?.[0]?.kind;
+                              const nextBindings = replacePropBinding(
                                 node.propBindings,
                                 p.name,
-                                binding?.refKey,
+                                binding,
+                                currentKind,
                               );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
@@ -1326,14 +1142,16 @@ export function NodeEditor({
                         )}
                       </div>
                     )}
-                    {i18nRefKey(node.propBindings?.[p.name]) && (
-                      <I18nBoundBadge
-                        i18nKey={i18nRefKey(node.propBindings![p.name])!}
+                    {boundBinding(node.propBindings?.[p.name]) && (
+                      <BoundBadge
+                        binding={boundBinding(node.propBindings![p.name])!}
                         onUnbind={() => {
-                          const nextBindings = withPropI18nRefKey(
+                          const currentKind = node.propBindings?.[p.name]?.[0]?.kind;
+                          const nextBindings = replacePropBinding(
                             node.propBindings,
                             p.name,
-                            undefined,
+                            null,
+                            currentKind,
                           );
                           const next = { ...node };
                           if (Object.keys(nextBindings).length > 0) {
@@ -1368,8 +1186,6 @@ export function NodeEditor({
                   nodes={node.nodeProps?.[p.name] ?? []}
                   depth={depth}
                   app={app}
-                  i18nKeys={i18nKeys}
-                  i18nPreview={i18nPreview}
                   onChange={(nextNodes) => {
                     const nextNodeProps = { ...(node.nodeProps ?? {}) };
                     if (nextNodes.length > 0) {
@@ -1429,8 +1245,6 @@ export function NodeEditor({
                   }
                   dragProps={childDragProps(i)}
                   app={app}
-                  i18nKeys={i18nKeys}
-                  i18nPreview={i18nPreview}
                 />
               ))}
             </div>

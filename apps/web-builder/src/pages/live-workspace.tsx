@@ -17,7 +17,6 @@ import {
   findNodeByPath,
   replaceNodeByPath,
   removeNodeByPath,
-  useI18nKeys,
   postPagesToDisk,
   fetchAppPagesFromDisk,
   WriteBackStatus,
@@ -29,7 +28,6 @@ import {
   type WriteBackState,
 } from "@/pages/page-editor";
 import { allComponents } from "@workspace/ui/lib/generator/component-registry";
-import type { FlatDict } from "@/utils/i18n-utils";
 import { cn } from "@workspace/ui/utils/utils";
 import { CollapsibleSection } from "@/components/collapsible-section";
 import { SeoEditor } from "@/components/seo-editor";
@@ -447,8 +445,6 @@ function NodeEditorPanel({
   onChangePage,
   onClose,
   app,
-  i18nKeys,
-  i18nPreview,
 }: {
   page: EditablePageDef;
   selectedPath: string;
@@ -456,8 +452,6 @@ function NodeEditorPanel({
   onChangePage: (next: EditablePageDef) => void;
   onClose: () => void;
   app: string;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -607,8 +601,6 @@ function NodeEditorPanel({
             onChange={updateNode}
             onDelete={deleteNode}
             app={app}
-            i18nKeys={i18nKeys}
-            i18nPreview={i18nPreview}
             showChildren={false}
           />
 
@@ -785,8 +777,6 @@ export function LiveWorkspace() {
   // 的 localStorage 編輯狀態一次寫回磁碟，跟單頁編輯模式裡的「寫入檔案系統」
   // 共用同一個 postPagesToDisk，差別只在於這裡是在清單頁觸發、不需要先選頁面。
   const [syncAll, setSyncAll] = useState<WriteBackState>({ status: "idle" });
-  const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
-
   // 目前編輯狀態轉回 PageDef 形狀（含 bindings sidecar），只算一次，
   // 同時給預覽（DynamicRenderer）跟下載 JSON／寫入磁碟共用，避免重複呼叫 toPageDef。
   const livePageDef = useMemo(() => (page ? toPageDef(page) : null), [page]);
@@ -1197,8 +1187,6 @@ export function LiveWorkspace() {
           onChangePage={setPage}
           onClose={() => setSelectedPath(null)}
           app={app}
-          i18nKeys={i18nKeys}
-          i18nPreview={i18nPreview}
         />
       )}
     </div>

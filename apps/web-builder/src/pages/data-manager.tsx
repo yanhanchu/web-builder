@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '@/hooks/context';
 import {
   loadDataManagerData,
@@ -13,152 +13,28 @@ import {
   updateSingleDataset,
 } from '@/store/data-manager-storage';
 import { writeDataRecordsToDisk as writeDataRecordsToDiskApi, readDataRecordsFromDisk } from '@/lib/data-manager-disk-api';
-import { allComponents, allComponentTypes } from '@workspace/ui/lib/generator/component-registry';
-import type { ComponentDoc, ComponentTypeDoc, ComponentTypeFieldDoc } from '@workspace/ui/types/generator/component-types';
+import { allComponents } from '@workspace/ui/lib/generator/component-registry';
+import type { ComponentDoc } from '@workspace/ui/types/generator/component-types';
 import {
-  classifySimpleType,
-  getArrayElementType,
   type Dataset,
   type DataRecordEntry,
   type ManagedType,
   type ParsedField,
   type RecordValue,
 } from '@/types/data-manager-types';
-import { loadI18nData } from '@/store/i18n-storage';
-import { collectAllKeys, type FlatDict } from '@/utils/i18n-utils';
+import { getManagedTypes } from '@/lib/component-type-resolver';
+import { BindingPicker } from '@/components/binding-picker';
 import {
+  type Binding,
+  type BindingKind,
   type BindingMap,
-  getBinding,
+  dataFieldKindToBindable,
   setBinding,
 } from '@/types/binding-types';
 import { dataManagerStyles as styles } from '@/styles/data-manager-styles';
 import { cn } from '@workspace/ui/utils/utils';
 
-// ─── 第三方 lib 型別判斷 ──────────────────────────────────────────────────────
-
-const THIRD_PARTY_TYPES = new Set([
-  'ReactNode', 'ReactElement', 'JSX.Element', 'React.ReactNode',
-  'React.ReactElement', 'CSSProperties', 'React.CSSProperties',
-  'MouseEvent', 'KeyboardEvent', 'ChangeEvent', 'SyntheticEvent',
-  'HTMLElement', 'HTMLDivElement', 'HTMLButtonElement', 'HTMLInputElement',
-  'RefObject', 'MutableRefObject', 'Ref',
-  'FC', 'FunctionComponent', 'ComponentType', 'ComponentProps',
-  'EventHandler', 'Dispatch', 'SetStateAction',
-  'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet',
-  'Promise', 'Observable', 'Symbol',
-]);
-
-function isThirdPartyType(typeStr: string): boolean {
-  const t = typeStr.trim();
-  if (THIRD_PARTY_TYPES.has(t)) return true;
-  if (t.includes('=>')) return true;
-  if (/^React\./.test(t)) return true;
-  return false;
-}
-
-// ─── inline 物件型別解析 ─────────────────────────────────────────────────────
-
-function parseInlineObjectType(typeStr: string): ComponentTypeFieldDoc[] | null {
-  const t = typeStr.trim();
-  if (!t.startsWith('{') || !t.endsWith('}')) return null;
-  const inner = t.slice(1, -1).trim();
-  if (!inner) return [];
-  const parts = inner.split(';').map((s) => s.trim()).filter(Boolean);
-  const fields: ComponentTypeFieldDoc[] = [];
-  for (const part of parts) {
-    const match = part.match(/^(\w+)(\?)?:\s*(.+)$/);
-    if (!match) continue;
-    fields.push({ name: match[1], required: !match[2], type: match[3].trim(), description: '' });
-  }
-  return fields.length > 0 ? fields : null;
-}
-
-// ─── 欄位解析 ────────────────────────────────────────────────────────────────
-
-function parseField(field: ComponentTypeFieldDoc): ParsedField {
-  const arrayElem = getArrayElementType(field.type);
-  const isArray = arrayElem !== null;
-  const coreType = isArray ? arrayElem : field.type;
-
-  if (isThirdPartyType(coreType)) {
-    return { kind: 'unsupported', name: field.name, required: field.required, description: field.description, rawType: field.type };
-  }
-
-  const simpleKind = classifySimpleType(coreType);
-  if (simpleKind) {
-    return { kind: simpleKind, name: field.name, required: field.required, description: field.description, isArray } as ParsedField;
-  }
-
-  const inlineFields = parseInlineObjectType(coreType);
-  if (inlineFields) {
-    const children = inlineFields.map(parseField);
-    return { kind: 'object', name: field.name, required: field.required, description: field.description, isArray, children } as ParsedField;
-  }
-
-  // union literal → string
-  const isStringUnion = /^"[^"]*"(\s*\|\s*"[^"]*")*$/.test(coreType);
-  if (isStringUnion) {
-    return { kind: 'string', name: field.name, required: field.required, description: field.description, isArray } as ParsedField;
-  }
-
-  return { kind: 'unsupported', name: field.name, required: field.required, description: field.description, rawType: field.type };
-}
-
-// ─── Props 型別判斷 ───────────────────────────────────────────────────────────
-
-function isPropsType(typeName: string): boolean {
-  return typeName.endsWith('Props');
-}
-
-function hasThirdPartyField(typeDoc: ComponentTypeDoc): boolean {
-  return typeDoc.fields.some((f) => {
-    const arrayElem = getArrayElementType(f.type);
-    const core = arrayElem ?? f.type;
-    return isThirdPartyType(core);
-  });
-}
-
-function getManagedTypes(component: ComponentDoc): ManagedType[] {
-  if (!component.relatedTypeNames?.length) return [];
-
-  const typeMap = new Map<string, ComponentTypeDoc>(
-    allComponentTypes.map((t) => [t.name, t])
-  );
-
-  const propsTypeName = component.relatedTypeNames.find(
-    (n) => n.endsWith('Props') && typeMap.has(n)
-  );
-  const propsTypeDoc = propsTypeName ? typeMap.get(propsTypeName) : undefined;
-
-  const propTypeStrMap = new Map<string, string>();
-  if (propsTypeDoc) {
-    for (const f of propsTypeDoc.fields) propTypeStrMap.set(f.name, f.type);
-  } else {
-    for (const p of component.props) propTypeStrMap.set(p.name, p.type);
-  }
-
-  const result: ManagedType[] = [];
-
-  for (const typeName of component.relatedTypeNames) {
-    const typeDoc = typeMap.get(typeName);
-    if (!typeDoc) continue;
-    if (typeDoc.aliasOf) continue;
-    if (isPropsType(typeName)) continue;
-    if (hasThirdPartyField(typeDoc)) continue;
-    if (typeDoc.fields.length === 0) continue;
-
-    let isArrayType = false;
-    for (const [, typeStr] of propTypeStrMap.entries()) {
-      const elem = getArrayElementType(typeStr);
-      const core = elem ?? typeStr;
-      if (core === typeName) { isArrayType = elem !== null; break; }
-    }
-
-    result.push({ typeId: typeDoc.id, typeName: typeDoc.name, isArrayType, fields: typeDoc.fields.map(parseField) });
-  }
-
-  return result;
-}
+const AVAILABLE_BINDING_KINDS: BindingKind[] = ['i18n', 'dataRecord'];
 
 // ─── 預設值 ──────────────────────────────────────────────────────────────────
 
@@ -203,7 +79,7 @@ function validateFields(
     if (field.kind === 'unsupported') continue;
     const path = prefix ? `${prefix}.${field.name}` : field.name;
     const val = value[field.name];
-    const bound = getBinding(bindings, path, 'i18n')?.refKey;
+    const bound = bindings[path]?.[0]?.refKey;
 
     if (field.kind === 'object') {
       if (!field.isArray) {
@@ -253,139 +129,6 @@ function WriteBackStatus({ state }: { state: WriteBackState }) {
   );
 }
 
-// ─── i18n key 選擇器（內嵌版，不依賴 page-editor private state） ──────────────
-
-function useI18nKeysForApp(app: string | null): { keys: string[]; previewDict: FlatDict } {
-  return useMemo(() => {
-    if (!app) return { keys: [], previewDict: {} };
-    const data = loadI18nData();
-    const nsData = data[app];
-    if (!nsData) return { keys: [], previewDict: {} };
-    const firstLocale = Object.keys(nsData).sort()[0];
-    return {
-      keys: collectAllKeys(nsData),
-      previewDict: firstLocale ? nsData[firstLocale] : {},
-    };
-  }, [app]);
-}
-
-function I18nKeyPicker({
-  value,
-  keys,
-  previewDict,
-  onChange,
-  inputClass,
-}: {
-  value: string | undefined;
-  keys: string[];
-  previewDict: FlatDict;
-  onChange: (key: string | undefined) => void;
-  inputClass: string;
-}) {
-  const [filter, setFilter] = useState('');
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-
-  const filteredKeys = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return keys;
-    return keys.filter((k) => k.toLowerCase().includes(q));
-  }, [keys, filter]);
-
-  function choose(key: string | undefined) {
-    onChange(key);
-    setFilter('');
-    if (detailsRef.current) detailsRef.current.open = false;
-  }
-
-  const currentPreview = value ? previewDict[value] : undefined;
-
-  return (
-    <details
-      ref={detailsRef}
-      className="group relative shrink-0"
-      onToggle={(e) => {
-        const el = e.currentTarget;
-        if (el.open) {
-          requestAnimationFrame(() => {
-            el.querySelector<HTMLInputElement>('input[data-i18n-filter]')?.focus();
-          });
-        } else {
-          setFilter('');
-        }
-      }}
-    >
-      <summary
-        className={cn(
-          inputClass,
-          'flex h-[1.875rem] w-[1.875rem] cursor-pointer list-none items-center justify-center px-0 text-[0.75rem] [&::-webkit-details-marker]:hidden',
-          value ? 'border-primary/40 text-primary' : 'text-muted-foreground'
-        )}
-        title={
-          value
-            ? `已綁定 i18n key「${value}」${currentPreview ? `：${currentPreview}` : ''}（點擊變更或解除）`
-            : '綁定 i18n key（顯示時動態換值）'
-        }
-      >
-        🔗
-      </summary>
-
-      <div className="absolute right-0 z-20 mt-1 w-[260px] rounded-md border border-border bg-card p-2 shadow-lg">
-        <input
-          data-i18n-filter
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="篩選 key…"
-          className={cn(inputClass, 'mb-2 w-full normal-case')}
-        />
-        <div className="max-h-[220px] overflow-y-auto">
-          <button
-            type="button"
-            className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-secondary"
-            onClick={() => choose(undefined)}
-          >
-            不綁定 i18n
-          </button>
-          {filteredKeys.length === 0 && (
-            <p className="px-2 py-1.5 text-[0.75rem] italic text-muted-foreground/70">
-              （找不到符合的 key）
-            </p>
-          )}
-          {filteredKeys.map((k) => {
-            const preview = previewDict[k];
-            return (
-              <button
-                key={k}
-                type="button"
-                className={cn(
-                  'block w-full cursor-pointer rounded px-2 py-1.5 text-left text-xs hover:bg-secondary',
-                  k === value ? 'bg-primary/10 text-primary' : 'text-foreground'
-                )}
-                onClick={() => choose(k)}
-              >
-                <div className="truncate font-mono">{k}</div>
-                <div className="truncate text-[0.6875rem] text-muted-foreground/70">
-                  {preview ? preview : '（此語系尚無內容）'}
-                </div>
-              </button>
-            );
-          })}
-          {value && !keys.includes(value) && (
-            <button
-              type="button"
-              className="block w-full cursor-pointer rounded bg-destructive/10 px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/20"
-              onClick={() => choose(value)}
-            >
-              <div className="truncate font-mono">{value}</div>
-              <div className="truncate text-[0.6875rem]">（找不到此 key，點擊維持或改選）</div>
-            </button>
-          )}
-        </div>
-      </div>
-    </details>
-  );
-}
-
 // ─── DataManager（主頁） ──────────────────────────────────────────────────────
 
 export function DataManager() {
@@ -413,8 +156,6 @@ export function DataManager() {
 
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
-
-  const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeysForApp(activeNs);
 
   const [writeState, setWriteState] = useState<WriteBackState>({ status: 'idle' });
   const [readState, setReadState] = useState<WriteBackState>({ status: 'idle' });
@@ -502,10 +243,10 @@ export function DataManager() {
             key={mt.typeId}
             app={activeNs}
             mt={mt}
+            dataRecordTypeIds={managedTypes}
+            availableKinds={AVAILABLE_BINDING_KINDS}
             refreshKey={refreshKey}
             onRefresh={refresh}
-            i18nKeys={i18nKeys}
-            i18nPreview={i18nPreview}
           />
         ))
       )}
@@ -538,17 +279,17 @@ export function DataManager() {
 function ManagedTypeSection({
   app,
   mt,
+  dataRecordTypeIds,
+  availableKinds,
   refreshKey,
   onRefresh,
-  i18nKeys,
-  i18nPreview,
 }: {
   app: string;
   mt: ManagedType;
+  dataRecordTypeIds: ManagedType[];
+  availableKinds: BindingKind[];
   refreshKey: number;
   onRefresh: () => void;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
 }) {
   const datasets = useMemo<Record<string, Dataset>>(
     () => loadDatasets(app, mt.typeId),
@@ -623,11 +364,11 @@ function ManagedTypeSection({
             typeId={mt.typeId}
             mt={mt}
             dataset={ds}
+            dataRecordTypeIds={dataRecordTypeIds}
+            availableKinds={availableKinds}
             onRefresh={onRefresh}
             onRemove={() => handleRemoveDataset(ds.name)}
             onRename={(newName) => handleRenameDataset(ds.name, newName)}
-            i18nKeys={i18nKeys}
-            i18nPreview={i18nPreview}
           />
         ))
       )}
@@ -642,21 +383,21 @@ function DatasetCard({
   typeId,
   mt,
   dataset,
+  dataRecordTypeIds,
+  availableKinds,
   onRefresh,
   onRemove,
   onRename,
-  i18nKeys,
-  i18nPreview,
 }: {
   app: string;
   typeId: string;
   mt: ManagedType;
   dataset: Dataset;
+  dataRecordTypeIds: ManagedType[];
+  availableKinds: BindingKind[];
   onRefresh: () => void;
   onRemove: () => void;
   onRename: (newName: string) => void;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState(dataset.name);
@@ -753,10 +494,11 @@ function DatasetCard({
               index={idx}
               record={item}
               fields={mt.fields}
+              app={app}
+              dataRecordTypeIds={dataRecordTypeIds}
+              availableKinds={availableKinds}
               onSave={(value, bindings) => handleSaveItem(item.id, value, bindings)}
               onRemove={() => handleRemoveItem(item.id)}
-              i18nKeys={i18nKeys}
-              i18nPreview={i18nPreview}
             />
           ))
         )}
@@ -786,9 +528,10 @@ function DatasetCard({
           fields={mt.fields}
           value={dataset.item}
           bindings={dataset.bindings ?? {}}
+          app={app}
+          dataRecordTypeIds={dataRecordTypeIds}
+          availableKinds={availableKinds}
           onSave={handleSaveItem}
-          i18nKeys={i18nKeys}
-          i18nPreview={i18nPreview}
         />
       )}
     </div>
@@ -801,18 +544,20 @@ function RecordCard({
   index,
   record,
   fields,
+  app,
+  dataRecordTypeIds,
+  availableKinds,
   onSave,
   onRemove,
-  i18nKeys,
-  i18nPreview,
 }: {
   index: number;
   record: DataRecordEntry;
   fields: ParsedField[];
+  app: string;
+  dataRecordTypeIds: ManagedType[];
+  availableKinds: BindingKind[];
   onSave: (value: Record<string, RecordValue>, bindings: BindingMap) => void;
   onRemove: () => void;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
 }) {
   const [draft, setDraft] = useState<Record<string, RecordValue>>(record.value);
   const [bindings, setBindings] = useState<BindingMap>(record.bindings ?? {});
@@ -830,9 +575,15 @@ function RecordCard({
     }
   }
 
-  function setFieldI18nBinding(fieldPath: string, key: string | undefined) {
-    setBindings((prev) => setBinding(prev, fieldPath, 'i18n', key));
-    // 綁定 i18n key 後清除該欄位的必填錯誤
+  function setFieldBinding(fieldPath: string, binding: Binding | null) {
+    setBindings((prev) => {
+      if (!binding) {
+        const existing = prev[fieldPath]?.[0];
+        if (!existing) return prev;
+        return setBinding(prev, fieldPath, existing.kind, undefined);
+      }
+      return setBinding(prev, fieldPath, binding.kind, binding.refKey);
+    });
     if (validationErrors[fieldPath]) {
       setValidationErrors((prev) => { const next = { ...prev }; delete next[fieldPath]; return next; });
     }
@@ -873,12 +624,13 @@ function RecordCard({
             field={field}
             fieldPath={field.name}
             value={draft[field.name] ?? null}
-            i18nBinding={getBinding(bindings, field.name, 'i18n')?.refKey}
-            i18nKeys={i18nKeys}
-            i18nPreview={i18nPreview}
+            binding={bindings[field.name]?.[0]}
+            app={app}
+            dataRecordTypeIds={dataRecordTypeIds}
+            availableKinds={availableKinds}
             error={validationErrors[field.name]}
             onChange={(v) => setFieldValue(field.name, v)}
-            onI18nBind={(key) => setFieldI18nBinding(field.name, key)}
+            onBind={(binding) => setFieldBinding(field.name, binding)}
           />
         ))}
       </div>
@@ -892,16 +644,18 @@ function SingleObjectEditor({
   fields,
   value,
   bindings: initialBindings,
+  app,
+  dataRecordTypeIds,
+  availableKinds,
   onSave,
-  i18nKeys,
-  i18nPreview,
 }: {
   fields: ParsedField[];
   value: Record<string, RecordValue>;
   bindings: BindingMap;
+  app: string;
+  dataRecordTypeIds: ManagedType[];
+  availableKinds: BindingKind[];
   onSave: (value: Record<string, RecordValue>, bindings: BindingMap) => void;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
 }) {
   const [draft, setDraft] = useState<Record<string, RecordValue>>(value);
   const [bindings, setBindings] = useState<BindingMap>(initialBindings);
@@ -918,8 +672,15 @@ function SingleObjectEditor({
     }
   }
 
-  function setFieldI18nBinding(fieldPath: string, key: string | undefined) {
-    setBindings((prev) => setBinding(prev, fieldPath, 'i18n', key));
+  function setFieldBinding(fieldPath: string, binding: Binding | null) {
+    setBindings((prev) => {
+      if (!binding) {
+        const existing = prev[fieldPath]?.[0];
+        if (!existing) return prev;
+        return setBinding(prev, fieldPath, existing.kind, undefined);
+      }
+      return setBinding(prev, fieldPath, binding.kind, binding.refKey);
+    });
     if (validationErrors[fieldPath]) {
       setValidationErrors((prev) => { const next = { ...prev }; delete next[fieldPath]; return next; });
     }
@@ -944,12 +705,13 @@ function SingleObjectEditor({
             field={field}
             fieldPath={field.name}
             value={draft[field.name] ?? null}
-            i18nBinding={getBinding(bindings, field.name, 'i18n')?.refKey}
-            i18nKeys={i18nKeys}
-            i18nPreview={i18nPreview}
+            binding={bindings[field.name]?.[0]}
+            app={app}
+            dataRecordTypeIds={dataRecordTypeIds}
+            availableKinds={availableKinds}
             error={validationErrors[field.name]}
             onChange={(v) => setFieldValue(field.name, v)}
-            onI18nBind={(key) => setFieldI18nBinding(field.name, key)}
+            onBind={(binding) => setFieldBinding(field.name, binding)}
           />
         ))}
       </div>
@@ -979,22 +741,24 @@ function FieldInput({
   field,
   fieldPath,
   value,
-  i18nBinding,
-  i18nKeys,
-  i18nPreview,
+  binding,
+  app,
+  dataRecordTypeIds,
+  availableKinds,
   error,
   onChange,
-  onI18nBind,
+  onBind,
 }: {
   field: ParsedField;
   fieldPath: string;
   value: RecordValue;
-  i18nBinding?: string;
-  i18nKeys: string[];
-  i18nPreview: FlatDict;
+  binding?: Binding;
+  app: string;
+  dataRecordTypeIds: ManagedType[];
+  availableKinds: BindingKind[];
   error?: string;
   onChange: (value: RecordValue) => void;
-  onI18nBind: (key: string | undefined) => void;
+  onBind: (binding: Binding | null) => void;
 }) {
   if (field.kind === 'unsupported') {
     return (
@@ -1039,10 +803,11 @@ function FieldInput({
                   field={child}
                   fieldPath={`${fieldPath}.${i}.${child.name}`}
                   value={(item as Record<string, RecordValue>)[child.name] ?? null}
-                  i18nKeys={i18nKeys}
-                  i18nPreview={i18nPreview}
+                  app={app}
+                  dataRecordTypeIds={dataRecordTypeIds}
+                  availableKinds={availableKinds}
                   onChange={(v) => updateObjectItem(i, { ...(item as Record<string, RecordValue>), [child.name]: v })}
-                  onI18nBind={() => {}}
+                  onBind={() => {}}
                 />
               ))}
             </div>
@@ -1080,12 +845,13 @@ function FieldInput({
               field={child}
               fieldPath={`${fieldPath}.${child.name}`}
               value={objValue[child.name] ?? null}
-              i18nBinding={i18nBinding}
-              i18nKeys={i18nKeys}
-              i18nPreview={i18nPreview}
+              binding={binding}
+              app={app}
+              dataRecordTypeIds={dataRecordTypeIds}
+              availableKinds={availableKinds}
               error={error}
               onChange={(v) => onChange({ ...objValue, [child.name]: v })}
-              onI18nBind={(key) => onI18nBind(key)}
+              onBind={(b) => onBind(b)}
             />
           ))}
         </div>
@@ -1167,8 +933,9 @@ function FieldInput({
     );
   }
 
-  // string（含 union literal）—— 支援 i18n key 綁定
-  const isBound = Boolean(i18nBinding);
+  // string（含 union literal）—— 支援綁定
+  const isBound = Boolean(binding);
+  const targetType = dataFieldKindToBindable(field.kind, field.isArray);
   return (
     <div className={styles.fieldWrap}>
       <label className={styles.fieldRowLabel}>
@@ -1176,7 +943,7 @@ function FieldInput({
         {field.required && <span className={styles.requiredMark}>*</span>}
         {isBound && (
           <span className="ml-1 font-normal normal-case text-[0.6rem] text-primary/80">
-            i18n: {i18nBinding}
+            {binding!.kind}: {binding!.refKey}
           </span>
         )}
       </label>
@@ -1186,18 +953,17 @@ function FieldInput({
           className={cn(styles.input, error && 'border-destructive', isBound && 'opacity-50')}
           value={typeof value === 'string' ? value : ''}
           disabled={isBound}
-          placeholder={isBound ? `綁定 i18n key: ${i18nBinding}` : undefined}
+          placeholder={isBound ? `綁定 ${binding!.kind}: ${binding!.refKey}` : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
-        {i18nKeys.length > 0 && (
-          <I18nKeyPicker
-            value={i18nBinding}
-            keys={i18nKeys}
-            previewDict={i18nPreview}
-            onChange={(key) => onI18nBind(key)}
-            inputClass={styles.input}
-          />
-        )}
+        <BindingPicker
+          current={binding}
+          availableKinds={availableKinds}
+          targetType={targetType}
+          app={app}
+          dataRecordTypeIds={dataRecordTypeIds}
+          onChange={(b) => onBind(b)}
+        />
       </div>
       {error && !isBound && <p className={styles.errorText}>{error}</p>}
       {!error && field.description && <p className={styles.hintText}>{field.description}</p>}
