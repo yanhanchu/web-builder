@@ -5,8 +5,8 @@
 //
 // 只在 `vite dev` 環境有效，見 scripts/write-data-plugin.mjs。
 //
-// v3：DataManagerData 結構改為 app -> typeId -> datasetName -> Dataset，
-// disk-api 本身只做 JSON 傳遞，不感知內部結構，所以這層不需要改。
+// DataManagerData 結構為 app -> typeId -> datasetName -> Dataset，
+// disk-api 本身只做 JSON 傳遞，不感知內部結構。
 
 import type { DataManagerData } from '@/types/data-manager-types';
 
@@ -14,7 +14,7 @@ export type DiskApiResult<T = Record<string, never>> =
   | ({ ok: true } & T)
   | { ok: false; error: string };
 
-/** 把整份 dataManagerData（app -> typeId -> DataRecordEntry[]）寫入各自的 data/{app}/records/{typeId}.json */
+/** 把整份 dataManagerData（app -> typeId -> datasetName -> Dataset）寫入各自的 data/{app}/records/{typeId}.json */
 export async function writeDataRecordsToDisk(
   dataManagerData: DataManagerData
 ): Promise<DiskApiResult<{ writtenFiles: string[]; appCount: number; recordCount: number }>> {
@@ -37,7 +37,7 @@ export async function writeDataRecordsToDisk(
   }
 }
 
-/** 讀取磁碟上目前所有 app 的 records/{typeId}.json（{ [app]: { [typeId]: DataRecordEntry[] } }） */
+/** 讀取磁碟上目前所有 app 的 records/{typeId}.json（{ [app]: { [typeId]: { [datasetName]: Dataset } } }） */
 export async function readDataRecordsFromDisk(): Promise<DiskApiResult<{ dataManagerData: DataManagerData }>> {
   try {
     const res = await fetch('/__api/write-data-records');

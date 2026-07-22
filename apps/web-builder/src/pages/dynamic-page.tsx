@@ -38,7 +38,7 @@ function NoAppNotice() {
 
 /**
  * `/live/:pageId` 路由對應的頁面。
- * 跟 build-time 產生的 `/pages/:path`（data/generated/pages/*.tsx）內容概念上相同，
+ * 跟 build-time 產生的 `/pages/*`（data/{app}/pages/*.tsx）內容概念上相同，
  * 差別在於這裡完全不需要重新產生任何檔案：直接改 `data/pages.json` 存檔，
  * 畫面就會即時更新。目前 app 取自最外層 layout 的切換 dropdown。
  */

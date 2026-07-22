@@ -6,7 +6,8 @@
 // 純粹是路徑管理用途。
 //
 // 目的地（target）有兩種來源：
-//   - 'page'：對應到 build-time 產生的 `generatedPages`（見 src/pages/pages-map.ts）
+//   - 'page'：對應到 build-time 產生的、目前 app 底下的頁面清單
+//     （見 data/{app}/pages-map.ts，由 src/pages/generated-pages-map.ts 動態彙整）
 //     其中一筆既有頁面。
 //   - 'url'：使用者自行輸入的任意網址（可以是站內路徑，也可以是外部連結），
 //     不受限於 generatedPages 清單。
@@ -25,7 +26,7 @@ export interface RouteEntry {
    *   - 'url'：使用 targetUrl 自訂任意網址
    */
   targetType: 'page' | 'url';
-  /** targetType 為 'page' 時，對應到 src/pages/pages-map.ts 裡 GeneratedPageEntry 的 id */
+  /** targetType 為 'page' 時，對應到 data/{app}/pages-map.ts 裡 GeneratedPageEntry 的 id */
   pageId?: string;
   /** targetType 為 'url' 時，使用者自訂的網址（站內路徑或外部連結皆可） */
   targetUrl?: string;

@@ -3,20 +3,19 @@
 //
 // 讀取 data/{app}/pages.json（該 app 底下的頁面陣列，每頁內容由
 // 組件節點遞迴組成），對照 data/components.json（由 generate-docs.mjs 產生的
-// 組件描述檔），靜態生成實際可執行的 .tsx 頁面檔到 data/generated/pages/。
+// 組件描述檔），靜態生成實際可執行的 .tsx 頁面檔到 data/{app}/pages/。
 //
 // 用法：
 //   node scripts/generate-pages.mjs                        # 產生「default」app
 //   node scripts/generate-pages.mjs --app marketing  # 產生指定 app
-//   node scripts/generate-pages.mjs --pages ./data/marketing/pages.json --out ./data/generated/pages
+//   node scripts/generate-pages.mjs --pages ./data/marketing/pages.json --out ./data/marketing/pages
 //
 // 設計重點：
 //   - 完全 build-time：輸出的是普通 .tsx 原始碼，不含任何 runtime JSON 解析或動態 import。
-//   - 資料配置是「一個 app = 一個資料夾」：data/{app}/pages.json，
-//     跟 i18n 管理頁面（data/{app}/i18n/{locale}.json）的 app 概念一致；
-//     這支腳本每次只處理單一 app 底下的頁面（預設 "default"，對應
-//     data/default/pages.json，`--pages` 可覆寫成任意路徑）。
-//   - 沒有任何跨 app 的聚合檔：`--pages` 直接指向單一 app 的
+//   - 資料配置是「一個 app = 一個資料夾」：data/{app}/pages.json 為來源，
+//     產物 data/{app}/pages/*.tsx 與 data/{app}/pages-map.ts 同樣依 app 各自存放，
+//     跟 i18n 管理頁面（data/{app}/i18n/{locale}.json）的 app 概念一致。
+//   - 每個 app 的產物互相獨立：`--pages` 直接指向單一 app 的
 //     pages.json，不需要先讀整份彙整資料再挑出其中一筆。
 //   - 每個節點的 `component` 欄位對應 components.json 的 `id`，
 //     用來查出 componentName / importPath，藉此在檔案開頭產生正確的具名 import。
@@ -38,7 +37,7 @@ function parseArgs(argv) {
     // 自己的一份重複拷貝，預設直接指向 workspace 底下 packages/ui/data/components.json，
     // 避免兩處 components.json 各自過期、內容不一致。
     components: '../../packages/ui/data/components.json',
-    out: 'data/generated/pages',
+    out: null, // 未指定時，依 app 決定預設值：data/{app}/pages
     app: 'default',
   };
   for (let i = 0; i < argv.length; i++) {
@@ -49,6 +48,9 @@ function parseArgs(argv) {
   }
   if (args.pages == null) {
     args.pages = `data/${args.app}/pages.json`;
+  }
+  if (args.out == null) {
+    args.out = `data/${args.app}/pages`;
   }
   return args;
 }
@@ -315,7 +317,7 @@ function renderPage(pageDef) {
   const componentIdentifier = toIdentifier(id) + 'Page';
   const pageTitle = title ?? id;
 
-  return `// 此檔案由 scripts/generate-pages.mjs 依 data/pages.json 自動產生，請勿手動編輯。
+  return `// 此檔案由 scripts/generate-pages.mjs 依 data/${app}/pages.json 自動產生，請勿手動編輯。
 // 若要修改頁面內容，請編輯來源 JSON 後重新執行 \`npm run pages:generate\`。
 
 ${importLines.join('\n')}
@@ -335,16 +337,15 @@ export default ${componentIdentifier};
 }
 
 /**
- * 產生 pages-map.ts：靜態、可被路由讀取的頁面清單 + import map。
- * 放在 outDir 的上一層（預設 src/pages/pages-map.ts），與 generated/ 平行，
- * 這樣 generated/ 整個目錄都可以視為「純產物、可安全整批覆寫」，
- * pages-map.ts 則是給 App.tsx 路由 import 的穩定入口。
+ * 產生 data/{app}/pages-map.ts：靜態、可被路由讀取的頁面清單 + import map。
+ * 跟 data/{app}/pages/*.tsx 放在同一層（皆屬於這個 app 的產物），
+ * 由 src/pages/generated-pages-map.ts 用 import.meta.glob 依 app 動態彙整。
  */
 function renderPagesMap(generated) {
   const importLines = generated
     .map(
       ({ id }) =>
-        `import { ${toIdentifier(id)}Page } from './generated/${id}';`
+        `import { ${toIdentifier(id)}Page } from './pages/${id}';`
     )
     .join('\n');
 
@@ -360,10 +361,9 @@ function renderPagesMap(generated) {
   return `// 此檔案由 scripts/generate-pages.mjs 自動產生，請勿手動編輯。
 // 執行 \`npm run pages:generate\` 以重新產生。
 //
-// 提供路由（App.tsx）與任何導覽 UI 使用的靜態頁面清單。
-// 每個 entry 的 Component 是直接 import 進來的（非 code-splitting）；
-// 若之後想跟文件頁一樣做成 lazy load，可比照 component-map.ts 改成
-// \`() => import('./generated/xxx')\` 並在路由端用 React.lazy 包裝。
+// 這個 app 底下 build-time 產生的靜態頁面清單，由
+// src/pages/generated-pages-map.ts 依目前選定的 app 動態讀取。
+// 每個 entry 的 Component 是直接 import 進來的（非 code-splitting）。
 
 import type { ComponentType } from 'react';
 ${importLines}
@@ -384,115 +384,6 @@ export function getGeneratedPageById(id: string): GeneratedPageEntry | undefined
   return generatedPages.find((p) => p.id === id);
 }
 `;
-}
-
-/**
- * 更新 src/App.tsx，把 pages-map.ts 的頁面清單掛進路由。
- * 採用「標記區塊」策略：只替換 BEGIN/END 註解之間的內容，
- * 若標記不存在（例如使用者已手動大改 App.tsx），則不動 App.tsx，
- * 只輸出一份範例檔供比對合併，避免破壞既有檔案。
- */
-const APP_TSX_PATH = path.resolve(cwd, 'src/App.tsx');
-const BEGIN_MARK = '{/* GENERATED_PAGES_ROUTES_BEGIN */}';
-const END_MARK = '{/* GENERATED_PAGES_ROUTES_END */}';
-const IMPORT_MARK_BEGIN = '// GENERATED_PAGES_IMPORT_BEGIN';
-const IMPORT_MARK_END = '// GENERATED_PAGES_IMPORT_END';
-
-function buildAppRouteSnippet() {
-  return [
-    `      {`,
-    `        path: 'pages',`,
-    `        children: generatedPages.map((page) => ({`,
-    `          path: page.path,`,
-    `          element: <page.Component />,`,
-    `        })),`,
-    `      },`,
-  ].join('\n');
-}
-
-function updateAppRouting() {
-  if (!existsSync(APP_TSX_PATH)) {
-    console.warn('[generate-pages] 找不到 src/App.tsx，略過路由整合。');
-    return;
-  }
-
-  let source = readFileSync(APP_TSX_PATH, 'utf-8');
-  const hasImportMarks = source.includes(IMPORT_MARK_BEGIN) && source.includes(IMPORT_MARK_END);
-  const hasRouteMarks = source.includes(BEGIN_MARK) && source.includes(END_MARK);
-
-  if (!hasImportMarks || !hasRouteMarks) {
-    console.warn(
-      '[generate-pages] src/App.tsx 尚未包含自動整合標記，略過自動寫入。\n' +
-        '  請參考產生的 src/App.generated-example.tsx，比對後手動合併。'
-    );
-    return;
-  }
-
-  const importSnippet = `${IMPORT_MARK_BEGIN}\nimport { generatedPages } from '@/pages/pages-map';\n${IMPORT_MARK_END}`;
-  const routeSnippet = `${BEGIN_MARK}\n${buildAppRouteSnippet()}\n      ${END_MARK}`;
-
-  source = source.replace(
-    new RegExp(`${IMPORT_MARK_BEGIN}[\\s\\S]*?${IMPORT_MARK_END}`),
-    importSnippet
-  );
-  source = source.replace(
-    new RegExp(`${BEGIN_MARK}[\\s\\S]*?${END_MARK}`),
-    routeSnippet
-  );
-
-  writeFileSync(APP_TSX_PATH, source, 'utf-8');
-  console.log('[generate-pages] ✓ 已更新 src/App.tsx 的路由設定');
-}
-
-/**
- * 若 App.tsx 還沒有標記（第一次導入這套機制），
- * 額外輸出一份範例檔 src/App.generated-example.tsx，
- * 內含標記與整合方式，方便使用者比對後手動合併進真正的 App.tsx。
- */
-function writeAppExampleIfNeeded() {
-  if (!existsSync(APP_TSX_PATH)) return;
-  const source = readFileSync(APP_TSX_PATH, 'utf-8');
-  const hasMarks = source.includes(IMPORT_MARK_BEGIN) && source.includes(BEGIN_MARK);
-  if (hasMarks) return;
-
-  const example = `// 範例：如何把 generatedPages 整合進 App.tsx 的路由。
-// 這個檔案不會被 import，純粹給你比對、手動合併用。
-// 合併後記得保留下方的標記註解，之後每次 \`npm run pages:generate\`
-// 就能自動更新這個區塊，不用手動維護。
-
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { Layout } from '@/pages/Layout';
-import { Home } from '@/pages/Home';
-import { ComponentDetail } from '@/pages/ComponentDetail';
-${IMPORT_MARK_BEGIN}
-import { generatedPages } from '@/pages/pages-map';
-${IMPORT_MARK_END}
-
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: 'components/:id', element: <ComponentDetail /> },
-      ${BEGIN_MARK}
-${buildAppRouteSnippet()}
-      ${END_MARK}
-    ],
-  },
-]);
-
-export function App() {
-  return <RouterProvider router={router} />;
-}
-`;
-
-  const exampleTarget = path.resolve(cwd, 'src/App.generated-example.tsx');
-  writeFileSync(exampleTarget, example, 'utf-8');
-  console.log(
-    `[generate-pages] ℹ 已產生 ${path.relative(cwd, exampleTarget)}，` +
-      '請比對後手動合併進 src/App.tsx（合併時保留 GENERATED_PAGES_* 標記註解，之後即可自動更新）。'
-  );
 }
 
 // ---------- 主流程 ----------
@@ -528,13 +419,10 @@ function main() {
     console.log(`[generate-pages] ✓ ${path.relative(cwd, filePath)}`);
   }
 
-  // pages-map.ts 放在 outDir 的上一層（預設 src/pages/）
+  // pages-map.ts 跟 outDir（data/{app}/pages/）放在同一層，即 data/{app}/pages-map.ts
   const pagesMapPath = path.join(outDir, '..', 'pages-map.ts');
   writeFileSync(pagesMapPath, renderPagesMap(generated), 'utf-8');
   console.log(`[generate-pages] ✓ ${path.relative(cwd, pagesMapPath)}`);
-
-  writeAppExampleIfNeeded();
-  updateAppRouting();
 
   console.log(`[generate-pages] 完成，共產生 ${generated.length} 個頁面於 ${path.relative(cwd, outDir)}/`);
 }

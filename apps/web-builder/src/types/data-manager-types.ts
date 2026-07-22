@@ -10,7 +10,7 @@
 //
 // localStorage 儲存：
 //   data-manager:v3 ->
-//     [app][typeId][datasetName] -> DataRecordEntry | DataRecordEntry[]
+//     [app][typeId][datasetName] -> Dataset
 
 // ─── 基本 primitives ──────────────────────────────────────────────────────────
 

@@ -1,21 +1,38 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Layout } from '@/pages/layout';
 import { Home } from '@workspace/ui/pages/generator/home';
 import { ComponentDetail } from '@workspace/ui/pages/generator/component-detail';
 import { FunctionsHome } from '@workspace/ui/pages/generator/functions-home';
 import { FunctionDetail } from '@workspace/ui/pages/generator/function-detail';
 import { LiveWorkspace } from '@/pages/live-workspace';
-import { PagesEditorIndex } from '@/pages/page-editor';
 import { I18nManager } from '@/pages/i18n-manager';
 import { AppListPage, AppEditPage } from '@/pages/settings';
 import { RouteManager } from '@/pages/route-manager';
 import { DataManager } from '@/pages/data-manager';
 import { FileManager } from '@/pages/file-manager';
 import { ThemeGenerator } from '@/pages/theme-generator';
-import { AppProvider } from '@/hooks/context';
-// GENERATED_PAGES_IMPORT_BEGIN
-import { generatedPages } from '@/pages/pages-map';
-// GENERATED_PAGES_IMPORT_END
+import { AppProvider, useApp } from '@/hooks/context';
+import { getGeneratedPageById } from '@/pages/generated-pages-map';
+
+/**
+ * `/pages/*`：build-time 產生的靜態頁面（見 data/{app}/pages/、
+ * data/{app}/pages-map.ts），依目前選定的 app 動態查找對應頁面渲染。
+ */
+function GeneratedPageRoute() {
+  const { app } = useApp();
+  const params = useParams<{ '*': string }>();
+  const pageId = params['*'] ?? '';
+  const page = getGeneratedPageById(app, pageId);
+  if (!page) {
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        ⚠ 在 app <code>{app}</code> 底下找不到 id 為 <code>{pageId}</code> 的頁面。
+      </p>
+    );
+  }
+  return <page.Component />;
+}
 
 const router = createBrowserRouter([
   {
@@ -60,18 +77,20 @@ const router = createBrowserRouter([
       // （對比下面 build-time 產生的 /pages/*）。app 一律取自最外層
       // 導覽列的切換 dropdown，路由不再帶 `:app` 參數。
       //   /live            -> 目前 app 底下的頁面清單（LiveWorkspace，無 :pageId）
-      //   /live/edit       -> 目前 app 底下所有頁面的表單編輯器（維持獨立頁面）
       //   /live/:pageId       -> 單一頁面即時預覽（LiveWorkspace）
       //   /live/:pageId/edit  -> 同一頁面，右側浮動面板展開編輯（同樣是 LiveWorkspace）
       //
       // 2024 合併：原本 /live、/live/:pageId、/live/:pageId/edit 三個各自
       // 獨立的頁面元件（DynamicPageIndex / DynamicPage / PageEditorRoute）
       // 合併成單一 LiveWorkspace 元件 —— 畫面以「即時預覽」為主體，上方
-      // 工具列可切換頁面 / 進入編輯，編輯模式改成右側浮動面板（重用
-      // page-editor.tsx 的 PageDefEditor），不再是整頁跳轉。
+      // 工具列可切換頁面 / 進入編輯，編輯模式改成右側浮動面板，不再是整頁跳轉。
+      //
+      // 2025 移除 /live/edit：原本獨立的 PagesEditorIndex（page-editor.tsx 的
+      // PageDefEditor）已整個移除，其中的「頁面層級 SEO」區塊搬進本頁
+      // PageMetaPanel 的「頁面設定」面板，node 樹編輯則沿用 LiveWorkspace
+      // 既有的畫面上編輯（EditableCanvas / NodeEditorPanel）。
       // ---------------------------------------------------------------
       { path: 'live', element: <LiveWorkspace /> },
-      { path: 'live/edit', element: <PagesEditorIndex /> },
       { path: 'live/:pageId', element: <LiveWorkspace /> },
       { path: 'live/:pageId/edit', element: <LiveWorkspace /> },
 
@@ -119,15 +138,12 @@ const router = createBrowserRouter([
       // ---------------------------------------------------------------
       { path: 'theme', element: <ThemeGenerator /> },
 
-      {/* GENERATED_PAGES_ROUTES_BEGIN */},
-      {
-        path: 'pages',
-        children: generatedPages.map((page) => ({
-          path: page.path,
-          element: <page.Component />,
-        })),
-      },
-      {/* GENERATED_PAGES_ROUTES_END */}
+      // ---------------------------------------------------------------
+      // 靜態頁面（/pages）：build-time 產生（見 scripts/generate-pages.mjs），
+      // 資料存放於 data/{app}/pages/*.tsx、data/{app}/pages-map.ts，依目前
+      // 選定的 app 動態查找對應頁面渲染（見上方 GeneratedPageRoute）。
+      // ---------------------------------------------------------------
+      { path: 'pages/*', element: <GeneratedPageRoute /> },
     ],
   },
 ]);

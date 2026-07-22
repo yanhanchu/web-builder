@@ -31,6 +31,10 @@ import {
 import { allComponents } from "@workspace/ui/lib/generator/component-registry";
 import type { FlatDict } from "@/utils/i18n-utils";
 import { cn } from "@workspace/ui/utils/utils";
+import { CollapsibleSection } from "@/components/collapsible-section";
+import { SeoEditor } from "@/components/seo-editor";
+import type { SeoLike } from "@/components/seo-editor";
+import { normalizePageSeo } from "@/types/pages-types";
 
 /**
  * `/live`、`/live/:pageId`、`/live/:pageId/edit` 三個頁面合成一頁的「工作區」。
@@ -643,10 +647,12 @@ function PageMetaPanel({
   page,
   onRename,
   onDelete,
+  onChangeSeo,
 }: {
   page: EditablePageDef;
   onRename: (next: { id: string; title: string }) => void;
   onDelete: () => void;
+  onChangeSeo: (next: EditablePageDef["seo"]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [idDraft, setIdDraft] = useState(page.id);
@@ -701,6 +707,22 @@ function PageMetaPanel({
               onChange={(e) => setTitleDraft(e.target.value)}
             />
           </label>
+
+          {/* 頁面層級 SEO —— 可收合，預設關閉，避免佔去面板大量空間。
+              跟 id / title 不同，這裡不走草稿 + 儲存，而是立即生效（原
+              PageDefEditor 的行為）。 */}
+          <CollapsibleSection
+            title="SEO 設定（頁面層級）"
+            description="此頁面專屬的 SEO 設定，留空的欄位沿用 App 設定（/app）的 app 層級 SEO 值。"
+            defaultOpen={false}
+          >
+            <SeoEditor
+              seo={page.seo as SeoLike | undefined}
+              onChange={(next) =>
+                onChangeSeo(next as ReturnType<typeof normalizePageSeo>)
+              }
+            />
+          </CollapsibleSection>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
@@ -840,10 +862,9 @@ export function LiveWorkspace() {
   }
 
   /**
-   * `/live` 索引頁「+ 新增頁面」：跟 `PagesEditorIndex.addPage`（`/live/edit`
-   * 那個表單式編輯器）同一種 id 命名規則（`page-{count+1}`），新增後立即把
-   * localStorage 更新、並直接導去該頁的編輯模式，減少「新增完還要自己找
-   * 剛新增的頁面」的步驟。
+   * `/live` 索引頁「+ 新增頁面」：id 命名規則固定為 `page-{count+1}`，
+   * 新增後立即把 localStorage 更新、並直接導去該頁的編輯模式，減少
+   * 「新增完還要自己找剛新增的頁面」的步驟。
    */
   function addPage() {
     if (!app) return;
@@ -1112,7 +1133,12 @@ export function LiveWorkspace() {
       </div>
 
       {editing && (
-        <PageMetaPanel page={page} onRename={renamePage} onDelete={deleteCurrentPage} />
+        <PageMetaPanel
+          page={page}
+          onRename={renamePage}
+          onDelete={deleteCurrentPage}
+          onChangeSeo={(next) => setPage({ ...page, seo: next })}
+        />
       )}
 
       <h1 className="mb-4 text-2xl font-extrabold tracking-tight">
@@ -1138,8 +1164,8 @@ export function LiveWorkspace() {
           </EditableCanvas>
 
           {/* 新增「頁面根層級」節點：補上原本只能靠先選取既有節點才能新增子節點的缺口，
-              讓空白頁面 / 想在最外層加節點時，不需要繞路去 /live/:pageId/edit 頁的
-              PageDefEditor（那裡新增節點同樣可行，但這裡讓「在畫面上編輯」自成一套完整流程）。 */}
+              讓空白頁面 / 想在最外層加節點時，「在畫面上編輯」自成一套完整流程，
+              不需要另外的頁面編輯器。 */}
           <div className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2">
             <span className="text-[0.75rem] font-semibold text-muted-foreground">
               新增頁面節點

@@ -1,8 +1,8 @@
 // `data/{app}/pages.json` 的讀寫 API 呼叫層。
 //
 // 跟 src/pages/i18n/disk-api.ts 相同的模式：把「寫入檔案系統」「從檔案系統讀取
-// （覆蓋）」這兩個動作各自的 fetch 邏輯抽出來，讓 PageEditorRoute /
-// PagesEditorIndex（未來若有其他地方要操作 pages 磁碟同步）都能共用同一份。
+// （覆蓋）」這兩個動作各自的 fetch 邏輯抽出來，讓 live-workspace.tsx
+//（未來若有其他地方要操作 pages 磁碟同步）都能共用同一份。
 //
 // 只在 `vite dev` 環境有效，見 scripts/write-pages-plugin.mjs。
 

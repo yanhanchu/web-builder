@@ -1,0 +1,24 @@
+{
+  "default": {
+    "isArrayType": true,
+    "name": "default",
+    "items": [
+      {
+        "id": "511537e7-55f9-4548-9cf1-fa701f99a98b",
+        "value": {
+          "label": "test",
+          "to": "/"
+        },
+        "i18nBindings": {}
+      },
+      {
+        "id": "4beb8ab7-b34d-4893-9ba1-a7d3e4d82efa",
+        "value": {
+          "label": "",
+          "to": ""
+        },
+        "i18nBindings": {}
+      }
+    ]
+  }
+}

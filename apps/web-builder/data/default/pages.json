@@ -86,19 +86,6 @@
         "props": {
           "name": ""
         }
-      },
-      {
-        "component": "header-header",
-        "props": {
-          "brand": "test",
-          "closeMenuLabel": "aaa",
-          "openMenuLabel": "gggsdfg",
-          "primaryNav": "dfgdfg",
-          "themeGroupLabel": "dfgdfg",
-          "themeLabel": "dfgdfg",
-          "themeOptions": "dfgdfg",
-          "testNumber": 8
-        }
       }
     ]
   },

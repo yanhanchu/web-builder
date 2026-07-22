@@ -388,7 +388,7 @@ export function DataManager() {
   const activeNs = app ?? null;
 
   const eligibleComponents = useMemo<ComponentDoc[]>(
-    () => allComponents.filter((c) => (c.relatedTypeNames?.length ?? 0) > 0),
+    () => allComponents.filter((c) => getManagedTypes(c).length > 0),
     []
   );
 
@@ -655,11 +655,22 @@ function DatasetCard({
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState(dataset.name);
+  const [open, setOpen] = useState(false);
 
   function commitRename() {
     onRename(renameDraft.trim());
     setIsRenaming(false);
   }
+
+  const ToggleButton = (
+    <button
+      type="button"
+      className={styles.removeButton}
+      onClick={() => setOpen((v) => !v)}
+    >
+      {open ? '收合' : '展開'}
+    </button>
+  );
 
   const RenameControls = (
     <div className="flex items-center gap-2">
@@ -719,13 +730,16 @@ function DatasetCard({
             <button type="button" className={styles.addRecordButton} onClick={handleAddItem}>
               + 新增 {mt.typeName}
             </button>
+            {ToggleButton}
             <button type="button" className={styles.removeButton} onClick={onRemove}>
               刪除資料集
             </button>
           </div>
         </div>
 
-        {dataset.items.length === 0 ? (
+        {!open ? (
+          <div className={styles.emptySmall}>共 {dataset.items.length} 筆，點「展開」查看與編輯。</div>
+        ) : dataset.items.length === 0 ? (
           <div className={styles.emptySmall}>這個資料集還沒有任何物件，點「新增 {mt.typeName}」。</div>
         ) : (
           dataset.items.map((item, idx) => (
@@ -755,18 +769,25 @@ function DatasetCard({
     <div className={styles.datasetCard}>
       <div className={styles.datasetCardHeader}>
         {RenameControls}
-        <button type="button" className={styles.removeButton} onClick={onRemove}>
-          刪除資料集
-        </button>
+        <div className={styles.actionsRow}>
+          {ToggleButton}
+          <button type="button" className={styles.removeButton} onClick={onRemove}>
+            刪除資料集
+          </button>
+        </div>
       </div>
-      <SingleObjectEditor
-        fields={mt.fields}
-        value={dataset.item}
-        i18nBindings={dataset.i18nBindings ?? {}}
-        onSave={handleSaveItem}
-        i18nKeys={i18nKeys}
-        i18nPreview={i18nPreview}
-      />
+      {!open ? (
+        <div className={styles.emptySmall}>點「展開」查看與編輯內容。</div>
+      ) : (
+        <SingleObjectEditor
+          fields={mt.fields}
+          value={dataset.item}
+          i18nBindings={dataset.i18nBindings ?? {}}
+          onSave={handleSaveItem}
+          i18nKeys={i18nKeys}
+          i18nPreview={i18nPreview}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,17 @@
+{
+  "brand A": {
+    "isArrayType": false,
+    "name": "brand A",
+    "item": {
+      "toHome": "/",
+      "ariaLabel": "/",
+      "mark": "test",
+      "logoSrc": "test",
+      "wordmark": {
+        "lead": "test",
+        "accent": "est"
+      }
+    },
+    "i18nBindings": {}
+  }
+}

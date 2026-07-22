@@ -8,7 +8,7 @@ import {
   removeRoute,
 } from '@/store/route-storage';
 import { writeRoutesToDisk as writeRoutesToDiskApi, readRoutesFromDisk } from '@/lib/routes-disk-api';
-import { generatedPages, getGeneratedPageById } from '@/pages/pages-map';
+import { getGeneratedPages, getGeneratedPageById } from '@/pages/generated-pages-map';
 import { isValidRoutePath, isValidTargetUrl, normalizeRoutePath, type RouteEntry } from '@/types/route-types';
 import { routeManagerStyles as styles } from '@/styles/route-manager-styles';
 import { cn } from '@workspace/ui/utils/utils';
@@ -18,7 +18,8 @@ import { cn } from '@workspace/ui/utils/utils';
  *
  * 跟原有的「頁面預覽（/live）」系統完全無關：這裡管理的是一份簡單的
  * 「path → 目的地」靜態對照表。目的地有兩種：
- *   - 既有頁面：固定來自 build-time 產生的 `generatedPages`（見 src/pages/pages-map.ts）
+ *   - 既有頁面：固定來自 build-time 產生的、目前 app 底下的頁面清單
+ *     （見 data/{app}/pages-map.ts，由 src/pages/generated-pages-map.ts 動態彙整）
  *   - 自訂網址：使用者自行輸入任意網址（站內路徑或外部連結皆可）
  * 每筆路由另可填寫一段選填的 description 說明用途，純粹是設定管理用途，
  * 不會產生實際可訪問的路由。
@@ -55,6 +56,8 @@ function WriteBackStatus({ state }: { state: WriteBackState }) {
 export function RouteManager() {
   const { app } = useApp();
   const activeNs = app ?? null;
+  // 依目前選定的 app 動態取得 build-time 產生的頁面清單（data/{app}/pages-map.ts）。
+  const generatedPages = useMemo(() => getGeneratedPages(activeNs), [activeNs]);
 
   // 每次 render 都直接從 localStorage 讀（同分頁內沒有跨元件即時同步的需求，
   // 這個頁面是唯一的編輯入口），操作後用 `refreshKey` 觸發重新讀取。
@@ -311,7 +314,7 @@ export function RouteManager() {
           </thead>
           <tbody>
             {routes.map((r) => {
-              const page = r.targetType === 'page' ? getGeneratedPageById(r.pageId ?? '') : null;
+              const page = r.targetType === 'page' ? getGeneratedPageById(activeNs, r.pageId ?? '') : null;
               return (
                 <tr key={r.id} className={styles.tr}>
                   <td className={cn(styles.td, styles.pathCell)}>/{r.path}</td>

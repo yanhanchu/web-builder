@@ -2,7 +2,7 @@
  * Vite plugin：只在 `vite dev`（configureServer 不會在 build 觸發）掛一個 middleware，
  * 同一個路徑 `/__api/write-data-records` 依 HTTP method 分派：
  *  - POST /__api/write-data-records：把 `/data`（DataManager）目前編輯的整份
- *    dataManagerData（app -> typeId -> DataRecordEntry[]）依 app + typeId 各自寫回
+ *    dataManagerData（app -> typeId -> datasetName -> Dataset）依 app + typeId 各自寫回
  *    `data/{app}/records/{typeId}.json`（見 write-data-records.mjs 的 writeDataRecordsToDisk）
  *  - GET  /__api/write-data-records：讀取磁碟上目前所有 app 的 records/*.json，
  *    供「從檔案系統讀取（覆蓋）」按鈕使用（見 write-data-records.mjs 的
@@ -70,7 +70,7 @@ export function writeDataRecordsPlugin() {
         const { dataManagerData } = body ?? {};
 
         if (dataManagerData == null || typeof dataManagerData !== 'object' || Array.isArray(dataManagerData)) {
-          sendJson(res, 400, { ok: false, error: '缺少必要欄位：dataManagerData（必須是物件，app -> typeId -> DataRecordEntry[]）' });
+          sendJson(res, 400, { ok: false, error: '缺少必要欄位：dataManagerData（必須是物件，app -> typeId -> datasetName -> Dataset）' });
           return;
         }
 
