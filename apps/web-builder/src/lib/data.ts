@@ -1,6 +1,6 @@
 import type { AppsData, AppSettings } from '@/types/types';
 import type { PagesData, PageDef } from '@/types/pages-types';
-import { stripI18nAnnotations } from '@/lib/pages-i18n-annotations';
+import { stripBindingAnnotations } from '@/lib/pages-i18n-annotations';
 
 // ---------------------------------------------------------------------------
 // 唯一資料來源：data/{app}/app.json、data/{app}/pages.json。
@@ -60,7 +60,7 @@ function buildPagesData(): PagesData {
     // 或子節點內容渲染出來。
     result[app] = mod.default.map((page) => ({
       ...page,
-      nodes: stripI18nAnnotations(page.nodes),
+      nodes: stripBindingAnnotations(page.nodes),
     }));
   }
   return result;

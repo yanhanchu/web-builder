@@ -25,6 +25,13 @@ import {
   type StringLikeValueType,
 } from "@/components/value-type-input";
 import { PropMetaBadges } from "@/components/component-prop-meta";
+import {
+  type Binding,
+  type BindingMap,
+  findByPath,
+  nodePath,
+  propPath,
+} from "@/types/binding-types";
 
 /**
  * data/pages.json 的編輯器。
@@ -63,21 +70,22 @@ function nextKey() {
 // 編輯器內部用的節點型態：在每個 PageNode 外面包一層穩定的 key，
 // 方便 React 列表渲染 / 增刪節點時不會錯亂，輸出時再剝掉。
 //
-// i18n 綁定（不更改 PageNode / ComponentNode 型別本身）：
-//   - 文字節點：`i18nKey` 有值時，代表這個文字節點的內容改成「顯示時查
-//     i18n key 動態換值」，而不是寫死的字面字串（`value` 仍會保留最後一次
-//     手動輸入或字典裡的值，當作「找不到 key / fallback」時的顯示內容）。
-//   - component 節點：`i18nPropBindings` 是 `{ propName: i18nKey }`，
-//     代表哪些 string props 改成動態取 i18n 值，其餘 props 不受影響。
-// 這兩份綁定資訊都只存在編輯器內部與下方定義的 sidecar
-// （`PageDef.i18nBindings`），並不會出現在 `PageNode`/`ComponentNode` 裡，
+// 欄位綁定（不更改 PageNode / ComponentNode 型別本身）：
+//   - 文字節點：`bindings` 裡有 kind="i18n" 的項目時，代表這個文字節點的
+//     內容改成「顯示時查 i18n key 動態換值」，而不是寫死的字面字串
+//     （`value` 仍會保留最後一次手動輸入或字典裡的值，當作「找不到
+//     key / fallback」時的顯示內容）。
+//   - component 節點：`propBindings` 是 `{ propName: Binding[] }`，代表哪些
+//     string props 改成動態取值，其餘 props 不受影響。
+// 這些綁定資訊都只存在編輯器內部與下方定義的 sidecar
+// （`PageDef.bindings`），並不會出現在 `PageNode`/`ComponentNode` 裡，
 // 對 generate-pages.mjs、DynamicRenderer 既有邏輯完全透明。
 export type EditableNode =
   | {
       key: string;
       kind: "text";
       value: string;
-      i18nKey?: string;
+      bindings?: Binding[];
       valueType?: StringLikeValueType;
     }
   | {
@@ -86,20 +94,20 @@ export type EditableNode =
       component: string;
       props: Record<string, unknown>;
       children: EditableNode[];
-      i18nPropBindings?: Record<string, string>;
+      propBindings?: Record<string, Binding[]>;
       /**
        * `string` 型別的 props，除了純文字，也可能代表 email/url/phone/color/markdown 等
        * 更具體的輸入類型（沿用 i18n 管理頁的 `ValueType` 定義，見
        * `@/components/value-type-input.tsx` 的 `STRING_LIKE_VALUE_TYPES`）。這份 map
        * 只決定「用哪種輸入元件呈現」，不影響 `props[name]` 本身仍是純字串這件事，
-       * 因此輸出（`toPageNode`）時完全不用特別處理，跟 `nodeProps`/`i18nPropBindings`
+       * 因此輸出（`toPageNode`）時完全不用特別處理，跟 `nodeProps`/`propBindings`
        * 一樣是平行的 sidecar，對 generate-pages.mjs、DynamicRenderer 完全透明。
        * 未設定的 prop 預設視為 `'string'`（一般文字 input）。
        */
       propValueTypes?: Record<string, StringLikeValueType>;
       /**
        * `ReactNode` 型別的 props 除了可以是純文字/JSON，也可以「放入另一棵節點樹」
-       * （例如 `icon={<SomeIcon />}` 這種需要塞組件的 prop）。跟 `i18nPropBindings`
+       * （例如 `icon={<SomeIcon />}` 這種需要塞組件的 prop）。跟 `propBindings`
        * 一樣是平行的 sidecar map（`propName -> EditableNode[]`），不影響 `props`
        * 本身的型別；輸出（`toPageNode`）時，若某個 prop 有對應的 nodeProps 項目，
        * 會改成輸出一個小型節點樹（單一節點時直接輸出該節點、多節點時輸出陣列），
@@ -108,49 +116,14 @@ export type EditableNode =
       nodeProps?: Record<string, EditableNode[]>;
     };
 
-/**
- * `PageDef` 的 sidecar 型別，額外攜帶 i18n 綁定資訊，跟 `nodes` 本身
- * 結構平行、以「路徑」對應到樹上的節點，藉此完全不用更動
- * `PageNode` / `ComponentNode` 型別，也不用在 JSON 節點裡混入
- * 任何 marker 欄位。
- *
- * 路徑格式：以 `.` 串接一路往下的 children 索引，例如
- * `"0"`（第 0 個 top-level 節點）、`"0.2"`（第 0 個節點的第 2 個
- * child）。路徑僅描述樹狀「位置」，因此新增/刪除/搬移節點時都必須
- * 連帶更新 `i18nBindings` 裡的路徑，這件事統一在
- * `toPageDef`（往下寫出時，路徑用當下的 nodes 順序重新計算）完成，
- * 呼叫端不需要自己維護路徑字串。
- *
- * - `text` 分支：整個路徑對應的節點是文字節點，值是它綁定的 i18n key。
- * - `props` 分支：路徑對應的節點是 component 節點，值是
- *   `{ propName: i18nKey }`，可以同時綁定多個 props。
- */
-export interface I18nPathBindings {
-  text?: Record<string /* path */, string /* i18n key */>;
-  props?: Record<
-    string /* path */,
-    Record<string /* propName */, string /* i18n key */>
-  >;
-}
-
-function nodePath(prefix: string, index: number): string {
-  return prefix ? `${prefix}.${index}` : String(index);
-}
-
 /** 依 "0.2.1" 這種路徑字串，從 EditableNode[] 樹中找出對應節點。找不到回傳 undefined。 */
 export function findNodeByPath(
   nodes: EditableNode[],
   path: string,
 ): EditableNode | undefined {
-  const parts = path.split(".").map(Number);
-  let list = nodes;
-  let node: EditableNode | undefined;
-  for (const idx of parts) {
-    node = list[idx];
-    if (!node) return undefined;
-    list = node.kind === "component" ? node.children : [];
-  }
-  return node;
+  return findByPath(nodes, path, (node) =>
+    node.kind === "component" ? node.children : [],
+  );
 }
 
 /**
@@ -223,18 +196,19 @@ function looksLikePageNode(value: unknown): value is PageNode {
 function toEditable(
   node: PageNode,
   path: string,
-  bindings: I18nPathBindings | undefined,
+  bindings: BindingMap | undefined,
 ): EditableNode {
   if (typeof node === "string") {
-    const i18nKey = bindings?.text?.[path];
+    const nodeBindings = bindings?.[path];
     return {
       key: nextKey(),
       kind: "text",
       value: node,
-      ...(i18nKey ? { i18nKey } : {}),
+      ...(nodeBindings && nodeBindings.length > 0
+        ? { bindings: nodeBindings }
+        : {}),
     };
   }
-  const propBindings = bindings?.props?.[path];
   const rawProps = { ...(node.props ?? {}) };
   // 防呆：若來源資料（舊資料、手動編輯過的 JSON）的 props 裡混入了
   // "children" 欄位，直接在讀入時就丟掉，避免它繼續當成一般 prop 被顯示
@@ -260,6 +234,13 @@ function toEditable(
       delete rawProps[p.name];
     }
   }
+  const propBindings: Record<string, Binding[]> = {};
+  if (meta) {
+    for (const p of meta.props) {
+      const b = bindings?.[propPath(path, p.name)];
+      if (b && b.length > 0) propBindings[p.name] = b;
+    }
+  }
   return {
     key: nextKey(),
     kind: "component",
@@ -268,27 +249,24 @@ function toEditable(
     children: (node.children ?? []).map((child, i) =>
       toEditable(child, nodePath(path, i), bindings),
     ),
-    ...(propBindings && Object.keys(propBindings).length > 0
-      ? { i18nPropBindings: { ...propBindings } }
-      : {}),
+    ...(Object.keys(propBindings).length > 0 ? { propBindings } : {}),
     ...(Object.keys(nodeProps).length > 0 ? { nodeProps } : {}),
   };
 }
 
 /**
- * 把 EditableNode 樹寫回 PageNode 樹，同時把沿路遇到的 i18n 綁定收集進
+ * 把 EditableNode 樹寫回 PageNode 樹，同時把沿路遇到的欄位綁定收集進
  * `outBindings`（呼叫端傳入一個空物件，這個函式會就地把它填滿）。
- * `path` 是目前節點在樹上的位置（見 `I18nPathBindings` 的路徑格式說明）。
+ * `path` 是目前節點在樹上的位置（見 `@/types/binding-types` 的路徑格式說明）。
  */
 function toPageNode(
   node: EditableNode,
   path: string,
-  outBindings: I18nPathBindings,
+  outBindings: BindingMap,
 ): PageNode {
   if (node.kind === "text") {
-    if (node.i18nKey) {
-      outBindings.text ??= {};
-      outBindings.text[path] = node.i18nKey;
+    if (node.bindings && node.bindings.length > 0) {
+      outBindings[path] = node.bindings;
     }
     return node.value;
   }
@@ -312,11 +290,43 @@ function toPageNode(
       toPageNode(child, nodePath(path, i), outBindings),
     );
   }
-  if (node.i18nPropBindings && Object.keys(node.i18nPropBindings).length > 0) {
-    outBindings.props ??= {};
-    outBindings.props[path] = { ...node.i18nPropBindings };
+  if (node.propBindings) {
+    for (const [propName, b] of Object.entries(node.propBindings)) {
+      if (b.length > 0) outBindings[propPath(path, propName)] = b;
+    }
   }
   return out;
+}
+
+/** 從一組 Binding[] 中取出 kind="i18n" 的 refKey（目前綁定的 i18n key）。 */
+function i18nRefKey(bindings: Binding[] | undefined): string | undefined {
+  return bindings?.find((b) => b.kind === "i18n")?.refKey;
+}
+
+/** 設定（或移除）一組 Binding[] 裡的 i18n 綁定，回傳新的 Binding[]（可能為空陣列）。 */
+function withI18nRefKey(
+  bindings: Binding[] | undefined,
+  refKey: string | undefined,
+  path: string,
+): Binding[] {
+  const rest = (bindings ?? []).filter((b) => b.kind !== "i18n");
+  return refKey ? [...rest, { kind: "i18n", path, refKey }] : rest;
+}
+
+/**
+ * 設定（或移除）component 節點某個 prop 的 i18n 綁定，回傳新的
+ * `propBindings`（`propName -> Binding[]`）；該 prop 綁定變空時整個 key 一併移除。
+ */
+function withPropI18nRefKey(
+  propBindings: Record<string, Binding[]> | undefined,
+  propName: string,
+  refKey: string | undefined,
+): Record<string, Binding[]> {
+  const next = { ...(propBindings ?? {}) };
+  const updated = withI18nRefKey(next[propName], refKey, "");
+  if (updated.length > 0) next[propName] = updated;
+  else delete next[propName];
+  return next;
 }
 
 export function makeNewTextNode(): EditableNode {
@@ -620,7 +630,8 @@ function I18nKeyPicker({
 /**
  * 顯示「已綁定 i18n key」狀態的小徽章，帶一個內嵌的 ✕ 按鈕可以直接解除綁定，
  * 不需要重新打開 `I18nKeyPicker` 下拉選單找「不綁定 i18n」選項。
- * 文字節點（`i18nKey`）與 component 字串 prop（`i18nPropBindings[name]`）共用。
+ * 文字節點（`bindings`）與 component 字串 prop（`propBindings[name]`）共用，
+ * 兩者都是透過 `i18nRefKey()` 從 Binding[] 中取出目前綁定的 i18n key。
  */
 function I18nBoundBadge({
   i18nKey,
@@ -1062,18 +1073,19 @@ export function NodeEditor({
               <ValueTypeField
                 valueType={node.valueType ?? "string"}
                 value={node.value}
-                disabled={Boolean(node.i18nKey)}
+                disabled={Boolean(i18nRefKey(node.bindings))}
                 onChange={(next) => onChange({ ...node, value: next })}
               />
             </div>
             <I18nKeyPicker
-              value={node.i18nKey}
+              value={i18nRefKey(node.bindings)}
               keys={i18nKeys}
               previewDict={i18nPreview}
               onChange={(key) => {
                 const next = { ...node } as typeof node;
-                if (key) next.i18nKey = key;
-                else delete next.i18nKey;
+                const bindings = withI18nRefKey(next.bindings, key, "");
+                if (bindings.length > 0) next.bindings = bindings;
+                else delete next.bindings;
                 onChange(next);
               }}
             />
@@ -1085,12 +1097,14 @@ export function NodeEditor({
                 onChange({ ...node, valueType: nextType })
               }
             />
-            {node.i18nKey && (
+            {i18nRefKey(node.bindings) && (
               <I18nBoundBadge
-                i18nKey={node.i18nKey}
+                i18nKey={i18nRefKey(node.bindings)!}
                 onUnbind={() => {
                   const next = { ...node } as typeof node;
-                  delete next.i18nKey;
+                  const bindings = withI18nRefKey(next.bindings, undefined, "");
+                  if (bindings.length > 0) next.bindings = bindings;
+                  else delete next.bindings;
                   onChange(next);
                 }}
               />
@@ -1189,7 +1203,7 @@ export function NodeEditor({
                               value={propValueToInputString(node.props[p.name])}
                               placeholder={p.defaultValue ?? ""}
                               disabled={Boolean(
-                                node.i18nPropBindings?.[p.name],
+                                i18nRefKey(node.propBindings?.[p.name]),
                               )}
                               onChange={(next) =>
                                 onChange({
@@ -1200,20 +1214,20 @@ export function NodeEditor({
                             />
                           </div>
                           <I18nKeyPicker
-                            value={node.i18nPropBindings?.[p.name]}
+                            value={i18nRefKey(node.propBindings?.[p.name])}
                             keys={i18nKeys}
                             previewDict={i18nPreview}
                             onChange={(key) => {
-                              const nextBindings = {
-                                ...(node.i18nPropBindings ?? {}),
-                              };
-                              if (key) nextBindings[p.name] = key;
-                              else delete nextBindings[p.name];
+                              const nextBindings = withPropI18nRefKey(
+                                node.propBindings,
+                                p.name,
+                                key,
+                              );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
-                                next.i18nPropBindings = nextBindings;
+                                next.propBindings = nextBindings;
                               } else {
-                                delete next.i18nPropBindings;
+                                delete next.propBindings;
                               }
                               onChange(next);
                             }}
@@ -1245,7 +1259,9 @@ export function NodeEditor({
                           type={p.type === "number" ? "number" : "text"}
                           value={propValueToInputString(node.props[p.name])}
                           placeholder={p.defaultValue ?? ""}
-                          disabled={Boolean(node.i18nPropBindings?.[p.name])}
+                          disabled={Boolean(
+                            i18nRefKey(node.propBindings?.[p.name]),
+                          )}
                           onChange={(e) =>
                             onChange({
                               ...node,
@@ -1265,20 +1281,20 @@ export function NodeEditor({
                           非 number、非純 string 的其他型別（例如未知/複雜型別 fallback）。 */}
                         {p.type !== "number" && (
                           <I18nKeyPicker
-                            value={node.i18nPropBindings?.[p.name]}
+                            value={i18nRefKey(node.propBindings?.[p.name])}
                             keys={i18nKeys}
                             previewDict={i18nPreview}
                             onChange={(key) => {
-                              const nextBindings = {
-                                ...(node.i18nPropBindings ?? {}),
-                              };
-                              if (key) nextBindings[p.name] = key;
-                              else delete nextBindings[p.name];
+                              const nextBindings = withPropI18nRefKey(
+                                node.propBindings,
+                                p.name,
+                                key,
+                              );
                               const next = { ...node };
                               if (Object.keys(nextBindings).length > 0) {
-                                next.i18nPropBindings = nextBindings;
+                                next.propBindings = nextBindings;
                               } else {
-                                delete next.i18nPropBindings;
+                                delete next.propBindings;
                               }
                               onChange(next);
                             }}
@@ -1286,19 +1302,20 @@ export function NodeEditor({
                         )}
                       </div>
                     )}
-                    {node.i18nPropBindings?.[p.name] && (
+                    {i18nRefKey(node.propBindings?.[p.name]) && (
                       <I18nBoundBadge
-                        i18nKey={node.i18nPropBindings[p.name]}
+                        i18nKey={i18nRefKey(node.propBindings![p.name])!}
                         onUnbind={() => {
-                          const nextBindings = {
-                            ...(node.i18nPropBindings ?? {}),
-                          };
-                          delete nextBindings[p.name];
+                          const nextBindings = withPropI18nRefKey(
+                            node.propBindings,
+                            p.name,
+                            undefined,
+                          );
                           const next = { ...node };
                           if (Object.keys(nextBindings).length > 0) {
-                            next.i18nPropBindings = nextBindings;
+                            next.propBindings = nextBindings;
                           } else {
-                            delete next.i18nPropBindings;
+                            delete next.propBindings;
                           }
                           onChange(next);
                         }}
@@ -1418,24 +1435,24 @@ export function toEditablePage(page: PageDef): EditablePageDef {
     id: page.id,
     title: page.title,
     nodes: page.nodes.map((node, i) =>
-      toEditable(node, nodePath("", i), page.i18nBindings),
+      toEditable(node, nodePath("", i), page.bindings),
     ),
     seo: page.seo,
   };
 }
 
 export function toPageDef(page: EditablePageDef): PageDef {
-  const outBindings: I18nPathBindings = {};
+  const outBindings: BindingMap = {};
   const nodes = page.nodes.map((node, i) =>
     toPageNode(node, nodePath("", i), outBindings),
   );
-  const hasBindings = Boolean(outBindings.text || outBindings.props);
+  const hasBindings = Object.keys(outBindings).length > 0;
   return {
     id: page.id,
     title: page.title,
     nodes,
     ...(page.seo !== undefined ? { seo: page.seo } : {}),
-    ...(hasBindings ? { i18nBindings: outBindings } : {}),
+    ...(hasBindings ? { bindings: outBindings } : {}),
   };
 }
 

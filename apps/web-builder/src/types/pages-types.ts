@@ -2,6 +2,8 @@
 // 與 scripts/generate-pages.mjs 讀取的結構完全一致，
 // 供 runtime 動態渲染器（DynamicRenderer）使用。
 
+import type { BindingMap } from "./binding-types";
+
 // ---------------------------------------------------------------------------
 // 頁面層級的 SEO 設定（PageSeo）
 //
@@ -98,19 +100,16 @@ export interface PageDef {
    */
   seo?: PageSeo;
   /**
-   * 選填的 i18n 綁定 sidecar：記錄哪些文字節點 / component props 改成動態
-   * 從 i18n 字典取值顯示，而不是寫死的字面內容。刻意獨立於 `nodes` 之外
-   * （不混進 `PageNode` / `ComponentNode`），這樣：
+   * 選填的欄位綁定 sidecar：記錄哪些文字節點 / component props 改成動態
+   * 從別的資料來源（目前只有 i18n）取值顯示，而不是寫死的字面內容。
+   * 刻意獨立於 `nodes` 之外（不混進 `PageNode` / `ComponentNode`），這樣：
    *   - 舊資料（沒有這個欄位）完全相容，viewer/generator 不需要跟著改。
    *   - `nodes` 樹本身的型別維持單純的 `string | ComponentNode`，
    *     不會因為多了一種「動態值」的節點型態而讓所有讀取 nodes 的地方
    *     都要多處理一種 case。
-   * 詳細路徑格式見 page-editor.tsx 的 `I18nPathBindings`。
+   * path 格式見 `@/types/binding-types` 的說明。
    */
-  i18nBindings?: {
-    text?: Record<string, string>;
-    props?: Record<string, Record<string, string>>;
-  };
+  bindings?: BindingMap;
 }
 
 /**

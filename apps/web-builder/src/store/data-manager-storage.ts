@@ -11,6 +11,7 @@ import type {
   DataRecordEntry,
   RecordValue,
 } from '@/types/data-manager-types';
+import type { BindingMap } from '@/types/binding-types';
 
 const STORAGE_KEY = 'data-manager:v3';
 
@@ -132,14 +133,14 @@ export function updateItemInDataset(
   datasetName: string,
   id: string,
   value: Record<string, RecordValue>,
-  i18nBindings?: Record<string, string>
+  bindings?: BindingMap
 ): void {
   const ds = loadDataset(app, typeId, datasetName);
   if (!ds || !ds.isArrayType) return;
   saveDataset(app, typeId, datasetName, {
     ...ds,
     items: ds.items.map((r) =>
-      r.id === id ? { ...r, value, ...(i18nBindings !== undefined ? { i18nBindings } : {}) } : r
+      r.id === id ? { ...r, value, ...(bindings !== undefined ? { bindings } : {}) } : r
     ),
   });
 }
@@ -167,14 +168,14 @@ export function updateSingleDataset(
   typeId: string,
   datasetName: string,
   value: Record<string, RecordValue>,
-  i18nBindings?: Record<string, string>
+  bindings?: BindingMap
 ): void {
   const ds = loadDataset(app, typeId, datasetName);
   if (!ds || ds.isArrayType) return;
   saveDataset(app, typeId, datasetName, {
     ...ds,
     item: value,
-    ...(i18nBindings !== undefined ? { i18nBindings } : {}),
+    ...(bindings !== undefined ? { bindings } : {}),
   });
 }
 

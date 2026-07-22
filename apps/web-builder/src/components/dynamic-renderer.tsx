@@ -1,6 +1,7 @@
 import { Component, createElement, Fragment, useEffect, useState, type ReactNode } from 'react';
 import { getComponentById, loadComponentModule } from '@workspace/ui/lib/generator/component-registry';
-import type { PageDef, PageNode } from '@/types/pages-types';
+import type { PageNode } from '@/types/pages-types';
+import type { BindingMap } from '@/types/binding-types';
 import { loadI18nData } from '@/store/i18n-storage';
 
 /**
@@ -174,19 +175,19 @@ function renderBrokenNodePlaceholder(
 }
 
 /** 遞迴把單一節點（字串或 component 節點）轉成 ReactNode。
- *  `path` 對應 `PageDef.i18nBindings` 使用的路徑格式（見 page-editor.tsx
- *  的 `I18nPathBindings`），`resolveI18n` 是「給 key，回傳目前語系的值（找不到回傳
+ *  `path` 對應 `PageDef.bindings` 使用的路徑格式（見 `@/types/binding-types`
+ *  的說明），`resolveI18n` 是「給 key，回傳目前語系的值（找不到回傳
  *  undefined）」的查找函式，由外層 `DynamicRenderer` 依 app 準備好。 */
 function renderNode(
   node: PageNode,
   key: string | number,
   path: string,
-  bindings: PageDef['i18nBindings'],
+  bindings: BindingMap | undefined,
   resolveI18n: (i18nKey: string) => string | undefined,
   editable: boolean
 ): ReactNode {
   if (typeof node === 'string') {
-    const boundKey = bindings?.text?.[path];
+    const boundKey = bindings?.[path]?.find((b) => b.kind === 'i18n')?.refKey;
     const resolved = boundKey ? resolveI18n(boundKey) : undefined;
     const text = resolved ?? node;
     // 找不到對應翻譯時 fallback 回原本寫死的字面內容，而不是顯示空白，
@@ -244,18 +245,15 @@ function renderNode(
     );
   }
 
-  // 依 i18nBindings 把綁定的 string props 換成目前語系的值（找不到就沿用原本的 prop 值）。
-  const propBindings = bindings?.props?.[path];
-  const withI18n = propBindings
-    ? Object.fromEntries(
-        Object.entries(props).map(([name, value]) => {
-          const boundKey = propBindings[name];
-          if (!boundKey) return [name, value];
-          const resolved = resolveI18n(boundKey);
-          return [name, resolved ?? value];
-        })
-      )
-    : props;
+  // 依 bindings 把綁定的 string props 換成目前語系的值（找不到就沿用原本的 prop 值）。
+  const withI18n = Object.fromEntries(
+    Object.entries(props).map(([name, value]) => {
+      const boundKey = bindings?.[`${path}#${name}`]?.find((b) => b.kind === 'i18n')?.refKey;
+      if (!boundKey) return [name, value];
+      const resolved = resolveI18n(boundKey);
+      return [name, resolved ?? value];
+    })
+  );
 
   // `ReactNode` 型別的 prop 若存的是一個 PageNode / PageNode[]（component
   // 節點編輯器允許把子節點樹「塞進某個 prop」，見 page-editor.tsx 的
@@ -347,9 +345,9 @@ function renderNode(
 
 interface DynamicRendererProps {
   nodes: PageNode[];
-  /** 選填：這份 nodes 對應的 i18n 綁定 sidecar（來自 `PageDef.i18nBindings`）。
-   *  不提供時等同完全沒有任何 i18n 綁定，行為與原本一致。 */
-  i18nBindings?: PageDef['i18nBindings'];
+  /** 選填：這份 nodes 對應的欄位綁定 sidecar（來自 `PageDef.bindings`）。
+   *  不提供時等同完全沒有任何綁定，行為與原本一致。 */
+  bindings?: BindingMap;
   /** 選填：目前 app（用來查 i18n 字典）；不提供時即使有綁定也不會被解析，直接顯示 fallback 字面值。 */
   app?: string;
   /** 選填：指定要用哪個語系；不提供時預設取該 app 底下第一個（依字母排序）語系。 */
@@ -365,10 +363,10 @@ interface DynamicRendererProps {
  * 內部會依賴 moduleCache 做動態 import，載入完成後透過訂閱機制觸發重新渲染，
  * 所以第一次渲染某個新用到的組件時會短暫顯示「載入中」，之後就是同步渲染。
  *
- * 若傳入 `i18nBindings` + `app`，會額外把綁定的文字節點 / props 換成
- * 目前語系的 i18n 值（見 page-editor.tsx 綁定 UI 與 `I18nPathBindings`）。
+ * 若傳入 `bindings` + `app`，會額外把綁定的文字節點 / props 換成
+ * 目前語系的 i18n 值（見 page-editor.tsx 綁定 UI 與 `@/types/binding-types`）。
  */
-export function DynamicRenderer({ nodes, i18nBindings, app, locale, editable = false }: DynamicRendererProps) {
+export function DynamicRenderer({ nodes, bindings, app, locale, editable = false }: DynamicRendererProps) {
   useModuleCacheVersion();
 
   function resolveI18n(i18nKey: string): string | undefined {
@@ -384,7 +382,7 @@ export function DynamicRenderer({ nodes, i18nBindings, app, locale, editable = f
   return (
     <Fragment>
       {nodes.map((node, i) => (
-        <Fragment key={i}>{renderNode(node, i, String(i), i18nBindings, resolveI18n, editable)}</Fragment>
+        <Fragment key={i}>{renderNode(node, i, String(i), bindings, resolveI18n, editable)}</Fragment>
       ))}
     </Fragment>
   );

@@ -26,6 +26,11 @@ import {
 } from '@/types/data-manager-types';
 import { loadI18nData } from '@/store/i18n-storage';
 import { collectAllKeys, type FlatDict } from '@/utils/i18n-utils';
+import {
+  type BindingMap,
+  getBinding,
+  setBinding,
+} from '@/types/binding-types';
 import { dataManagerStyles as styles } from '@/styles/data-manager-styles';
 import { cn } from '@workspace/ui/utils/utils';
 
@@ -180,7 +185,7 @@ function buildEmptyValue(fields: ParsedField[]): Record<string, RecordValue> {
 // ─── 驗證 ─────────────────────────────────────────────────────────────────────
 
 /**
- * 驗證一筆 value（Record<string, RecordValue>）和對應的 i18nBindings，
+ * 驗證一筆 value（Record<string, RecordValue>）和對應的 bindings，
  * 回傳 fieldPath -> 錯誤訊息的 map（空表示通過）。
  * - 必填 string：value 空字串 且 沒有 i18n binding → 報錯
  * - 必填 number：value 不是合法數字（允許 0）→ 報錯
@@ -189,7 +194,7 @@ function buildEmptyValue(fields: ParsedField[]): Record<string, RecordValue> {
 function validateFields(
   fields: ParsedField[],
   value: Record<string, RecordValue>,
-  i18nBindings: Record<string, string>,
+  bindings: BindingMap,
   prefix = ''
 ): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -198,14 +203,14 @@ function validateFields(
     if (field.kind === 'unsupported') continue;
     const path = prefix ? `${prefix}.${field.name}` : field.name;
     const val = value[field.name];
-    const bound = i18nBindings[path];
+    const bound = getBinding(bindings, path, 'i18n')?.refKey;
 
     if (field.kind === 'object') {
       if (!field.isArray) {
         const objVal = (val && typeof val === 'object' && !Array.isArray(val))
           ? (val as Record<string, RecordValue>)
           : {};
-        const nested = validateFields(field.children, objVal, i18nBindings, path);
+        const nested = validateFields(field.children, objVal, bindings, path);
         Object.assign(errors, nested);
       }
       // 陣列型物件不做必填驗證（陣列可為空）
@@ -709,12 +714,12 @@ function DatasetCard({
       addItemToDataset(app, typeId, dataset.name, {
         id: crypto.randomUUID(),
         value: buildEmptyValue(mt.fields),
-        i18nBindings: {},
+        bindings: {},
       });
       onRefresh();
     }
-    function handleSaveItem(id: string, value: Record<string, RecordValue>, i18nBindings: Record<string, string>) {
-      updateItemInDataset(app, typeId, dataset.name, id, value, i18nBindings);
+    function handleSaveItem(id: string, value: Record<string, RecordValue>, bindings: BindingMap) {
+      updateItemInDataset(app, typeId, dataset.name, id, value, bindings);
       onRefresh();
     }
     function handleRemoveItem(id: string) {
@@ -748,7 +753,7 @@ function DatasetCard({
               index={idx}
               record={item}
               fields={mt.fields}
-              onSave={(value, i18nBindings) => handleSaveItem(item.id, value, i18nBindings)}
+              onSave={(value, bindings) => handleSaveItem(item.id, value, bindings)}
               onRemove={() => handleRemoveItem(item.id)}
               i18nKeys={i18nKeys}
               i18nPreview={i18nPreview}
@@ -760,8 +765,8 @@ function DatasetCard({
   }
 
   // 單一物件型 dataset
-  function handleSaveItem(value: Record<string, RecordValue>, i18nBindings: Record<string, string>) {
-    updateSingleDataset(app, typeId, dataset.name, value, i18nBindings);
+  function handleSaveItem(value: Record<string, RecordValue>, bindings: BindingMap) {
+    updateSingleDataset(app, typeId, dataset.name, value, bindings);
     onRefresh();
   }
 
@@ -780,7 +785,7 @@ function DatasetCard({
         <SingleObjectEditor
           fields={mt.fields}
           value={dataset.item}
-          i18nBindings={dataset.i18nBindings ?? {}}
+          bindings={dataset.bindings ?? {}}
           onSave={handleSaveItem}
           i18nKeys={i18nKeys}
           i18nPreview={i18nPreview}
@@ -804,18 +809,18 @@ function RecordCard({
   index: number;
   record: DataRecordEntry;
   fields: ParsedField[];
-  onSave: (value: Record<string, RecordValue>, i18nBindings: Record<string, string>) => void;
+  onSave: (value: Record<string, RecordValue>, bindings: BindingMap) => void;
   onRemove: () => void;
   i18nKeys: string[];
   i18nPreview: FlatDict;
 }) {
   const [draft, setDraft] = useState<Record<string, RecordValue>>(record.value);
-  const [i18nBindings, setI18nBindings] = useState<Record<string, string>>(record.i18nBindings ?? {});
+  const [bindings, setBindings] = useState<BindingMap>(record.bindings ?? {});
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isDirty =
     JSON.stringify(draft) !== JSON.stringify(record.value) ||
-    JSON.stringify(i18nBindings) !== JSON.stringify(record.i18nBindings ?? {});
+    JSON.stringify(bindings) !== JSON.stringify(record.bindings ?? {});
 
   function setFieldValue(name: string, value: RecordValue) {
     setDraft((prev) => ({ ...prev, [name]: value }));
@@ -825,13 +830,8 @@ function RecordCard({
     }
   }
 
-  function setI18nBinding(fieldPath: string, key: string | undefined) {
-    setI18nBindings((prev) => {
-      const next = { ...prev };
-      if (key) next[fieldPath] = key;
-      else delete next[fieldPath];
-      return next;
-    });
+  function setFieldI18nBinding(fieldPath: string, key: string | undefined) {
+    setBindings((prev) => setBinding(prev, fieldPath, 'i18n', key));
     // 綁定 i18n key 後清除該欄位的必填錯誤
     if (validationErrors[fieldPath]) {
       setValidationErrors((prev) => { const next = { ...prev }; delete next[fieldPath]; return next; });
@@ -839,13 +839,13 @@ function RecordCard({
   }
 
   function handleSave() {
-    const errors = validateFields(fields, draft, i18nBindings);
+    const errors = validateFields(fields, draft, bindings);
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
     }
     setValidationErrors({});
-    onSave(draft, i18nBindings);
+    onSave(draft, bindings);
   }
 
   return (
@@ -873,12 +873,12 @@ function RecordCard({
             field={field}
             fieldPath={field.name}
             value={draft[field.name] ?? null}
-            i18nBinding={i18nBindings[field.name]}
+            i18nBinding={getBinding(bindings, field.name, 'i18n')?.refKey}
             i18nKeys={i18nKeys}
             i18nPreview={i18nPreview}
             error={validationErrors[field.name]}
             onChange={(v) => setFieldValue(field.name, v)}
-            onI18nBind={(key) => setI18nBinding(field.name, key)}
+            onI18nBind={(key) => setFieldI18nBinding(field.name, key)}
           />
         ))}
       </div>
@@ -891,25 +891,25 @@ function RecordCard({
 function SingleObjectEditor({
   fields,
   value,
-  i18nBindings: initialI18nBindings,
+  bindings: initialBindings,
   onSave,
   i18nKeys,
   i18nPreview,
 }: {
   fields: ParsedField[];
   value: Record<string, RecordValue>;
-  i18nBindings: Record<string, string>;
-  onSave: (value: Record<string, RecordValue>, i18nBindings: Record<string, string>) => void;
+  bindings: BindingMap;
+  onSave: (value: Record<string, RecordValue>, bindings: BindingMap) => void;
   i18nKeys: string[];
   i18nPreview: FlatDict;
 }) {
   const [draft, setDraft] = useState<Record<string, RecordValue>>(value);
-  const [i18nBindings, setI18nBindings] = useState<Record<string, string>>(initialI18nBindings);
+  const [bindings, setBindings] = useState<BindingMap>(initialBindings);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isDirty =
     JSON.stringify(draft) !== JSON.stringify(value) ||
-    JSON.stringify(i18nBindings) !== JSON.stringify(initialI18nBindings);
+    JSON.stringify(bindings) !== JSON.stringify(initialBindings);
 
   function setFieldValue(name: string, v: RecordValue) {
     setDraft((prev) => ({ ...prev, [name]: v }));
@@ -918,26 +918,21 @@ function SingleObjectEditor({
     }
   }
 
-  function setI18nBinding(fieldPath: string, key: string | undefined) {
-    setI18nBindings((prev) => {
-      const next = { ...prev };
-      if (key) next[fieldPath] = key;
-      else delete next[fieldPath];
-      return next;
-    });
+  function setFieldI18nBinding(fieldPath: string, key: string | undefined) {
+    setBindings((prev) => setBinding(prev, fieldPath, 'i18n', key));
     if (validationErrors[fieldPath]) {
       setValidationErrors((prev) => { const next = { ...prev }; delete next[fieldPath]; return next; });
     }
   }
 
   function handleSave() {
-    const errors = validateFields(fields, draft, i18nBindings);
+    const errors = validateFields(fields, draft, bindings);
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
     }
     setValidationErrors({});
-    onSave(draft, i18nBindings);
+    onSave(draft, bindings);
   }
 
   return (
@@ -949,12 +944,12 @@ function SingleObjectEditor({
             field={field}
             fieldPath={field.name}
             value={draft[field.name] ?? null}
-            i18nBinding={i18nBindings[field.name]}
+            i18nBinding={getBinding(bindings, field.name, 'i18n')?.refKey}
             i18nKeys={i18nKeys}
             i18nPreview={i18nPreview}
             error={validationErrors[field.name]}
             onChange={(v) => setFieldValue(field.name, v)}
-            onI18nBind={(key) => setI18nBinding(field.name, key)}
+            onI18nBind={(key) => setFieldI18nBinding(field.name, key)}
           />
         ))}
       </div>

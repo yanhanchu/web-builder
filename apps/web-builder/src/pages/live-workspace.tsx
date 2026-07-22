@@ -784,7 +784,7 @@ export function LiveWorkspace() {
   const [syncAll, setSyncAll] = useState<WriteBackState>({ status: "idle" });
   const { keys: i18nKeys, previewDict: i18nPreview } = useI18nKeys(app!);
 
-  // 目前編輯狀態轉回 PageDef 形狀（含 i18nBindings sidecar），只算一次，
+  // 目前編輯狀態轉回 PageDef 形狀（含 bindings sidecar），只算一次，
   // 同時給預覽（DynamicRenderer）跟下載 JSON／寫入磁碟共用，避免重複呼叫 toPageDef。
   const livePageDef = useMemo(() => (page ? toPageDef(page) : null), [page]);
 
@@ -1157,7 +1157,7 @@ export function LiveWorkspace() {
           <EditableCanvas selectedPath={selectedPath} onSelect={setSelectedPath}>
             <DynamicRenderer
               nodes={livePageDef.nodes}
-              i18nBindings={livePageDef.i18nBindings}
+              bindings={livePageDef.bindings}
               app={app}
               editable
             />
@@ -1181,7 +1181,7 @@ export function LiveWorkspace() {
       ) : (
         <DynamicRenderer
           nodes={livePageDef.nodes}
-          i18nBindings={livePageDef.i18nBindings}
+          bindings={livePageDef.bindings}
           app={app}
         />
       )}

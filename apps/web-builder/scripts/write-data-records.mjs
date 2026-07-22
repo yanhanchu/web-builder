@@ -9,7 +9,7 @@
  * 個檔案），跟 app.json / pages.json / routes.json 同一層再多一個 records/ 子目錄。
  * 檔案內容是 `{ [datasetName]: Dataset }`：
  *   - isArrayType=true  → { isArrayType: true,  name, items: DataRecordEntry[] }
- *   - isArrayType=false → { isArrayType: false, name, item: object, i18nBindings? }
+ *   - isArrayType=false → { isArrayType: false, name, item: object, bindings? }
  *
  * 對外的資料形狀維持 `{ [app]: { [typeId]: { [datasetName]: Dataset } } }`
  * （DataManagerData）不變，這一層負責 map <-> 個別檔案 的轉換，呼叫端
@@ -25,6 +25,31 @@ function appRecordsFile(app, typeId) {
     throw new Error(`不合法的型別 id：${JSON.stringify(typeId)}`);
   }
   return path.join(appDir(app), 'records', `${typeId}.json`);
+}
+
+/** 目前支援的綁定種類，跟前端 `@/types/binding-types` 的 BindingKind 對齊。 */
+const VALID_BINDING_KINDS = new Set(['i18n']);
+
+/** 驗證單一 Binding：{ kind: 'i18n', path: string, refKey: string } */
+function isValidBinding(binding) {
+  if (binding == null || typeof binding !== 'object' || Array.isArray(binding)) return false;
+  const { kind, path, refKey, ...rest } = binding;
+  if (Object.keys(rest).length > 0) return false;
+  if (!VALID_BINDING_KINDS.has(kind)) return false;
+  if (typeof path !== 'string') return false;
+  if (typeof refKey !== 'string') return false;
+  return true;
+}
+
+/** 驗證 bindings 的形狀：Record<path, Binding[]>。欄位不存在也算合法（純選填）。 */
+function isValidBindingMap(bindings) {
+  if (bindings === undefined) return true;
+  if (bindings == null || typeof bindings !== 'object' || Array.isArray(bindings)) return false;
+  for (const perPathBindings of Object.values(bindings)) {
+    if (!Array.isArray(perPathBindings)) return false;
+    if (!perPathBindings.every(isValidBinding)) return false;
+  }
+  return true;
 }
 
 /** 驗證單一筆 DataRecordEntry（id + value 物件），回傳清理過的物件，失敗回傳 error 訊息 */
@@ -45,11 +70,11 @@ function validateRecordEntry(app, typeId, datasetName, record, seenIds) {
   }
 
   const clean = { id: record.id, value: record.value };
-  if (record.i18nBindings !== undefined) {
-    if (record.i18nBindings == null || typeof record.i18nBindings !== 'object' || Array.isArray(record.i18nBindings)) {
-      return { error: `app "${app}" 型別 "${typeId}" 資料集 "${datasetName}"：資料 "${record.id}" 的 i18nBindings 必須是物件` };
+  if (record.bindings !== undefined) {
+    if (!isValidBindingMap(record.bindings)) {
+      return { error: `app "${app}" 型別 "${typeId}" 資料集 "${datasetName}"：資料 "${record.id}" 的 bindings 格式不合法` };
     }
-    clean.i18nBindings = record.i18nBindings;
+    clean.bindings = record.bindings;
   }
   return { clean };
 }
@@ -85,11 +110,11 @@ function validateDataset(app, typeId, datasetName, dataset) {
       return { error: `app "${app}" 型別 "${typeId}" 資料集 "${datasetName}"：isArrayType=false 時 item 必須是物件` };
     }
     const clean = { isArrayType: false, name: dataset.name, item: dataset.item };
-    if (dataset.i18nBindings !== undefined) {
-      if (dataset.i18nBindings == null || typeof dataset.i18nBindings !== 'object' || Array.isArray(dataset.i18nBindings)) {
-        return { error: `app "${app}" 型別 "${typeId}" 資料集 "${datasetName}" 的 i18nBindings 必須是物件` };
+    if (dataset.bindings !== undefined) {
+      if (!isValidBindingMap(dataset.bindings)) {
+        return { error: `app "${app}" 型別 "${typeId}" 資料集 "${datasetName}" 的 bindings 格式不合法` };
       }
-      clean.i18nBindings = dataset.i18nBindings;
+      clean.bindings = dataset.bindings;
     }
     return { clean };
   }

@@ -108,11 +108,11 @@ const componentById = new Map(componentsRaw.map((c) => [c.id, c]));
 
 /**
  * 還原 `data/{app}/pages.json` 寫檔時附加的 __i18n/__text 標註（純粹給人讀
- * pages.json 用，見 scripts/write-pages.mjs 的 annotateNodesWithI18n /
+ * pages.json 用，見 scripts/write-pages.mjs 的 annotateNodesWithBindings /
  * src/lib/pages-i18n-annotations.ts），生成靜態頁面之前先拿掉，避免
  * `__i18n`（一個物件）被當成一般 prop 傳給 renderProp 而噴出「型別不支援」。
  */
-function stripI18nAnnotations(nodes) {
+function stripBindingAnnotations(nodes) {
   return nodes.map((node) => {
     if (typeof node === 'string') return node;
     if (node && typeof node === 'object' && '__text' in node && '__i18nKey' in node) {
@@ -124,7 +124,7 @@ function stripI18nAnnotations(nodes) {
       next.props = restProps;
     }
     if (Array.isArray(next.children)) {
-      next.children = stripI18nAnnotations(next.children);
+      next.children = stripBindingAnnotations(next.children);
     }
     return next;
   });
@@ -138,7 +138,7 @@ const rawPages = readPagesJsonWithDefault(pagesPath, `app "${app}" 的 pages.jso
 const pages = Array.isArray(rawPages)
   ? rawPages.map((page) => ({
       ...page,
-      nodes: Array.isArray(page.nodes) ? stripI18nAnnotations(page.nodes) : page.nodes,
+      nodes: Array.isArray(page.nodes) ? stripBindingAnnotations(page.nodes) : page.nodes,
     }))
   : rawPages;
 

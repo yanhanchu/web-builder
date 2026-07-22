@@ -12,6 +12,8 @@
 //   data-manager:v3 ->
 //     [app][typeId][datasetName] -> Dataset
 
+import type { BindingMap } from "./binding-types";
+
 // ─── 基本 primitives ──────────────────────────────────────────────────────────
 
 export type SimpleKind = 'string' | 'number' | 'boolean';
@@ -85,10 +87,11 @@ export interface DataRecordEntry {
   value: Record<string, RecordValue>;
   /**
    * 哪些 string 欄位（含巢狀，用 "." 連接路徑）改成動態取 i18n 值。
-   * key 是欄位路徑（例如 "label" 或 "wordmark.lead"），value 是 i18n key 字串。
-   * 平行於 value，不嵌入 RecordValue，跟 page-editor 的 i18nPropBindings 設計一致。
+   * path 是欄位路徑（例如 "label" 或 "wordmark.lead"），是扁平欄位路徑，
+   * 不是 pages 節點樹的樹狀 path，跟 `@/types/binding-types` 通用。
+   * 平行於 value，不嵌入 RecordValue。
    */
-  i18nBindings?: Record<string, string>;
+  bindings?: BindingMap;
 }
 
 /**
@@ -98,7 +101,7 @@ export interface DataRecordEntry {
  */
 export type Dataset =
   | { isArrayType: true;  name: string; items: DataRecordEntry[] }
-  | { isArrayType: false; name: string; item: Record<string, RecordValue>; i18nBindings?: Record<string, string> };
+  | { isArrayType: false; name: string; item: Record<string, RecordValue>; bindings?: BindingMap };
 
 // ─── storage 形狀 ─────────────────────────────────────────────────────────────
 
