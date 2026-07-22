@@ -772,13 +772,11 @@ function DatasetCard({
         <div className={styles.actionsRow}>
           {ToggleButton}
           <button type="button" className={styles.removeButton} onClick={onRemove}>
-            刪除資料集
+            Delete
           </button>
         </div>
       </div>
-      {!open ? (
-        <div className={styles.emptySmall}>點「展開」查看與編輯內容。</div>
-      ) : (
+      {open && (
         <SingleObjectEditor
           fields={mt.fields}
           value={dataset.item}
