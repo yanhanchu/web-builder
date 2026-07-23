@@ -1,7 +1,7 @@
 import type { TypeDoc } from '@workspace/ui/types/generator/function-types';
 import { TypePill } from '@workspace/ui/components/generator/type-pill';
 import { tableStyles as t } from '@workspace/ui/styles/generator/table-styles';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 /**
  * 顯示一個「相關型別」的完整定義：

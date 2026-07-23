@@ -3,7 +3,7 @@ import type { PropDoc } from '@workspace/ui/types/generator/component-types';
 import { TypePill } from '@workspace/ui/components/generator/type-pill';
 import { updatePropRemote } from '@workspace/ui/lib/generator/write-back-client';
 import { tableStyles as t } from '@workspace/ui/styles/generator/table-styles';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 interface PropsTableProps {
   props: PropDoc[];

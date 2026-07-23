@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   /** Adds a hover elevation effect, useful for clickable cards */

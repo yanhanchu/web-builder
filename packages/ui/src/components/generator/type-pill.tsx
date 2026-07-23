@@ -1,4 +1,4 @@
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 function splitUnion(type: string): string[] | null {
   // 只有看起來像純字面量 union（"a" | "b" | "c"）時才拆開顯示成多個 pill，

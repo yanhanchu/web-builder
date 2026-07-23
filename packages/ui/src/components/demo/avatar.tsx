@@ -2,7 +2,7 @@ export interface AvatarProps {
   /** Image URL. Falls back to initials when omitted or broken. */
   src?: string
   /** Full name used to derive fallback initials and the alt text */
-    name: string
+  name: string
   /** Diameter of the avatar in pixels */
   size?: number
   /** Shows a small colored ring around the avatar, e.g. for online status */

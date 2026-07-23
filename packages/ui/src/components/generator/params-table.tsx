@@ -1,7 +1,7 @@
 import type { FunctionParamDoc } from '@workspace/ui/types/generator/function-types';
 import { TypePill } from '@workspace/ui/components/generator/type-pill';
 import { tableStyles as t } from '@workspace/ui/styles/generator/table-styles';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 /**
  * 函式參數表格，視覺上跟 PropsTable（組件 props）共用同一份樣式，

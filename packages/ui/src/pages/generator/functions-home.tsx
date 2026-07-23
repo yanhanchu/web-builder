@@ -34,7 +34,7 @@ export function FunctionsHome() {
 
       <div className={s.grid}>
         {allFunctions.map((f) => (
-          <Link key={f.id} to={`/functions/${f.id}`} className={s.card}>
+          <Link key={f.id} to={`/f/${f.id}`} className={s.card}>
             <div className={s.cardTop}>
               <h2 className={s.cardTitle}>{f.functionName}</h2>
               <span className={s.countBadge}>{f.params.length} params</span>

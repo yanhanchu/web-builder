@@ -14,7 +14,7 @@
   "rtl": false,
   "aliases": {
     "components": "@workspace/ui/components",
-    "utils": "@workspace/ui/utils/utils",
+    "utils": "@workspace/ui/utils",
     "ui": "@workspace/ui/components/ui",
     "lib": "@workspace/ui/lib",
     "hooks": "@workspace/ui/hooks"

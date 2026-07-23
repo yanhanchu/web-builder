@@ -16,7 +16,7 @@ package（`browser`、`server`）不同，這裡**同時有兩種東西混在一
 | 子模組 | 路徑 | 提供什麼 | 誰在用 |
 |---|---|---|---|
 | `components/*` | `src/components/**/*.tsx` | 實際 UI 元件（`Avatar`, `Badge`, `Button`, `Card`, `Input` 等） | 任何要組畫面的 app |
-| `utils/*` | `src/utils/utils.ts` | `cn()` 等共用工具 | 元件內部 + 任何用 Tailwind 的 app |
+| `utils/*` | `src/utils/index.ts` | `cn()` 等共用工具 | 元件內部 + 任何用 Tailwind 的 app |
 | `hooks/*` | `src/hooks/theme-provider.tsx` | 主題 provider | 需要深色模式等主題功能的 app |
 | `globals.css` | `src/styles/globals.css` | Tailwind base + CSS 變數（顏色、字體） | 每個用到這個套件元件的 app，需自行 import 一次 |
 | `functions/*` | `src/functions/*.ts` | 純函式範例（`calculateOrderTotal` 等），用來展示「函式文件」產生器的效果 | `apps/web-builder` 的函式文件頁 |
@@ -36,7 +36,7 @@ package（`browser`、`server`）不同，這裡**同時有兩種東西混在一
 ```
 ```tsx
 import { Button } from '@workspace/ui/components/demo/button';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 import '@workspace/ui/globals.css'; // 在 app 入口引入一次
 ```
 

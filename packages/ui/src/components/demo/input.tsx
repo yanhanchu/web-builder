@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 
 const inputVariants = cva(
   "w-full rounded-lg border border-border bg-background font-sans text-foreground outline-none transition-colors duration-150 ease-out focus-visible:border-primary placeholder:text-muted-foreground",

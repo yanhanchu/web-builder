@@ -37,7 +37,7 @@ export function Home() {
 
       <div className={s.grid}>
         {allComponents.map((c) => (
-          <Link key={c.id} to={`/components/${encodeURIComponent(c.id)}`} className={s.card}>
+          <Link key={c.id} to={`/c/${encodeURIComponent(c.id)}`} className={s.card}>
             <div className={s.cardTop}>
               <h2 className={s.cardTitle}>{c.componentName}</h2>
               <span className={s.countBadge}>{c.props.length} props</span>

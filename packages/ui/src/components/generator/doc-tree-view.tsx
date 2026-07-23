@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, FolderOpen } from 'lucide-react';
-import { cn } from '@workspace/ui/utils/utils';
+import { cn } from '@workspace/ui/utils';
 import type { DocTreeNode } from '@workspace/ui/lib/generator/doc-tree';
 
 const leafLinkClass = ({ isActive }: { isActive: boolean }) =>

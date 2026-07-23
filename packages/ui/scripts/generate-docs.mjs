@@ -38,7 +38,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 const TSCONFIG_PATH = path.join(ROOT, 'tsconfig.app.json');
 // src/components/**  → 文件系統要解析的範例組件本體（generator 的資料來源）
-const COMPONENTS_GLOBS = ['src/components/demo/*.tsx'];
+const COMPONENTS_GLOBS = ['src/components/demo/*.tsx','src/components/landing1/*.tsx'];
 const OUTPUT_JSON = path.join(ROOT, 'data', 'components.json');
 const OUTPUT_TYPES_JSON = path.join(ROOT, 'data', 'component-types.json');
 const OUTPUT_MAP = path.join(ROOT, 'src', 'lib', 'generator', 'component-map.ts');

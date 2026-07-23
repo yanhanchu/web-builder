@@ -19,7 +19,7 @@
 ## 已移除的功能
 
 原本 `apps/web-builder` 的頁面編輯、i18n 管理、路由管理、主題產生器、檔案管理、
-就地寫回原始碼（write-back）等 UI Builder 功能皆未保留。`apps/web-app` 目前只是
+就地寫回原始碼（write-back）等 UI Builder 功能皆未保留。`apps/web-builder` 目前只是
 一個可以跑起來的空殼 Vite + React + react-router 專案，掛載了 Components /
 Functions 兩個文件瀏覽頁面（首頁列表 + 詳情頁），其餘功能尚未實作。
 
@@ -29,7 +29,7 @@ Functions 兩個文件瀏覽頁面（首頁列表 + 詳情頁），其餘功能�
 npm install
 npm run docs:generate
 npm run functions:generate
-npm run dev --workspace=web-app
+npm run dev --workspace=web-builder
 ```
 
 > 本次交付未執行 `npm install`、未做型別編譯檢查、未跑測試。
