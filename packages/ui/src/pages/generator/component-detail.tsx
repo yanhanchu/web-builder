@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { getComponentById } from '@workspace/ui/lib/generator/component-registry';
-import { demoPropsById } from '@workspace/ui/content/generator/demo-props';
+import { demoPropsById } from '@workspace/ui/content/generator/props';
 import { LivePreview } from '@workspace/ui/components/generator/live-preview';
 import { PropsTable } from '@workspace/ui/components/generator/props-table';
 
