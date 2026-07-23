@@ -6,6 +6,9 @@ import PrivacyPage from "./pages/privacy";
 import TermsPage from "./pages/terms";
 import DataModelDemoPage from "./pages/data-model-demo";
 import DataManagerPage from "./pages/data-manager";
+import AppSettingsPage from "./pages/admin/app-settings";
+import PageManagerPage from "./pages/admin/page-manager";
+import StyleManagerPage from "./pages/admin/style-manager";
 
 import { Home } from "@workspace/ui/pages/generator/home";
 import { ComponentDetail } from "@workspace/ui/pages/generator/component-detail";
@@ -23,6 +26,9 @@ export function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/data-model-demo" element={<DataModelDemoPage />} />
         <Route path="/data-manager" element={<DataManagerPage />} />
+        <Route path="/admin/settings" element={<AppSettingsPage />} />
+        <Route path="/admin/pages" element={<PageManagerPage />} />
+        <Route path="/admin/styles" element={<StyleManagerPage />} />
 
         {/* ignore below links */}
         <Route path="/c" element={(<Home />)} />
