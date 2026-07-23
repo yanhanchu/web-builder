@@ -328,3 +328,52 @@ export function updateNodeAtPath(
 
   return root;
 }
+
+// ------------------------------------------------------------
+// 8. 依 FieldType 建立「預設 ValueNode 樹」
+//
+// 供資料管理介面使用：新增一筆型別資料、或在編輯器裡把某格從綁定切回純值 /
+// 在陣列新增項目時，用來產生一棵結構正確的初始值樹。
+// - ref：先解析成實際型別再遞迴（解析不到就退化成空字串）
+// - object：每個欄位遞迴建立預設值（巢狀 object 也會正確展開）
+// - array：預設空陣列
+// - primitive：number→0、boolean→false、其餘（string/date）→空字串
+// - slot：不參與綁定，給一個空 literal 佔位
+// ------------------------------------------------------------
+
+export function createDefaultValueNode(
+  type: FieldType,
+  store: DataStore,
+): ValueNode {
+  if (type.kind === "ref") {
+    const real = store.getTypeDef(type.typeId);
+    if (!real) return { mode: "literal", value: "" };
+    return createDefaultValueNode(real, store);
+  }
+  if (type.kind === "primitive") {
+    if (type.type === "number") return { mode: "literal", value: 0 };
+    if (type.type === "boolean") return { mode: "literal", value: false };
+    return { mode: "literal", value: "" };
+  }
+  if (type.kind === "array") {
+    return { mode: "array", items: [] };
+  }
+  if (type.kind === "object") {
+    const fields: Record<string, ValueNode> = {};
+    for (const key of Object.keys(type.fields)) {
+      fields[key] = createDefaultValueNode(type.fields[key], store);
+    }
+    return { mode: "object", fields };
+  }
+  // slot
+  return { mode: "literal", value: "" };
+}
+
+// 把 typedData 的 typeId 還原成 FieldType。
+// typeId 慣例：單筆是複合 id（"…#BrandData"），一整組是 "<複合 id>[]"（見 matchesRefType）。
+export function fieldTypeForTypedDataTypeId(typeId: string): FieldType {
+  if (typeId.endsWith("[]")) {
+    return { kind: "array", item: { kind: "ref", typeId: typeId.slice(0, -2) } };
+  }
+  return { kind: "ref", typeId };
+}

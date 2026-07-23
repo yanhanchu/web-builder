@@ -9,7 +9,11 @@ import type {
   BoundNode,
   BindingPolicy,
 } from './schema';
-import { getCandidateSources, permissiveBindingPolicy } from './schema';
+import {
+  getCandidateSources,
+  permissiveBindingPolicy,
+  createDefaultValueNode,
+} from './schema';
 
 interface FieldEditorProps {
   type: FieldType;
@@ -27,15 +31,6 @@ function resolveType(type: FieldType, store: DataStore): FieldType {
     return real ?? type;
   }
   return type;
-}
-
-function defaultLiteralFor(type: FieldType): LiteralNode {
-  if (type.kind === 'primitive') {
-    if (type.type === 'number') return { mode: 'literal', value: 0 };
-    if (type.type === 'boolean') return { mode: 'literal', value: false };
-    return { mode: 'literal', value: '' };
-  }
-  return { mode: 'literal', value: '' };
 }
 
 export function FieldEditor({
@@ -64,17 +59,7 @@ export function FieldEditor({
   };
 
   const switchToLiteralOrContainer = () => {
-    if (resolvedType.kind === 'object') {
-      const fields: Record<string, ValueNode> = {};
-      for (const key of Object.keys(resolvedType.fields)) {
-        fields[key] = defaultLiteralFor(resolvedType.fields[key]);
-      }
-      onChange({ mode: 'object', fields });
-    } else if (resolvedType.kind === 'array') {
-      onChange({ mode: 'array', items: [] });
-    } else {
-      onChange(defaultLiteralFor(resolvedType));
-    }
+    onChange(createDefaultValueNode(resolvedType, store));
   };
 
   // 候選來源清單：透過 BindingPolicy 決定這個欄位可以開放哪些綁定種類
@@ -241,7 +226,7 @@ function ObjectFields({
     <div>
       {Object.keys(type.fields).map((key) => {
         const fieldType = type.fields[key];
-        const fieldNode = node.fields[key] ?? defaultLiteralFor(fieldType);
+        const fieldNode = node.fields[key] ?? createDefaultValueNode(fieldType, store);
         return (
           <div key={key} style={{ marginTop: 4 }}>
             <div style={{ fontSize: 12, color: '#aaa', fontWeight: 600 }}>{key}</div>
@@ -281,15 +266,8 @@ function ArrayItems({
   policy: BindingPolicy;
 }) {
   const addItem = () => {
-    const fresh =
-      type.item.kind === 'object'
-        ? ({
-            mode: 'object',
-            fields: Object.fromEntries(
-              Object.entries(type.item.fields).map(([k, t]) => [k, defaultLiteralFor(t)])
-            ),
-          } as ValueNode)
-        : defaultLiteralFor(type.item);
+    // 用 store 解析 ref（例如 NavItem），確保新項目是結構完整的 object，而非空字串
+    const fresh = createDefaultValueNode(type.item, store);
     onChange({ ...node, items: [...node.items, fresh] });
   };
 

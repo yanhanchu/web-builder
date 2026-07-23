@@ -5,6 +5,7 @@ import ContactPage from "./pages/contact";
 import PrivacyPage from "./pages/privacy";
 import TermsPage from "./pages/terms";
 import DataModelDemoPage from "./pages/data-model-demo";
+import DataManagerPage from "./pages/data-manager";
 
 import { Home } from "@workspace/ui/pages/generator/home";
 import { ComponentDetail } from "@workspace/ui/pages/generator/component-detail";
@@ -21,6 +22,7 @@ export function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/data-model-demo" element={<DataModelDemoPage />} />
+        <Route path="/data-manager" element={<DataManagerPage />} />
 
         {/* ignore below links */}
         <Route path="/c" element={(<Home />)} />
