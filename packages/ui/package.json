@@ -45,6 +45,8 @@
     "./pages/generator/*": "./src/pages/generator/*.tsx",
     "./styles/generator/*": "./src/styles/generator/*.ts",
     "./lib/generator/*": "./src/lib/generator/*.ts",
+    "./lib/data-model": "./src/lib/data-model/index.ts",
+    "./lib/data-model/*": "./src/lib/data-model/*.ts",
     "./types/generator/*": "./src/types/generator/*.ts",
     "./functions/*": "./src/functions/*.ts"
   }
