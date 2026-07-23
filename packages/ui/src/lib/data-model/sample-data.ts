@@ -12,9 +12,13 @@
 // 都會透過 resolveValue() 自動同步。
 // ============================================================
 
-import type { DataSource, ValueNode } from './schema';
+import type { DataSource, ValueNode, FieldType } from './schema';
 import { InMemoryDataStore, resolveValue } from './schema';
-import { typeRegistry, componentPropsRegistry } from './from-generated';
+import {
+  typeRegistry as generatedTypeRegistry,
+  componentPropsRegistry,
+} from './from-generated';
+import { seo as defaultSeo, siteInfo as defaultSiteInfo } from '../../components/site/default';
 
 // ------------------------------------------------------------
 // 從真實生成資料取出 Header / Footer 的 props 型別
@@ -26,7 +30,49 @@ export const footerEntry = componentPropsRegistry['src/components/landing1/foote
 export const headerPropsType = headerEntry.propsType;
 export const footerPropsType = footerEntry.propsType;
 
-export { typeRegistry };
+// ------------------------------------------------------------
+// 手動註冊 site-metadata 型別（SeoData / SiteInfoData）。
+//
+// 這些型別定義在 packages/ui/src/components/site/types.ts，尚未經過生成器
+// 產出 component-types.json，所以在這裡先以 FieldType 形式手動加入 registry，
+// 讓 data-manager / App 設定 / 頁面管理可以立刻綁定。等生成器跑過之後，
+// from-generated.ts 的 typeRegistry 會自動涵蓋，這裡的手動註冊即可移除。
+// ------------------------------------------------------------
+export const SeoDataTypeId = 'src/components/site/types.ts#SeoData';
+export const SiteInfoDataTypeId = 'src/components/site/types.ts#SiteInfoData';
+
+export const typeRegistry: Record<string, FieldType> = {
+  ...generatedTypeRegistry,
+  [SeoDataTypeId]: {
+    kind: 'object',
+    fields: {
+      title: { kind: 'primitive', type: 'string' },
+      titleTemplate: { kind: 'primitive', type: 'string' },
+      description: { kind: 'primitive', type: 'string' },
+      keywords: { kind: 'primitive', type: 'string' },
+      ogImage: { kind: 'primitive', type: 'string', hint: 'url-like' },
+      ogType: { kind: 'primitive', type: 'string' },
+      twitterCard: { kind: 'primitive', type: 'string' },
+      twitterSite: { kind: 'primitive', type: 'string' },
+      canonicalUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
+      robots: { kind: 'primitive', type: 'string' },
+    },
+  },
+  [SiteInfoDataTypeId]: {
+    kind: 'object',
+    fields: {
+      siteName: { kind: 'primitive', type: 'string' },
+      tagline: { kind: 'primitive', type: 'string' },
+      siteUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
+      faviconUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
+      manifestUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
+      themeColor: { kind: 'primitive', type: 'string' },
+      defaultLocale: { kind: 'primitive', type: 'string' },
+      contactEmail: { kind: 'primitive', type: 'string' },
+      publisher: { kind: 'primitive', type: 'string' },
+    },
+  },
+};
 
 // 複合 typeId 直接對應 component-types.json 裡的 id（生成器已提供，不需自己組）
 const BrandDataTypeId = 'src/components/landing1/types.ts#BrandData';
@@ -294,10 +340,35 @@ export const sources: Record<string, DataSource> = {
       ],
     },
   },
+  // --- 型別資料：SiteInfoData（全站基本資訊，App 設定綁定用） ---
+  'typedData:siteInfo:main': {
+    id: 'typedData:siteInfo:main',
+    kind: 'typedData',
+    label: '型別資料: 網站基本資訊 (SiteInfoData)',
+    typeId: SiteInfoDataTypeId,
+    value: literalObjectFrom(defaultSiteInfo),
+  },
+
+  // --- 型別資料：SeoData（全站 SEO 預設，App 設定綁定用） ---
+  'typedData:seo:default': {
+    id: 'typedData:seo:default',
+    kind: 'typedData',
+    label: '型別資料: 全站 SEO 預設 (SeoData)',
+    typeId: SeoDataTypeId,
+    value: literalObjectFrom(defaultSeo),
+  },
 };
 
-// ------------------------------------------------------------
-// 初始 ValueNode：Header / Footer 兩個 component instance 的 props 實際值
+// 把一個扁平 string-value 物件轉成 object ValueNode（每個欄位都是 literal）
+function literalObjectFrom(
+  obj: Record<string, string>,
+): ValueNode {
+  const fields: Record<string, ValueNode> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    fields[k] = { mode: 'literal', value: v };
+  }
+  return { mode: 'object', fields };
+}
 //
 // 對照 default.ts：header 和 footer 都手動填了一份 brandData —— 這裡兩者
 // 都改成 { mode: 'bound', sourceId: 'typedData:brand:main' }，整格引用同一筆。

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   AdminLayout,
-  usePersistentState,
   useSavedFlash,
   panelStyle,
   panelTitleStyle,
@@ -10,66 +9,56 @@ import {
   inputStyle,
   textareaStyle,
   primaryBtnStyle,
+  ghostBtnStyle,
   savedFlashStyle,
 } from "./admin-ui";
+import {
+  defaultSeo,
+  defaultSiteInfo,
+  type SeoData,
+  type SiteInfoData,
+} from "@workspace/ui/lib/data-model";
+import {
+  SeoDataTypeId,
+  SiteInfoDataTypeId,
+} from "@workspace/ui/lib/data-model/sample-data";
 
-// 全站共用設定：SEO 預設值 + 上傳設定等固定值。
-// 先做簡單版：一個大表單，儲存到 localStorage。
-interface AppSettings {
-  siteName: string;
-  siteUrl: string;
-  defaultTitle: string;
-  titleTemplate: string;
-  defaultDescription: string;
-  defaultKeywords: string;
-  ogImage: string;
-  twitterHandle: string;
-  faviconUrl: string;
-  // 上傳設定
-  maxUploadMb: number;
-  allowedFileTypes: string;
-  uploadPath: string;
-}
+// App 設定：網站基本資訊與 SEO 直接綁定到單一型別資料記錄。
+// 這裡不再各自重複定義欄位，而是對應到 data-model 裡的 SiteInfoData / SeoData
+// 兩筆 typedData source（typedData:siteInfo:main / typedData:seo:default），
+// 之後 generator 編譯時可從同一份型別資料自動產出對應的 component JSON。
+//
+// localStorage key 與 data-model sample-data 的 source id 對齊，方便之後整合。
 
-const DEFAULT_SETTINGS: AppSettings = {
-  siteName: "Web Builder",
-  siteUrl: "https://example.com",
-  defaultTitle: "Web Builder",
-  titleTemplate: "%s | Web Builder",
-  defaultDescription: "使用 Web Builder 打造你的網站。",
-  defaultKeywords: "web, builder, cms",
-  ogImage: "/og-image.png",
-  twitterHandle: "@webbuilder",
-  faviconUrl: "/favicon.ico",
-  maxUploadMb: 10,
-  allowedFileTypes: "image/png, image/jpeg, image/webp, image/svg+xml",
-  uploadPath: "/uploads",
-};
+const SITE_INFO_KEY = "wb.typedData.siteInfo:main";
+const SEO_KEY = "wb.typedData.seo:default";
 
 export default function AppSettingsPage() {
-  const [, setSettings] = usePersistentState<AppSettings>(
-    "wb.appSettings",
-    DEFAULT_SETTINGS
-  );
-  // 編輯時只改草稿，按「儲存」才寫進 localStorage
-  const [draftValue, setDraftValue] = useState<AppSettings>(() => readInitial());
-  const draft = { value: draftValue, update: setDraftValue };
+  const [siteInfo, setSiteInfo] = useState<SiteInfoData>(() => readPersistent(SITE_INFO_KEY, defaultSiteInfo));
+  const [seo, setSeo] = useState<SeoData>(() => readPersistent(SEO_KEY, defaultSeo));
   const [saved, flashSaved] = useSavedFlash();
 
-  const set = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) =>
-    draft.update({ ...draft.value, [key]: value });
+  const setSite = <K extends keyof SiteInfoData>(key: K, value: SiteInfoData[K]) =>
+    setSiteInfo((prev) => ({ ...prev, [key]: value }));
+
+  const setSeoField = <K extends keyof SeoData>(key: K, value: SeoData[K]) =>
+    setSeo((prev) => ({ ...prev, [key]: value }));
 
   const save = () => {
-    setSettings(draft.value);
+    writePersistent(SITE_INFO_KEY, siteInfo);
+    writePersistent(SEO_KEY, seo);
     flashSaved();
   };
 
-  const reset = () => draft.update(DEFAULT_SETTINGS);
+  const reset = () => {
+    setSiteInfo(defaultSiteInfo);
+    setSeo(defaultSeo);
+  };
 
   return (
     <AdminLayout
       title="App 設定"
-      description="管理整個網站共用的固定值：SEO 預設、社群分享、上傳限制等。這些值可供所有頁面套用。"
+      description="網站基本資訊與 SEO 預設直接綁定單一型別資料（SiteInfoData / SeoData），供所有頁面套用。"
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
@@ -81,99 +70,82 @@ export default function AppSettingsPage() {
     >
       <div style={{ maxWidth: 760 }}>
         <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>網站基本資訊</h2>
-          <Field label="網站名稱">
-            <input
-              style={inputStyle}
-              value={draft.value.siteName}
-              onChange={(e) => set("siteName", e.target.value)}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <h2 style={{ ...panelTitleStyle, margin: 0 }}>網站基本資訊</h2>
+            <TypeBadge typeId={SiteInfoDataTypeId} />
+          </div>
+          <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
+            綁定型別資料：<code>typedData:siteInfo:main</code>
+          </p>
+          <Field label="網站名稱（siteName）">
+            <input style={inputStyle} value={siteInfo.siteName} onChange={(e) => setSite("siteName", e.target.value)} />
           </Field>
-          <Field label="網站網址（Site URL）">
-            <input
-              style={inputStyle}
-              value={draft.value.siteUrl}
-              onChange={(e) => set("siteUrl", e.target.value)}
-            />
+          <Field label="標語（tagline）">
+            <input style={inputStyle} value={siteInfo.tagline} onChange={(e) => setSite("tagline", e.target.value)} />
           </Field>
-          <Field label="Favicon 網址">
-            <input
-              style={inputStyle}
-              value={draft.value.faviconUrl}
-              onChange={(e) => set("faviconUrl", e.target.value)}
-            />
+          <Field label="網站網址（siteUrl）">
+            <input style={inputStyle} value={siteInfo.siteUrl} onChange={(e) => setSite("siteUrl", e.target.value)} />
           </Field>
-        </section>
-
-        <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>SEO 預設</h2>
-          <Field label="預設標題">
-            <input
-              style={inputStyle}
-              value={draft.value.defaultTitle}
-              onChange={(e) => set("defaultTitle", e.target.value)}
-            />
+          <Field label="Favicon 網址（faviconUrl）">
+            <input style={inputStyle} value={siteInfo.faviconUrl} onChange={(e) => setSite("faviconUrl", e.target.value)} />
           </Field>
-          <Field label={'標題模板（%s 會替換成頁面標題）'}>
-            <input
-              style={inputStyle}
-              value={draft.value.titleTemplate}
-              onChange={(e) => set("titleTemplate", e.target.value)}
-            />
+          <Field label="Manifest 網址（manifestUrl）">
+            <input style={inputStyle} value={siteInfo.manifestUrl} onChange={(e) => setSite("manifestUrl", e.target.value)} />
           </Field>
-          <Field label="預設描述">
-            <textarea
-              style={textareaStyle}
-              value={draft.value.defaultDescription}
-              onChange={(e) => set("defaultDescription", e.target.value)}
-            />
+          <Field label="主題色（themeColor）">
+            <input style={inputStyle} value={siteInfo.themeColor} onChange={(e) => setSite("themeColor", e.target.value)} />
           </Field>
-          <Field label="預設關鍵字（逗號分隔）">
-            <input
-              style={inputStyle}
-              value={draft.value.defaultKeywords}
-              onChange={(e) => set("defaultKeywords", e.target.value)}
-            />
+          <Field label="預設語系（defaultLocale）">
+            <input style={inputStyle} value={siteInfo.defaultLocale} onChange={(e) => setSite("defaultLocale", e.target.value)} />
           </Field>
-          <Field label="預設 OG 分享圖">
-            <input
-              style={inputStyle}
-              value={draft.value.ogImage}
-              onChange={(e) => set("ogImage", e.target.value)}
-            />
+          <Field label="聯絡信箱（contactEmail）">
+            <input style={inputStyle} value={siteInfo.contactEmail} onChange={(e) => setSite("contactEmail", e.target.value)} />
           </Field>
-          <Field label="Twitter 帳號">
-            <input
-              style={inputStyle}
-              value={draft.value.twitterHandle}
-              onChange={(e) => set("twitterHandle", e.target.value)}
-            />
+          <Field label="發布者（publisher）">
+            <input style={inputStyle} value={siteInfo.publisher} onChange={(e) => setSite("publisher", e.target.value)} />
           </Field>
         </section>
 
         <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>上傳設定</h2>
-          <Field label="單檔大小上限（MB）">
-            <input
-              type="number"
-              style={inputStyle}
-              value={draft.value.maxUploadMb}
-              onChange={(e) => set("maxUploadMb", Number(e.target.value))}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <h2 style={{ ...panelTitleStyle, margin: 0 }}>SEO 預設</h2>
+            <TypeBadge typeId={SeoDataTypeId} />
+          </div>
+          <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
+            綁定型別資料：<code>typedData:seo:default</code>
+          </p>
+          <Field label="預設標題（title）">
+            <input style={inputStyle} value={seo.title} onChange={(e) => setSeoField("title", e.target.value)} />
           </Field>
-          <Field label="允許的檔案類型（逗號分隔 MIME）">
-            <input
-              style={inputStyle}
-              value={draft.value.allowedFileTypes}
-              onChange={(e) => set("allowedFileTypes", e.target.value)}
-            />
+          <Field label={'標題模板（titleTemplate，%s 替換為頁面標題）'}>
+            <input style={inputStyle} value={seo.titleTemplate} onChange={(e) => setSeoField("titleTemplate", e.target.value)} />
           </Field>
-          <Field label="上傳儲存路徑">
-            <input
-              style={inputStyle}
-              value={draft.value.uploadPath}
-              onChange={(e) => set("uploadPath", e.target.value)}
-            />
+          <Field label="預設描述（description）">
+            <textarea style={textareaStyle} value={seo.description} onChange={(e) => setSeoField("description", e.target.value)} />
+          </Field>
+          <Field label="預設關鍵字（keywords，逗號分隔）">
+            <input style={inputStyle} value={seo.keywords} onChange={(e) => setSeoField("keywords", e.target.value)} />
+          </Field>
+          <Field label="預設 OG 分享圖（ogImage）">
+            <input style={inputStyle} value={seo.ogImage} onChange={(e) => setSeoField("ogImage", e.target.value)} />
+          </Field>
+          <Field label="OG 類型（ogType）">
+            <select style={inputStyle} value={seo.ogType} onChange={(e) => setSeoField("ogType", e.target.value as SeoData["ogType"])}>
+              <option value="website">website</option>
+              <option value="article">article</option>
+            </select>
+          </Field>
+          <Field label="Twitter 卡片類型（twitterCard）">
+            <input style={inputStyle} value={seo.twitterCard} onChange={(e) => setSeoField("twitterCard", e.target.value)} />
+          </Field>
+          <Field label="Twitter 網站帳號（twitterSite）">
+            <input style={inputStyle} value={seo.twitterSite} onChange={(e) => setSeoField("twitterSite", e.target.value)} />
+          </Field>
+          <Field label="標準網址（canonicalUrl）">
+            <input style={inputStyle} value={seo.canonicalUrl} onChange={(e) => setSeoField("canonicalUrl", e.target.value)} />
+          </Field>
+          <Field label="Robots 指令（robots）">
+            <input style={inputStyle} value={seo.robots} onChange={(e) => setSeoField("robots", e.target.value)} />
           </Field>
         </section>
 
@@ -181,18 +153,7 @@ export default function AppSettingsPage() {
           <button style={primaryBtnStyle} onClick={save}>
             儲存設定
           </button>
-          <button
-            style={{
-              background: "transparent",
-              color: "#aaa",
-              border: "1px solid #444",
-              borderRadius: 4,
-              padding: "8px 14px",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-            onClick={reset}
-          >
+          <button style={ghostBtnStyle} onClick={reset}>
             還原預設值
           </button>
         </div>
@@ -201,13 +162,8 @@ export default function AppSettingsPage() {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    }
   return (
     <div style={fieldRowStyle}>
       <label style={labelStyle}>{label}</label>
@@ -216,13 +172,41 @@ function Field({
   );
 }
 
-// 從 localStorage 讀初始草稿值（無則用預設）
-function readInitial(): AppSettings {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+function TypeBadge({ typeId }: { typeId: string }) {
+  return (
+    <span style={badgeStyle} title={typeId}>
+      {typeId.split("#")[1] ?? typeId}
+    </span>
+  );
+}
+
+const badgeStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: "#7fdbca",
+  border: "1px solid #2d6a4f",
+  background: "#173029",
+  borderRadius: 4,
+  padding: "1px 6px",
+  fontFamily: "monospace",
+};
+
+// ---------- 簡易 localStorage 持久化 ----------
+
+function readPersistent<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem("wb.appSettings");
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    const raw = window.localStorage.getItem(key);
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
   } catch {
-    return DEFAULT_SETTINGS;
+    return fallback;
+  }
+}
+
+function writePersistent<T>(key: string, value: T) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
   }
 }

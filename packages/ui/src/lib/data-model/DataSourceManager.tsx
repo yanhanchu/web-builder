@@ -174,7 +174,14 @@ export function DataSourceManager({
 
   const addRoute = () => {
     const id = makeId('route');
-    addAndExpand({ id, kind: 'route', label: '新路由', value: '/' } satisfies RouteDataSource);
+    addAndExpand({
+      id,
+      kind: 'route',
+      label: '新路由',
+      target: 'url',
+      value: '/',
+      noindex: false,
+    } satisfies RouteDataSource);
   };
 
   const addFile = () => {
@@ -449,8 +456,10 @@ function summarize(source: DataSource): string {
         first != null ? ` · "${String(first).slice(0, 24)}"` : ''
       }`;
     }
-    case 'route':
-      return source.value || '（空路徑）';
+    case 'route': {
+      const targetLabel = source.target === 'page' ? `頁面 → ${source.pageId || '未指定'}` : source.value || '（空路徑）';
+      return `${source.noindex ? '🚫index · ' : ''}${targetLabel}`;
+    }
     case 'file':
       return source.url || '（未設定 url）';
     case 'typedData':
@@ -562,14 +571,46 @@ function RouteFields({
   onChange: (next: DataSource) => void;
 }) {
   return (
-    <Labeled label="value（路徑）">
-      <input
-        value={source.value}
-        placeholder="/product"
-        onChange={(e) => onChange({ ...source, value: e.target.value })}
-        style={inputStyle}
-      />
-    </Labeled>
+    <>
+      <Labeled label="target（目標類型）">
+        <select
+          value={source.target}
+          onChange={(e) => onChange({ ...source, target: e.target.value as 'page' | 'url' })}
+          style={inputStyle}
+        >
+          <option value="url">URL（自訂網址）</option>
+          <option value="page">頁面（從頁面管理選擇）</option>
+        </select>
+      </Labeled>
+
+      {source.target === 'page' ? (
+        <Labeled label="pageId（選擇頁面）">
+          <input
+            value={source.pageId ?? ''}
+            placeholder="page_id"
+            onChange={(e) => onChange({ ...source, pageId: e.target.value })}
+            style={inputStyle}
+          />
+        </Labeled>
+      ) : (
+        <Labeled label="value（路徑 / URL）">
+          <input
+            value={source.value}
+            placeholder="/product"
+            onChange={(e) => onChange({ ...source, value: e.target.value })}
+            style={inputStyle}
+          />
+        </Labeled>
+      )}
+
+      <Labeled label="noindex（禁止索引）" inline>
+        <input
+          type="checkbox"
+          checked={source.noindex}
+          onChange={(e) => onChange({ ...source, noindex: e.target.checked })}
+        />
+      </Labeled>
+    </>
   );
 }
 

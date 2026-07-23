@@ -89,9 +89,24 @@ export interface FileDataSource extends DataSourceMetaBase {
   mimeType?: string;
 }
 
+/**
+ * A route can resolve to either an internal page (by its page id) or an
+ * external/absolute URL. `target` decides which field is authoritative:
+ * - "page"  → `pageId` references a page from Page management; `value` is
+ *             derived from that page's route.
+ * - "url"   → `value` holds an arbitrary URL string (external link, etc.)
+ */
+export type RouteTarget = "page" | "url";
+
 export interface RouteDataSource extends DataSourceMetaBase {
   kind: "route";
+  target: RouteTarget;
+  /** When target is "page", the id of the page this route points to. */
+  pageId?: string;
+  /** The resolved path/URL. For "page" targets this mirrors the page's route; for "url" targets it is a free-form URL. */
   value: string;
+  /** Whether to block search-engine indexing for this route (emits noindex). */
+  noindex: boolean;
 }
 
 export interface TypedDataSource extends DataSourceMetaBase {

@@ -13,6 +13,7 @@ import {
   initialHeaderProps,
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
+import { AdminLayout, panelStyle, panelTitleStyle, primaryBtnStyle } from "./admin/admin-ui";
 
 export default function DataManagerPage() {
   // DataSource 全部收在頁面 state，DataSourceManager 是純受控元件
@@ -36,16 +37,11 @@ export default function DataManagerPage() {
   );
 
   return (
-    <div style={pageStyle}>
-      <header style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, margin: 0 }}>資料管理介面 — DataSource Manager</h1>
-        <p style={{ color: "#888", fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>
-          管理 <code>schema.ts</code> 定義的四種「值的來源」：i18n 多語系、路由、檔案、型別資料。
-          <br />
-          新增 / 編輯 / 刪除任何一筆，右側 Header / Footer 的 resolved 結果會即時同步 ——
-          因為它們都是<strong>整格引用</strong>同一批 DataSource。
-        </p>
-        <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+    <AdminLayout
+      title="資料管理"
+      description="管理 schema.ts 定義的四種「值的來源」：i18n 多語系、路由、檔案、型別資料。新增 / 編輯 / 刪除任何一筆，右側 Header / Footer 的 resolved 結果會即時同步。"
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ fontSize: 13, color: "#aaa" }}>預覽 locale：</span>
           {locales.map((l) => (
             <button
@@ -60,10 +56,10 @@ export default function DataManagerPage() {
             </button>
           ))}
         </div>
-      </header>
-
-      <div style={layoutStyle}>
-        <section style={{ ...panelStyle, flex: 2 }}>
+      }
+    >
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <section style={{ ...panelStyle, flex: 2, minWidth: 360, marginBottom: 0 }}>
           <h2 style={panelTitleStyle}>來源管理</h2>
           <DataSourceManager
             sources={sources}
@@ -85,39 +81,9 @@ export default function DataManagerPage() {
           </section>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
-
-const pageStyle: React.CSSProperties = {
-  background: "#121212",
-  color: "#eee",
-  minHeight: "100vh",
-  fontFamily: "system-ui, sans-serif",
-  padding: 24,
-  boxSizing: "border-box",
-};
-
-const layoutStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 20,
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-};
-
-const panelStyle: React.CSSProperties = {
-  background: "#1a1a1a",
-  border: "1px solid #333",
-  borderRadius: 8,
-  padding: 16,
-  minWidth: 360,
-};
-
-const panelTitleStyle: React.CSSProperties = {
-  fontSize: 14,
-  margin: "0 0 12px 0",
-  color: "#ccc",
-};
 
 const preStyle: React.CSSProperties = {
   fontSize: 12,
