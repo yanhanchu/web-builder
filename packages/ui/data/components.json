@@ -1,0 +1,322 @@
+[
+  {
+    "id": "src/components/demo/avatar.tsx#Avatar",
+    "componentName": "Avatar",
+    "filePath": "src/components/demo/avatar.tsx",
+    "importPath": "components/demo/avatar",
+    "description": "Displays a user's profile image, falling back to initials on error or when no src is given.",
+    "props": [
+      {
+        "name": "name",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Full name used to derive fallback initials and the alt text"
+      },
+      {
+        "name": "ringColor",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Shows a small colored ring around the avatar, e.g. for online status"
+      },
+      {
+        "name": "size",
+        "required": false,
+        "type": "number",
+        "defaultValue": "40",
+        "description": "Diameter of the avatar in pixels"
+      },
+      {
+        "name": "src",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Image URL. Falls back to initials when omitted or broken."
+      }
+    ],
+    "relatedTypeNames": []
+  },
+  {
+    "id": "src/components/demo/badge.tsx#Badge",
+    "componentName": "Badge",
+    "filePath": "src/components/demo/badge.tsx",
+    "importPath": "components/demo/badge",
+    "description": "A compact label for statuses, counts, or tags.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Badge content"
+      },
+      {
+        "name": "dot",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Renders a small dot indicator before the label"
+      },
+      {
+        "name": "tone",
+        "required": false,
+        "type": "\"neutral\" | \"success\" | \"warning\" | \"danger\" | \"info\"",
+        "defaultValue": "neutral",
+        "description": "Semantic tone of the badge"
+      }
+    ],
+    "relatedTypeNames": []
+  },
+  {
+    "id": "src/components/demo/brand.tsx#Brand",
+    "componentName": "Brand",
+    "filePath": "src/components/demo/brand.tsx",
+    "importPath": "components/demo/brand",
+    "description": "Site logo + wordmark, linking back to the homepage.\nPure presentation — all strings and the logo image come from `data`.",
+    "props": [
+      {
+        "name": "data",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo image, fully i18n-ready"
+      },
+      {
+        "name": "className",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Additional class names merged onto the root anchor"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/brand.tsx#BrandProps",
+      "src/components/demo/types.ts#BrandData"
+    ]
+  },
+  {
+    "id": "src/components/demo/button.tsx#Button",
+    "componentName": "Button",
+    "filePath": "src/components/demo/button.tsx",
+    "importPath": "components/demo/button",
+    "description": "The primary interactive control for triggering actions.\nUse `variant=\"danger\"` for destructive actions like delete.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Button label / content"
+      },
+      {
+        "name": "fullWidth",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Stretches the button to fill its container width"
+      },
+      {
+        "name": "icon",
+        "required": false,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Icon element rendered before the label"
+      },
+      {
+        "name": "isLoading",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Shows a loading spinner and disables interaction"
+      },
+      {
+        "name": "size",
+        "required": false,
+        "type": "\"sm\" | \"md\" | \"lg\"",
+        "defaultValue": "md",
+        "description": "Size of the button"
+      },
+      {
+        "name": "variant",
+        "required": false,
+        "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\"",
+        "defaultValue": "primary",
+        "description": "Visual style of the button"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/button.tsx#ButtonProps"
+    ]
+  },
+  {
+    "id": "src/components/demo/card.tsx#Card",
+    "componentName": "Card",
+    "filePath": "src/components/demo/card.tsx",
+    "importPath": "components/demo/card",
+    "description": "A container for grouping related content with consistent padding and border.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Card content"
+      },
+      {
+        "name": "interactive",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Adds a hover elevation effect, useful for clickable cards"
+      },
+      {
+        "name": "padding",
+        "required": false,
+        "type": "number",
+        "defaultValue": "20",
+        "description": "Internal padding in pixels"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/card.tsx#CardProps"
+    ]
+  },
+  {
+    "id": "src/components/demo/card.tsx#CardHeader",
+    "componentName": "CardHeader",
+    "filePath": "src/components/demo/card.tsx",
+    "importPath": "components/demo/card",
+    "description": "Header region for a Card, rendering a title and optional subtitle.",
+    "props": [
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Main heading text"
+      },
+      {
+        "name": "subtitle",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Optional supporting text below the title"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/card.tsx#CardHeaderProps"
+    ]
+  },
+  {
+    "id": "src/components/demo/header.tsx#Header",
+    "componentName": "Header",
+    "filePath": "src/components/demo/header.tsx",
+    "importPath": "components/demo/header",
+    "description": "Sticky site header with brand, primary navigation, theme toggle and a\ncollapsible mobile menu. Owns only its own open/closed UI state — all\ncopy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "closeMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      },
+      {
+        "name": "openMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is closed"
+      },
+      {
+        "name": "primaryNav",
+        "required": true,
+        "type": "NavItem[]",
+        "defaultValue": null,
+        "description": "Primary navigation links, shown inline on desktop and in the mobile sheet"
+      },
+      {
+        "name": "themeGroupLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the theme toggle radiogroup"
+      },
+      {
+        "name": "themeLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label shown next to the theme toggle in the mobile menu"
+      },
+      {
+        "name": "themeOptions",
+        "required": true,
+        "type": "ThemeOption[]",
+        "defaultValue": null,
+        "description": "Theme toggle options, forwarded to <ThemeToggle />"
+      },
+      {
+        "name": "testNumber",
+        "required": false,
+        "type": "number",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/header.tsx#HeaderProps",
+      "src/components/demo/types.ts#BrandData",
+      "src/components/demo/types.ts#NavItem",
+      "src/components/demo/types.ts#ThemeOption"
+    ]
+  },
+  {
+    "id": "src/components/demo/input.tsx#Input",
+    "componentName": "Input",
+    "filePath": "src/components/demo/input.tsx",
+    "importPath": "components/demo/input",
+    "description": "A labeled text input with built-in error and helper text states.",
+    "props": [
+      {
+        "name": "error",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Error message; when set, the input is styled as invalid"
+      },
+      {
+        "name": "helperText",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Helper text displayed below the input when there is no error"
+      },
+      {
+        "name": "label",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label displayed above the input"
+      },
+      {
+        "name": "size",
+        "required": false,
+        "type": "\"sm\" | \"md\" | \"lg\"",
+        "defaultValue": "md",
+        "description": "Visual size of the input"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/demo/input.tsx#InputProps"
+    ]
+  }
+]

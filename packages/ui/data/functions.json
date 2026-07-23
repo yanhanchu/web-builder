@@ -1,0 +1,294 @@
+{
+  "functions": [
+    {
+      "id": "calculate-order-total-calculate-order-total",
+      "functionName": "calculateOrderTotal",
+      "filePath": "src/functions/calculateOrderTotal.ts",
+      "importPath": "functions/calculateOrderTotal",
+      "description": "計算購物車訂單的各項費用明細，包含折扣、稅金、運費以及最終應付總額。",
+      "isAsync": false,
+      "deprecated": null,
+      "params": [
+        {
+          "name": "input",
+          "type": "OrderCalculationInput",
+          "optional": false,
+          "defaultValue": null,
+          "description": "包含商品列表、折扣碼、配送方式等結算所需資訊的物件"
+        }
+      ],
+      "returnType": "OrderTotalOutput",
+      "returnDescription": "回傳包含 subtotal、tax、shippingFee 與 grandTotal 的詳細金額明細物件",
+      "throws": [
+        "當傳入的商品數量小於等於 0，或點數扣抵數值異常時會拋出異常"
+      ],
+      "relatedTypeNames": [
+        "OrderCalculationInput",
+        "OrderItem",
+        "OrderTotalOutput"
+      ]
+    },
+    {
+      "id": "validate-registration-form-validate-registration-form",
+      "functionName": "validateRegistrationForm",
+      "filePath": "src/functions/validateRegistrationForm.ts",
+      "importPath": "functions/validateRegistrationForm",
+      "description": "驗證使用者註冊表單的各項欄位是否符合業務邏輯規則。\n* 驗證規則包含：\n1. 所有欄位必填\n2. Email 格式驗證\n3. 密碼與確認密碼必須相同\n4. 年齡必須滿 18 歲\n5. 必須勾選同意條款",
+      "isAsync": false,
+      "deprecated": null,
+      "params": [
+        {
+          "name": "input",
+          "type": "RegistrationInput",
+          "optional": false,
+          "defaultValue": null,
+          "description": "來自註冊表單的原始使用者輸入物件"
+        }
+      ],
+      "returnType": "ValidationResult",
+      "returnDescription": "回傳一個包含驗證狀態、各欄位錯誤訊息與密碼強度的結果物件",
+      "throws": [],
+      "relatedTypeNames": [
+        "RegistrationInput",
+        "ValidationResult",
+        "ValidationErrorMessages"
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "OrderCalculationInput",
+      "kind": "interface",
+      "description": "結算訂單金額時所需的完整輸入參數",
+      "fields": [
+        {
+          "name": "items",
+          "required": true,
+          "type": "OrderItem[]",
+          "description": "購物車中的商品項目列表"
+        },
+        {
+          "name": "couponCode",
+          "required": false,
+          "type": "string",
+          "description": "使用者輸入的優惠券/折扣碼（選填）"
+        },
+        {
+          "name": "shippingMethod",
+          "required": true,
+          "type": "\"standard\" | \"express\" | \"store_pickup\"",
+          "description": "物流配送方式"
+        },
+        {
+          "name": "useRewardPoints",
+          "required": false,
+          "type": "boolean",
+          "description": "使用者是否選擇使用點數折抵現金"
+        },
+        {
+          "name": "availablePoints",
+          "required": false,
+          "type": "number",
+          "description": "使用者帳戶現有的點數餘額"
+        }
+      ]
+    },
+    {
+      "name": "OrderItem",
+      "kind": "interface",
+      "description": "購物車內單一商品項目的介面",
+      "fields": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "description": "商品的唯一識別碼"
+        },
+        {
+          "name": "price",
+          "required": true,
+          "type": "number",
+          "description": "商品的單價（以基准貨幣單位計，例如：元）"
+        },
+        {
+          "name": "quantity",
+          "required": true,
+          "type": "number",
+          "description": "購買的數量"
+        },
+        {
+          "name": "taxRate",
+          "required": true,
+          "type": "number",
+          "description": "適用於該商品的稅率（例如：0.05 代表 5% 營業稅）"
+        },
+        {
+          "name": "isDiscountable",
+          "required": true,
+          "type": "boolean",
+          "description": "是否適用商店的全局折扣活動"
+        }
+      ]
+    },
+    {
+      "name": "OrderTotalOutput",
+      "kind": "interface",
+      "description": "訂單金額結算完成後輸出的詳細費用明細",
+      "fields": [
+        {
+          "name": "subtotal",
+          "required": true,
+          "type": "number",
+          "description": "所有商品「單價 x 數量」的原始總和（未扣除任何折扣與稅金）"
+        },
+        {
+          "name": "totalDiscount",
+          "required": true,
+          "type": "number",
+          "description": "經過優惠券或點數折抵後，總共減少的金額"
+        },
+        {
+          "name": "totalTax",
+          "required": true,
+          "type": "number",
+          "description": "根據各商品稅率計算出的總稅金"
+        },
+        {
+          "name": "shippingFee",
+          "required": true,
+          "type": "number",
+          "description": "根據配送方式計算出的物流運費"
+        },
+        {
+          "name": "grandTotal",
+          "required": true,
+          "type": "number",
+          "description": "使用者最終需要支付的實際總金額 (Subtotal - Discount + Tax + ShippingFee)"
+        },
+        {
+          "name": "earnedPoints",
+          "required": true,
+          "type": "number",
+          "description": "本次消費完成後，預計可額外獲得的會員紅利點數"
+        }
+      ]
+    },
+    {
+      "name": "RegistrationInput",
+      "kind": "interface",
+      "description": "註冊表單的原始輸入資料介面",
+      "fields": [
+        {
+          "name": "username",
+          "required": true,
+          "type": "string",
+          "description": "使用者名稱，預期為 3 到 20 個字元的英數字"
+        },
+        {
+          "name": "email",
+          "required": true,
+          "type": "string",
+          "description": "使用者的電子郵件地址，需符合 Email 格式"
+        },
+        {
+          "name": "password",
+          "required": true,
+          "type": "string",
+          "description": "使用者設定的密碼，需包含大小寫字母與數字"
+        },
+        {
+          "name": "confirmPassword",
+          "required": true,
+          "type": "string",
+          "description": "再次輸入的確認密碼，用來核對是否與密碼一致"
+        },
+        {
+          "name": "age",
+          "required": true,
+          "type": "number",
+          "description": "使用者的年齡，必須大於或等於 18 歲"
+        },
+        {
+          "name": "acceptTerms",
+          "required": true,
+          "type": "boolean",
+          "description": "使用者是否已勾選同意服務條款與隱私權政策"
+        }
+      ]
+    },
+    {
+      "name": "ValidationErrorMessages",
+      "kind": "interface",
+      "description": "表單欄位錯誤訊息的結構物件\n鍵值對應 RegistrationInput 的欄位，若該欄位無錯誤則為 undefined",
+      "fields": [
+        {
+          "name": "username",
+          "required": false,
+          "type": "string",
+          "description": ""
+        },
+        {
+          "name": "email",
+          "required": false,
+          "type": "string",
+          "description": ""
+        },
+        {
+          "name": "password",
+          "required": false,
+          "type": "string",
+          "description": ""
+        },
+        {
+          "name": "confirmPassword",
+          "required": false,
+          "type": "string",
+          "description": ""
+        },
+        {
+          "name": "age",
+          "required": false,
+          "type": "string",
+          "description": ""
+        },
+        {
+          "name": "acceptTerms",
+          "required": false,
+          "type": "string",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ValidationResult",
+      "kind": "interface",
+      "description": "表單驗證完成後的回傳結果介面",
+      "fields": [
+        {
+          "name": "isValid",
+          "required": true,
+          "type": "boolean",
+          "description": "整份表單是否完全合法且通過驗證"
+        },
+        {
+          "name": "errors",
+          "required": true,
+          "type": "ValidationErrorMessages",
+          "description": "包含所有未通過驗證欄位的錯誤訊息物件"
+        },
+        {
+          "name": "passwordStrength",
+          "required": true,
+          "type": "\"weak\" | \"medium\" | \"strong\"",
+          "description": "針對密碼強度的評級強度"
+        },
+        {
+          "name": "validatedAt",
+          "required": true,
+          "type": "string",
+          "description": "驗證完成的時間戳記（ISO 8601 格式）"
+        }
+      ]
+    }
+  ]
+}
