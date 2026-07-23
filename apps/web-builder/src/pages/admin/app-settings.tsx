@@ -39,10 +39,10 @@ export default function AppSettingsPage() {
   const [saved, flashSaved] = useSavedFlash();
 
   const setSite = <K extends keyof SiteInfoData>(key: K, value: SiteInfoData[K]) =>
-    setSiteInfo((prev) => ({ ...prev, [key]: value }));
+    setSiteInfo((prev: SiteInfoData) => ({ ...prev, [key]: value }));
 
   const setSeoField = <K extends keyof SeoData>(key: K, value: SeoData[K]) =>
-    setSeo((prev) => ({ ...prev, [key]: value }));
+    setSeo((prev: SeoData) => ({ ...prev, [key]: value }));
 
   const save = () => {
     writePersistent(SITE_INFO_KEY, siteInfo);

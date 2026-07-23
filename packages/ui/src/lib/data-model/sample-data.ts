@@ -360,12 +360,10 @@ export const sources: Record<string, DataSource> = {
 };
 
 // 把一個扁平 string-value 物件轉成 object ValueNode（每個欄位都是 literal）
-function literalObjectFrom(
-  obj: Record<string, string>,
-): ValueNode {
+function literalObjectFrom<T extends object>(obj: T): ValueNode {
   const fields: Record<string, ValueNode> = {};
   for (const [k, v] of Object.entries(obj)) {
-    fields[k] = { mode: 'literal', value: v };
+    fields[k] = { mode: 'literal', value: v as string };
   }
   return { mode: 'object', fields };
 }

@@ -41,6 +41,8 @@
     "./utils/*": "./src/utils/*.ts",
     "./hooks/*": "./src/hooks/*.tsx",
     "./content/generator/*": "./src/content/generator/*.ts",
+    "./components/site/default": "./src/components/site/default.ts",
+    "./components/site/types": "./src/components/site/types.ts",
     "./components/*": "./src/components/*.tsx",
     "./pages/generator/*": "./src/pages/generator/*.tsx",
     "./styles/generator/*": "./src/styles/generator/*.ts",

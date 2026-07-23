@@ -13,7 +13,7 @@ import {
   initialHeaderProps,
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
-import { AdminLayout, panelStyle, panelTitleStyle, primaryBtnStyle } from "./admin/admin-ui";
+import { AdminLayout, panelStyle, panelTitleStyle } from "./admin/admin-ui";
 
 export default function DataManagerPage() {
   // DataSource 全部收在頁面 state，DataSourceManager 是純受控元件
