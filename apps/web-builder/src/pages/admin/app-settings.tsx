@@ -34,12 +34,18 @@ const SITE_INFO_KEY = "wb.typedData.siteInfo:main";
 const SEO_KEY = "wb.typedData.seo:default";
 
 export default function AppSettingsPage() {
-  const [siteInfo, setSiteInfo] = useState<SiteInfoData>(() => readPersistent(SITE_INFO_KEY, defaultSiteInfo));
-  const [seo, setSeo] = useState<SeoData>(() => readPersistent(SEO_KEY, defaultSeo));
+  const [siteInfo, setSiteInfo] = useState<SiteInfoData>(() =>
+    readPersistent(SITE_INFO_KEY, defaultSiteInfo),
+  );
+  const [seo, setSeo] = useState<SeoData>(() =>
+    readPersistent(SEO_KEY, defaultSeo),
+  );
   const [saved, flashSaved] = useSavedFlash();
 
-  const setSite = <K extends keyof SiteInfoData>(key: K, value: SiteInfoData[K]) =>
-    setSiteInfo((prev) => ({ ...prev, [key]: value }));
+  const setSite = <K extends keyof SiteInfoData>(
+    key: K,
+    value: SiteInfoData[K],
+  ) => setSiteInfo((prev) => ({ ...prev, [key]: value }));
 
   const setSeoField = <K extends keyof SeoData>(key: K, value: SeoData[K]) =>
     setSeo((prev) => ({ ...prev, [key]: value }));
@@ -70,7 +76,14 @@ export default function AppSettingsPage() {
     >
       <div style={{ maxWidth: 760 }}>
         <section style={panelStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
             <h2 style={{ ...panelTitleStyle, margin: 0 }}>網站基本資訊</h2>
             <TypeBadge typeId={SiteInfoDataTypeId} />
           </div>
@@ -78,36 +91,79 @@ export default function AppSettingsPage() {
             綁定型別資料：<code>typedData:siteInfo:main</code>
           </p>
           <Field label="網站名稱（siteName）">
-            <input style={inputStyle} value={siteInfo.siteName} onChange={(e) => setSite("siteName", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.siteName}
+              onChange={(e) => setSite("siteName", e.target.value)}
+            />
           </Field>
           <Field label="標語（tagline）">
-            <input style={inputStyle} value={siteInfo.tagline} onChange={(e) => setSite("tagline", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.tagline}
+              onChange={(e) => setSite("tagline", e.target.value)}
+            />
           </Field>
           <Field label="網站網址（siteUrl）">
-            <input style={inputStyle} value={siteInfo.siteUrl} onChange={(e) => setSite("siteUrl", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.siteUrl}
+              onChange={(e) => setSite("siteUrl", e.target.value)}
+            />
           </Field>
           <Field label="Favicon 網址（faviconUrl）">
-            <input style={inputStyle} value={siteInfo.faviconUrl} onChange={(e) => setSite("faviconUrl", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.faviconUrl}
+              onChange={(e) => setSite("faviconUrl", e.target.value)}
+            />
           </Field>
           <Field label="Manifest 網址（manifestUrl）">
-            <input style={inputStyle} value={siteInfo.manifestUrl} onChange={(e) => setSite("manifestUrl", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.manifestUrl}
+              onChange={(e) => setSite("manifestUrl", e.target.value)}
+            />
           </Field>
           <Field label="主題色（themeColor）">
-            <input style={inputStyle} value={siteInfo.themeColor} onChange={(e) => setSite("themeColor", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.themeColor}
+              onChange={(e) => setSite("themeColor", e.target.value)}
+            />
           </Field>
           <Field label="預設語系（defaultLocale）">
-            <input style={inputStyle} value={siteInfo.defaultLocale} onChange={(e) => setSite("defaultLocale", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.defaultLocale}
+              onChange={(e) => setSite("defaultLocale", e.target.value)}
+            />
           </Field>
           <Field label="聯絡信箱（contactEmail）">
-            <input style={inputStyle} value={siteInfo.contactEmail} onChange={(e) => setSite("contactEmail", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.contactEmail}
+              onChange={(e) => setSite("contactEmail", e.target.value)}
+            />
           </Field>
           <Field label="發布者（publisher）">
-            <input style={inputStyle} value={siteInfo.publisher} onChange={(e) => setSite("publisher", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={siteInfo.publisher}
+              onChange={(e) => setSite("publisher", e.target.value)}
+            />
           </Field>
         </section>
 
         <section style={panelStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
             <h2 style={{ ...panelTitleStyle, margin: 0 }}>SEO 預設</h2>
             <TypeBadge typeId={SeoDataTypeId} />
           </div>
@@ -115,37 +171,79 @@ export default function AppSettingsPage() {
             綁定型別資料：<code>typedData:seo:default</code>
           </p>
           <Field label="預設標題（title）">
-            <input style={inputStyle} value={seo.title} onChange={(e) => setSeoField("title", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.title}
+              onChange={(e) => setSeoField("title", e.target.value)}
+            />
           </Field>
-          <Field label={'標題模板（titleTemplate，%s 替換為頁面標題）'}>
-            <input style={inputStyle} value={seo.titleTemplate} onChange={(e) => setSeoField("titleTemplate", e.target.value)} />
+          <Field label={"標題模板（titleTemplate，%s 替換為頁面標題）"}>
+            <input
+              style={inputStyle}
+              value={seo.titleTemplate}
+              onChange={(e) => setSeoField("titleTemplate", e.target.value)}
+            />
           </Field>
           <Field label="預設描述（description）">
-            <textarea style={textareaStyle} value={seo.description} onChange={(e) => setSeoField("description", e.target.value)} />
+            <textarea
+              style={textareaStyle}
+              value={seo.description}
+              onChange={(e) => setSeoField("description", e.target.value)}
+            />
           </Field>
           <Field label="預設關鍵字（keywords，逗號分隔）">
-            <input style={inputStyle} value={seo.keywords} onChange={(e) => setSeoField("keywords", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.keywords}
+              onChange={(e) => setSeoField("keywords", e.target.value)}
+            />
           </Field>
           <Field label="預設 OG 分享圖（ogImage）">
-            <input style={inputStyle} value={seo.ogImage} onChange={(e) => setSeoField("ogImage", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.ogImage}
+              onChange={(e) => setSeoField("ogImage", e.target.value)}
+            />
           </Field>
           <Field label="OG 類型（ogType）">
-            <select style={inputStyle} value={seo.ogType} onChange={(e) => setSeoField("ogType", e.target.value as SeoData["ogType"])}>
+            <select
+              style={inputStyle}
+              value={seo.ogType}
+              onChange={(e) =>
+                setSeoField("ogType", e.target.value as SeoData["ogType"])
+              }
+            >
               <option value="website">website</option>
               <option value="article">article</option>
             </select>
           </Field>
           <Field label="Twitter 卡片類型（twitterCard）">
-            <input style={inputStyle} value={seo.twitterCard} onChange={(e) => setSeoField("twitterCard", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.twitterCard}
+              onChange={(e) => setSeoField("twitterCard", e.target.value)}
+            />
           </Field>
           <Field label="Twitter 網站帳號（twitterSite）">
-            <input style={inputStyle} value={seo.twitterSite} onChange={(e) => setSeoField("twitterSite", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.twitterSite}
+              onChange={(e) => setSeoField("twitterSite", e.target.value)}
+            />
           </Field>
           <Field label="標準網址（canonicalUrl）">
-            <input style={inputStyle} value={seo.canonicalUrl} onChange={(e) => setSeoField("canonicalUrl", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.canonicalUrl}
+              onChange={(e) => setSeoField("canonicalUrl", e.target.value)}
+            />
           </Field>
           <Field label="Robots 指令（robots）">
-            <input style={inputStyle} value={seo.robots} onChange={(e) => setSeoField("robots", e.target.value)} />
+            <input
+              style={inputStyle}
+              value={seo.robots}
+              onChange={(e) => setSeoField("robots", e.target.value)}
+            />
           </Field>
         </section>
 
@@ -162,8 +260,13 @@ export default function AppSettingsPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    }
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div style={fieldRowStyle}>
       <label style={labelStyle}>{label}</label>
