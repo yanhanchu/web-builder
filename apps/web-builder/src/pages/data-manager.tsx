@@ -13,14 +13,24 @@ import {
   initialHeaderProps,
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
-import { AdminLayout, panelStyle, panelTitleStyle } from "./admin/admin-ui";
+import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
 import { FileSyncPanel } from "./admin/file-sync-panel";
+import { usePagesState } from "../lib/pages-store";
 
 export default function DataManagerPage() {
-  // DataSource 全部收在頁面 state，DataSourceManager 是純受控元件
-  const [sources, setSources] = useState<Record<string, DataSource>>(initialSources);
-  const [locales, setLocales] = useState<string[]>(["zh-TW", "en"]);
+  // DataSource 全部收在 localStorage（key: wb.dataSources），DataSourceManager
+  // 是純受控元件。之前這裡只用一般的 useState，按下「儲存」只改了記憶體內的
+  // state，重新整理頁面或切到別的後台頁面再回來，資料就消失了 —— 看起來像
+  // 「儲存後沒有存」。改用 usePersistentState 讓儲存真的落地。
+  const [sources, setSources] = usePersistentState<Record<string, DataSource>>(
+    "wb.dataSources",
+    initialSources
+  );
+  const [locales, setLocales] = usePersistentState<string[]>("wb.locales", ["zh-TW", "en"]);
   const [previewLocale, setPreviewLocale] = useState<string>("zh-TW");
+  // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
+  // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
+  const [pages] = usePagesState();
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(
@@ -66,6 +76,7 @@ export default function DataManagerPage() {
             sources={sources}
             types={typeRegistry}
             locales={locales}
+            pages={pages}
             onChangeSources={setSources}
             onChangeLocales={setLocales}
           />

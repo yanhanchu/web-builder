@@ -29,6 +29,7 @@ import type {
   I18nDataSource,
   FileDataSource,
   RouteDataSource,
+  RouteTarget,
   TypedDataSource,
   PrimitiveType,
   I18nPrimitiveValue,
@@ -42,6 +43,12 @@ import {
 } from './schema';
 import { FieldEditor } from './FieldEditor';
 
+/** 供「路由 → 選擇頁面」下拉選單使用的最小頁面資訊。 */
+export interface PageOption {
+  id: string;
+  name: string;
+}
+
 interface DataSourceManagerProps {
   /** 目前所有 DataSource，key 為 source id */
   sources: Record<string, DataSource>;
@@ -49,6 +56,8 @@ interface DataSourceManagerProps {
   types: Record<string, FieldType>;
   /** 目前管理的 locale 清單（給 i18n 逐語系編輯用） */
   locales: string[];
+  /** 目前所有頁面（給路由 target=page 選擇用；不提供則下拉選單為空） */
+  pages?: PageOption[];
   /** sources 有任何變動時回傳完整新的 map */
   onChangeSources: (next: Record<string, DataSource>) => void;
   /** locale 清單變動時回傳（可選；沒有提供則隱藏 locale 管理列） */
@@ -70,19 +79,18 @@ type SortKey = 'id' | 'label';
 type SortDir = 'asc' | 'desc';
 
 /**
- * 驗證一筆 i18n DataSource 是否可以儲存。
+ * 驗證草稿的 key（id）是否可以儲存，適用於所有 DataSource 種類。
  * - key（id）不可為空
- * - key 不可與其他既有來源重複
- * 各語系的值允許留空，方便先建立 key 之後再慢慢補齊翻譯。
+ * - key 不可與其他既有來源重複（重新命名回自己原本的 id 不算重複）
  * 回傳錯誤訊息陣列；空陣列代表驗證通過。
  */
-function validateI18nSource(
-  source: I18nDataSource,
+function validateSourceId(
+  draftId: string,
   sources: Record<string, DataSource>,
   originalId: string,
 ): string[] {
   const errors: string[] = [];
-  const id = source.id.trim();
+  const id = draftId.trim();
 
   if (!id) {
     errors.push('key（id）不可為空');
@@ -97,6 +105,7 @@ export function DataSourceManager({
   sources,
   types,
   locales,
+  pages = [],
   onChangeSources,
   onChangeLocales,
 }: DataSourceManagerProps) {
@@ -361,6 +370,7 @@ export function DataSourceManager({
               store={store}
               types={types}
               locales={locales}
+              pages={pages}
               expanded={expanded.has(source.id)}
               isNew={newlyAddedIds.has(source.id)}
               onToggle={() => toggleExpand(source.id)}
@@ -442,6 +452,7 @@ function SourceCard({
   store,
   types,
   locales,
+  pages,
   expanded,
   isNew,
   onToggle,
@@ -454,6 +465,7 @@ function SourceCard({
   store: InMemoryDataStore;
   types: Record<string, FieldType>;
   locales: string[];
+  pages: PageOption[];
   expanded: boolean;
   isNew: boolean;
   onToggle: () => void;
@@ -461,38 +473,33 @@ function SourceCard({
   onRemove: () => void;
   onSaved: (id: string) => void;
 }) {
-  const isI18n = source.kind === 'i18n';
-
-  // i18n 用本地草稿：使用者輸入時只改草稿，不直接寫回 sources；
-  // 通過驗證才「儲存」（commit 進 onChange）。其餘 kind 維持原本即時雙向綁定。
-  const [draft, setDraft] = useState<I18nDataSource | null>(
-    isI18n ? (source as I18nDataSource) : null,
-  );
+  // 所有種類（i18n / route / file / typedData）都用同一套本地草稿：
+  // 使用者輸入時只改草稿，不直接寫回 sources；通過驗證、按下「儲存」才 commit
+  // 進 onChange。key（id）本身也是草稿的一部分，用獨立 state 管理方便重新命名。
+  const [draft, setDraft] = useState<DataSource>(source);
   const [draftId, setDraftId] = useState(source.id);
   const [touched, setTouched] = useState(false);
 
-  const effectiveI18n = isI18n ? draft ?? (source as I18nDataSource) : null;
-  const errors = isI18n
-    ? validateI18nSource(
-        { ...(effectiveI18n as I18nDataSource), id: draftId },
-        sources,
-        source.id,
-      )
-    : [];
+  const errors = validateSourceId(draftId, sources, source.id);
   const hasErrors = errors.length > 0;
 
-  const updateDraft = (patch: Partial<I18nDataSource>) => {
+  // 各 kind 專屬欄位元件都回傳「完整的下一個物件」，這裡直接整包放進草稿。
+  const updateDraft = (next: DataSource) => {
     setTouched(true);
-    setDraft((prev) => ({ ...(prev ?? (source as I18nDataSource)), ...patch }));
+    setDraft(next);
   };
 
   const handleSave = () => {
-    if (!draft) return;
     setTouched(true);
     if (hasErrors) return; // 驗證未通過，不可儲存
     onChange({ ...draft, id: draftId }, source.id);
     onSaved(draftId);
+    setTouched(false); // 存檔成功，回到「沒有未儲存變更」狀態，儲存按鈕跟著收起
   };
+
+  // 只有「新增中還沒存過」或「已經改動過草稿」才顯示儲存按鈕，
+  // 沒有變更時不需要讓使用者一直看到一個沒事可做的儲存鈕。
+  const showSave = isNew || touched;
 
   return (
     <div style={cardStyle}>
@@ -516,86 +523,71 @@ function SourceCard({
             </span>
           )}
         </button>
-        <button style={removeBtnStyle} title="刪除這筆來源" onClick={onRemove}>
-          <Trash2 size={12} />
-        </button>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {showSave && (
+            <button
+              style={{
+                ...saveBtnStyle,
+                opacity: hasErrors && touched ? 0.5 : 1,
+              }}
+              onClick={handleSave}
+              title={hasErrors ? '請先修正錯誤才能儲存' : '儲存'}
+            >
+              <Save size={12} />
+            </button>
+          )}
+          <button style={removeBtnStyle} title="刪除這筆來源" onClick={onRemove}>
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
 
       {expanded && (
         <div style={cardBodyStyle}>
-          {isI18n ? (
-            <>
-              <Labeled label="key（id）">
-                <input
-                  value={draftId}
-                  onChange={(e) => {
-                    setTouched(true);
-                    setDraftId(e.target.value);
-                  }}
-                  style={inputStyle}
-                  placeholder="例如 home.hero.title"
-                />
-              </Labeled>
-              <Labeled label="label（顯示名稱）">
-                <input
-                  value={(effectiveI18n as I18nDataSource).label ?? ''}
-                  onChange={(e) => updateDraft({ label: e.target.value })}
-                  style={inputStyle}
-                />
-              </Labeled>
-              <I18nFields
-                source={effectiveI18n as I18nDataSource}
-                locales={locales}
-                onChange={(next) => updateDraft(next as Partial<I18nDataSource>)}
-              />
+          {/* key（id）輸入框固定在最上面，新增或重新命名都在這裡處理 */}
+          <Labeled label="key（id）">
+            <input
+              value={draftId}
+              onChange={(e) => {
+                setTouched(true);
+                setDraftId(e.target.value);
+              }}
+              style={inputStyle}
+              placeholder="例如 home.hero.title"
+            />
+          </Labeled>
+          <Labeled label="label（顯示名稱）">
+            <input
+              value={draft.label ?? ''}
+              onChange={(e) => updateDraft({ ...draft, label: e.target.value })}
+              style={inputStyle}
+            />
+          </Labeled>
 
-              {touched && hasErrors && (
-                <div style={errorBoxStyle}>
-                  {errors.map((err) => (
-                    <div key={err}>⚠ {err}</div>
-                  ))}
-                </div>
-              )}
+          {draft.kind === 'i18n' && (
+            <I18nFields source={draft} locales={locales} onChange={updateDraft} />
+          )}
+          {draft.kind === 'route' && (
+            <RouteFields source={draft} pages={pages} onChange={updateDraft} />
+          )}
+          {draft.kind === 'file' && (
+            <FileFields source={draft} onChange={updateDraft} />
+          )}
+          {draft.kind === 'typedData' && (
+            <TypedDataFields
+              source={draft}
+              store={store}
+              types={types}
+              onChange={updateDraft}
+            />
+          )}
 
-              <div style={{ marginTop: 10 }}>
-                <button
-                  style={{
-                    ...addBtnStyle,
-                    opacity: hasErrors && touched ? 0.5 : 1,
-                  }}
-                  onClick={handleSave}
-                  title={hasErrors ? '請先修正錯誤才能儲存' : '儲存'}
-                >
-                  <Save size={12} />
-                  儲存
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Labeled label="label（顯示名稱）">
-                <input
-                  value={source.label ?? ''}
-                  onChange={(e) => onChange({ ...source, label: e.target.value })}
-                  style={inputStyle}
-                />
-              </Labeled>
-
-              {source.kind === 'route' && (
-                <RouteFields source={source} onChange={onChange} />
-              )}
-              {source.kind === 'file' && (
-                <FileFields source={source} onChange={onChange} />
-              )}
-              {source.kind === 'typedData' && (
-                <TypedDataFields
-                  source={source}
-                  store={store}
-                  types={types}
-                  onChange={onChange}
-                />
-              )}
-            </>
+          {touched && hasErrors && (
+            <div style={errorBoxStyle}>
+              {errors.map((err) => (
+                <div key={err}>⚠ {err}</div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -722,41 +714,79 @@ function I18nValueInput({
 
 function RouteFields({
   source,
+  pages,
   onChange,
 }: {
   source: RouteDataSource;
+  pages: PageOption[];
   onChange: (next: DataSource) => void;
 }) {
+  // 網址／頁面是「擇一」：用切換鈕決定 target，兩種模式互斥，
+  // 一次只顯示其中一種輸入方式。
+  const setTarget = (target: RouteTarget) => {
+    if (target === source.target) return;
+    if (target === 'url') {
+      onChange({ ...source, target: 'url', pageId: undefined });
+    } else {
+      onChange({ ...source, target: 'page', pageId: pages[0]?.id ?? '' });
+    }
+  };
+
   return (
     <>
-      <Labeled label="target（目標類型）">
-        <select
-          value={source.target}
-          onChange={(e) => onChange({ ...source, target: e.target.value as 'page' | 'url' })}
-          style={inputStyle}
-        >
-          <option value="url">URL（自訂網址）</option>
-          <option value="page">頁面（從頁面管理選擇）</option>
-        </select>
+      <Labeled label="目標類型">
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => setTarget('url')}
+            style={{
+              ...segBtnStyle,
+              ...(source.target === 'url' ? segBtnActiveStyle : null),
+            }}
+          >
+            外部網址
+          </button>
+          <button
+            type="button"
+            onClick={() => setTarget('page')}
+            style={{
+              ...segBtnStyle,
+              ...(source.target === 'page' ? segBtnActiveStyle : null),
+            }}
+          >
+            站內頁面
+          </button>
+        </div>
       </Labeled>
 
-      {source.target === 'page' ? (
-        <Labeled label="pageId（選擇頁面）">
-          <input
-            value={source.pageId ?? ''}
-            placeholder="page_id"
-            onChange={(e) => onChange({ ...source, pageId: e.target.value })}
-            style={inputStyle}
-          />
-        </Labeled>
-      ) : (
-        <Labeled label="value（路徑 / URL）">
+      {source.target === 'url' ? (
+        <Labeled label="path（路徑 / URL）">
           <input
             value={source.value}
             placeholder="/product"
             onChange={(e) => onChange({ ...source, value: e.target.value })}
             style={inputStyle}
           />
+        </Labeled>
+      ) : (
+        <Labeled label="頁面">
+          {pages.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#e8b64c' }}>
+              尚無頁面，請先到「頁面管理」新增頁面。
+            </div>
+          ) : (
+            <select
+              value={source.pageId ?? ''}
+              onChange={(e) => onChange({ ...source, pageId: e.target.value })}
+              style={inputStyle}
+            >
+              {pages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}（{p.id}）
+                </option>
+              ))}
+            </select>
+          )}
         </Labeled>
       )}
 
@@ -825,6 +855,18 @@ function TypedDataFields({
     return opts;
   }, [types]);
 
+  // 型別可能很多，改用「輸入關鍵字 + 按鈕清單」取代原生 select：
+  // 原生 select 就算篩選了 option，因為目前選到的型別會被硬塞回清單，
+  // 使用者常會覺得「篩選好像沒作用」。清單式做法所見即所濾，比較不會誤解。
+  const [typeFilter, setTypeFilter] = useState('');
+  const filteredTypeOptions = useMemo(() => {
+    const q = typeFilter.trim().toLowerCase();
+    if (!q) return typeOptions;
+    return typeOptions.filter((o) => o.label.toLowerCase().includes(q));
+  }, [typeOptions, typeFilter]);
+
+  const currentLabel = typeOptions.find((o) => o.value === source.typeId)?.label ?? source.typeId;
+
   const fieldType = fieldTypeForTypedDataTypeId(source.typeId);
 
   const setTypeId = (typeId: string) => {
@@ -842,17 +884,37 @@ function TypedDataFields({
   return (
     <>
       <Labeled label="typeId（對應的型別）">
-        <select
-          value={source.typeId}
-          onChange={(e) => setTypeId(e.target.value)}
-          style={{ ...inputStyle, maxWidth: '100%' }}
-        >
-          {typeOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div style={{ fontSize: 12, color: '#7fdbca', marginBottom: 6 }}>
+          目前選擇：<code>{currentLabel}</code>
+        </div>
+        <input
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          placeholder="輸入關鍵字篩選型別…"
+          style={{ ...inputStyle, maxWidth: '100%', marginBottom: 6 }}
+        />
+        <div style={typeListStyle}>
+          {filteredTypeOptions.length === 0 ? (
+            <div style={emptyStyle}>沒有符合「{typeFilter}」的型別</div>
+          ) : (
+            filteredTypeOptions.map((o) => {
+              const active = o.value === source.typeId;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setTypeId(o.value)}
+                  style={{
+                    ...typeOptionBtnStyle,
+                    ...(active ? typeOptionActiveStyle : null),
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })
+          )}
+        </div>
       </Labeled>
 
       <div style={{ fontSize: 12, color: '#aaa', marginTop: 8, marginBottom: 2 }}>
@@ -1156,6 +1218,64 @@ const addBtnStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 4,
   whiteSpace: 'nowrap',
+};
+
+const typeListStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  maxHeight: 160,
+  overflowY: 'auto',
+  border: '1px solid #2c2c2c',
+  borderRadius: 4,
+  padding: 4,
+};
+
+const typeOptionBtnStyle: React.CSSProperties = {
+  textAlign: 'left',
+  background: 'transparent',
+  color: '#ccc',
+  border: '1px solid transparent',
+  borderRadius: 4,
+  padding: '5px 8px',
+  fontSize: 12,
+  fontFamily: 'monospace',
+  cursor: 'pointer',
+};
+
+const typeOptionActiveStyle: React.CSSProperties = {
+  background: '#22332c',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
+};
+
+const segBtnStyle: React.CSSProperties = {
+  background: '#1e1e1e',
+  color: '#aaa',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: '4px 10px',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+const segBtnActiveStyle: React.CSSProperties = {
+  background: '#22332c',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
+};
+
+const saveBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
+  borderRadius: 4,
+  padding: '2px 8px',
+  fontSize: 12,
+  cursor: 'pointer',
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
 };
 
 const removeBtnStyle: React.CSSProperties = {

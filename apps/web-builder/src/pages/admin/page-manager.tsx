@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   AdminLayout,
-  usePersistentState,
   useSavedFlash,
   panelStyle,
   panelTitleStyle,
@@ -17,6 +16,11 @@ import {
 } from "./admin-ui";
 import { defaultSeo, type SeoData } from "@workspace/ui/lib/data-model";
 import { SeoDataTypeId } from "@workspace/ui/lib/data-model/sample-data";
+import {
+  usePagesState,
+  makePageId,
+  type PageItem,
+} from "../../lib/pages-store";
 
 // 頁面管理：頁面本身的新增 / 刪除 / 編輯，以及每頁的 SEO 設定。
 //
@@ -24,47 +28,22 @@ import { SeoDataTypeId } from "@workspace/ui/lib/data-model/sample-data";
 //  - 每頁的 SEO 綁定到單一型別資料記錄（SeoData），不再各自重複定義欄位。
 //  - 頁面路徑（path）移除，改由路由管理（data-manager 的 route 來源）選擇。
 //  - noindex 同樣由路由管理設定，不在頁面這裡處理。
-
-interface PageItem {
-  id: string;
-  name: string;
-  status: "draft" | "published";
-  /** 每頁綁定一筆 SeoData 型別資料（value 即 SEO 內容）。 */
-  seo: SeoData;
-}
+//  - 頁面清單的 key / 預設值集中在 lib/pages-store.ts，跟「資料管理」共用，
+//    避免兩邊 fallback 初始值不一致導致「明明有頁面卻選不到」的問題。
 
 const SEO_KEY_PREFIX = "wb.typedData.seo:page:";
 
-const INITIAL_PAGES: PageItem[] = [
-  {
-    id: "home",
-    name: "首頁",
-    status: "published",
-    seo: { ...defaultSeo, title: "首頁", description: "網站首頁" },
-  },
-  {
-    id: "about",
-    name: "關於我們",
-    status: "published",
-    seo: { ...defaultSeo, title: "關於我們" },
-  },
-];
-
-function makeId() {
-  return "page_" + Math.random().toString(36).slice(2, 8);
-}
-
 export default function PageManagerPage() {
-  const [pages, setPages] = usePersistentState<PageItem[]>("wb.pages", INITIAL_PAGES);
+  const [pages, setPages] = usePagesState();
   const [selectedId, setSelectedId] = useState<string | null>(
-    INITIAL_PAGES[0]?.id ?? null
+    pages[0]?.id ?? null
   );
   const [saved, flashSaved] = useSavedFlash();
 
   const selected = pages.find((p) => p.id === selectedId) ?? null;
 
   const addPage = () => {
-    const id = makeId();
+    const id = makePageId();
     const next: PageItem = {
       id,
       name: "新頁面",
