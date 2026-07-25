@@ -14,7 +14,7 @@ import {
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
 import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
-import { FileSyncPanel } from "./admin/file-sync-panel";
+import { FileSyncMatrix, FileSyncRefreshButton, useFileSync } from "./admin/file-sync-panel";
 import { usePagesState } from "../lib/pages-store";
 
 export default function DataManagerPage() {
@@ -31,6 +31,7 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
+  const fileSync = useFileSync(sources);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(
@@ -79,6 +80,22 @@ export default function DataManagerPage() {
             pages={pages}
             onChangeSources={setSources}
             onChangeLocales={setLocales}
+            fileToolbarExtra={
+              <FileSyncRefreshButton onRefresh={fileSync.refresh} />
+            }
+            fileSyncContent={
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #2c2c2c" }}>
+                <h3 style={{ ...panelTitleStyle, fontSize: 14, margin: "0 0 8px" }}>
+                  檔案同步狀態
+                </h3>
+                <FileSyncMatrix
+                  files={fileSync.files}
+                  destinations={fileSync.destinations}
+                  syncMap={fileSync.syncMap}
+                  simulateSync={fileSync.simulateSync}
+                />
+              </div>
+            }
           />
         </section>
 
@@ -93,8 +110,6 @@ export default function DataManagerPage() {
           </section>
         </div>
       </div>
-
-      <FileSyncPanel sources={sources} />
     </AdminLayout>
   );
 }

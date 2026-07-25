@@ -21,7 +21,7 @@
 //   locale 清單本身也可管理（新增 / 移除），符合真正的多語系維護情境。
 // ============================================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Save, Trash2, X } from 'lucide-react';
 import type {
   DataSource,
@@ -29,7 +29,6 @@ import type {
   I18nDataSource,
   FileDataSource,
   RouteDataSource,
-  RouteTarget,
   TypedDataSource,
   PrimitiveType,
   I18nPrimitiveValue,
@@ -62,6 +61,10 @@ interface DataSourceManagerProps {
   onChangeSources: (next: Record<string, DataSource>) => void;
   /** locale 清單變動時回傳（可選；沒有提供則隱藏 locale 管理列） */
   onChangeLocales?: (next: string[]) => void;
+  /** file tab 工具列右側額外按鈕（例如「重新整理目的地」） */
+  fileToolbarExtra?: React.ReactNode;
+  /** file tab 卡片清單下方額外內容（例如檔案同步狀態矩陣） */
+  fileSyncContent?: React.ReactNode;
 }
 
 const KIND_LABELS: Record<DataSourceKind, string> = {
@@ -108,6 +111,8 @@ export function DataSourceManager({
   pages = [],
   onChangeSources,
   onChangeLocales,
+  fileToolbarExtra,
+  fileSyncContent,
 }: DataSourceManagerProps) {
   // 目前所在的 tab（類型）
   const [activeKind, setActiveKind] = useState<DataSourceKind>('i18n');
@@ -349,6 +354,7 @@ export function DataSourceManager({
           {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
         </button>
         <div style={{ flex: 1 }} />
+        {activeKind === 'file' && fileToolbarExtra}
         <button style={addBtnStyle} onClick={addHandlers[activeKind]} title={`新增${KIND_LABELS[activeKind]}`}>
           <Plus size={12} />
           新增{KIND_LABELS[activeKind]}
@@ -381,6 +387,8 @@ export function DataSourceManager({
           ))}
         </div>
       )}
+
+      {activeKind === 'file' && fileSyncContent}
     </div>
   );
 }
@@ -606,8 +614,8 @@ function summarize(source: DataSource): string {
       }`;
     }
     case 'route': {
-      const targetLabel = source.target === 'page' ? `頁面 → ${source.pageId || '未指定'}` : source.value || '（空路徑）';
-      return `${source.noindex ? '🚫index · ' : ''}${targetLabel}`;
+      const pageLabel = source.pageId ? ` → ${source.pageId}` : '';
+      return `${source.noindex ? '🚫index · ' : ''}${source.value || '（空路徑）'}${pageLabel}`;
     }
     case 'file':
       return source.url || '（未設定 url）';
@@ -721,74 +729,44 @@ function RouteFields({
   pages: PageOption[];
   onChange: (next: DataSource) => void;
 }) {
-  // 網址／頁面是「擇一」：用切換鈕決定 target，兩種模式互斥，
-  // 一次只顯示其中一種輸入方式。
-  const setTarget = (target: RouteTarget) => {
-    if (target === source.target) return;
-    if (target === 'url') {
-      onChange({ ...source, target: 'url', pageId: undefined });
-    } else {
-      onChange({ ...source, target: 'page', pageId: pages[0]?.id ?? '' });
-    }
-  };
-
   return (
     <>
-      <Labeled label="目標類型">
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            onClick={() => setTarget('url')}
-            style={{
-              ...segBtnStyle,
-              ...(source.target === 'url' ? segBtnActiveStyle : null),
-            }}
-          >
-            外部網址
-          </button>
-          <button
-            type="button"
-            onClick={() => setTarget('page')}
-            style={{
-              ...segBtnStyle,
-              ...(source.target === 'page' ? segBtnActiveStyle : null),
-            }}
-          >
-            站內頁面
-          </button>
-        </div>
+      <Labeled label="path（路徑）">
+        <input
+          value={source.value}
+          placeholder="/about"
+          onChange={(e) => onChange({ ...source, value: e.target.value })}
+          style={inputStyle}
+        />
       </Labeled>
 
-      {source.target === 'url' ? (
-        <Labeled label="path（路徑 / URL）">
-          <input
-            value={source.value}
-            placeholder="/product"
-            onChange={(e) => onChange({ ...source, value: e.target.value })}
+      <Labeled label="頁面（可重複綁定同一頁）">
+        {pages.length === 0 ? (
+          <div style={{ fontSize: 12, color: '#e8b64c' }}>
+            尚無頁面，請先到「頁面管理」新增頁面。
+          </div>
+        ) : (
+          <select
+            value={source.pageId ?? ''}
+            onChange={(e) => {
+              const pageId = e.target.value;
+              if (pageId) {
+                onChange({ ...source, target: 'page', pageId });
+              } else {
+                onChange({ ...source, target: 'url', pageId: undefined });
+              }
+            }}
             style={inputStyle}
-          />
-        </Labeled>
-      ) : (
-        <Labeled label="頁面">
-          {pages.length === 0 ? (
-            <div style={{ fontSize: 12, color: '#e8b64c' }}>
-              尚無頁面，請先到「頁面管理」新增頁面。
-            </div>
-          ) : (
-            <select
-              value={source.pageId ?? ''}
-              onChange={(e) => onChange({ ...source, pageId: e.target.value })}
-              style={inputStyle}
-            >
-              {pages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}（{p.id}）
-                </option>
-              ))}
-            </select>
-          )}
-        </Labeled>
-      )}
+          >
+            <option value="">無（僅路徑）</option>
+            {pages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}（{p.id}）
+              </option>
+            ))}
+          </select>
+        )}
+      </Labeled>
 
       <Labeled label="noindex（禁止索引）" inline>
         <input
@@ -855,22 +833,9 @@ function TypedDataFields({
     return opts;
   }, [types]);
 
-  // 型別可能很多，改用「輸入關鍵字 + 按鈕清單」取代原生 select：
-  // 原生 select 就算篩選了 option，因為目前選到的型別會被硬塞回清單，
-  // 使用者常會覺得「篩選好像沒作用」。清單式做法所見即所濾，比較不會誤解。
-  const [typeFilter, setTypeFilter] = useState('');
-  const filteredTypeOptions = useMemo(() => {
-    const q = typeFilter.trim().toLowerCase();
-    if (!q) return typeOptions;
-    return typeOptions.filter((o) => o.label.toLowerCase().includes(q));
-  }, [typeOptions, typeFilter]);
-
-  const currentLabel = typeOptions.find((o) => o.value === source.typeId)?.label ?? source.typeId;
-
   const fieldType = fieldTypeForTypedDataTypeId(source.typeId);
 
   const setTypeId = (typeId: string) => {
-    // 換型別 -> 重建一棵符合新型別的預設值樹
     const nextType = fieldTypeForTypedDataTypeId(typeId);
     onChange({
       ...source,
@@ -884,37 +849,12 @@ function TypedDataFields({
   return (
     <>
       <Labeled label="typeId（對應的型別）">
-        <div style={{ fontSize: 12, color: '#7fdbca', marginBottom: 6 }}>
-          目前選擇：<code>{currentLabel}</code>
-        </div>
-        <input
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
+        <FilterableSelect
+          options={typeOptions}
+          value={source.typeId}
+          onChange={setTypeId}
           placeholder="輸入關鍵字篩選型別…"
-          style={{ ...inputStyle, maxWidth: '100%', marginBottom: 6 }}
         />
-        <div style={typeListStyle}>
-          {filteredTypeOptions.length === 0 ? (
-            <div style={emptyStyle}>沒有符合「{typeFilter}」的型別</div>
-          ) : (
-            filteredTypeOptions.map((o) => {
-              const active = o.value === source.typeId;
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => setTypeId(o.value)}
-                  style={{
-                    ...typeOptionBtnStyle,
-                    ...(active ? typeOptionActiveStyle : null),
-                  }}
-                >
-                  {o.label}
-                </button>
-              );
-            })
-          )}
-        </div>
       </Labeled>
 
       <div style={{ fontSize: 12, color: '#aaa', marginTop: 8, marginBottom: 2 }}>
@@ -977,6 +917,95 @@ function Labeled({
       <div style={{ flex: inline ? 1 : undefined, marginTop: inline ? 0 : 2 }}>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// 可篩選的下拉選單（combobox）
+// ------------------------------------------------------------
+
+function FilterableSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const currentLabel = options.find((o) => o.value === value)?.label ?? value;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={filterableTriggerStyle}
+      >
+        <code style={{ fontSize: 12 }}>{currentLabel}</code>
+        <span style={{ marginLeft: 'auto', color: '#888', fontSize: 10 }}>▾</span>
+      </button>
+      {open && (
+        <div style={filterableDropdownStyle}>
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={placeholder ?? '篩選…'}
+            style={{ ...inputStyle, maxWidth: '100%', marginBottom: 4 }}
+          />
+          <div style={filterableListStyle}>
+            {filtered.length === 0 ? (
+              <div style={emptyStyle}>沒有符合「{query}」的選項</div>
+            ) : (
+              filtered.map((o) => {
+                const active = o.value === value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                      setQuery('');
+                    }}
+                    style={{
+                      ...typeOptionBtnStyle,
+                      ...(active ? typeOptionActiveStyle : null),
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1220,17 +1249,6 @@ const addBtnStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const typeListStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-  maxHeight: 160,
-  overflowY: 'auto',
-  border: '1px solid #2c2c2c',
-  borderRadius: 4,
-  padding: 4,
-};
-
 const typeOptionBtnStyle: React.CSSProperties = {
   textAlign: 'left',
   background: 'transparent',
@@ -1249,20 +1267,42 @@ const typeOptionActiveStyle: React.CSSProperties = {
   border: '1px solid #2d6a4f',
 };
 
-const segBtnStyle: React.CSSProperties = {
+const filterableTriggerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  width: '100%',
+  maxWidth: 320,
   background: '#1e1e1e',
-  color: '#aaa',
+  color: '#eee',
   border: '1px solid #444',
   borderRadius: 4,
-  padding: '4px 10px',
-  fontSize: 12,
+  padding: '6px 10px',
+  fontSize: 13,
   cursor: 'pointer',
+  boxSizing: 'border-box',
 };
 
-const segBtnActiveStyle: React.CSSProperties = {
-  background: '#22332c',
-  color: '#7fdbca',
-  border: '1px solid #2d6a4f',
+const filterableDropdownStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  right: 0,
+  zIndex: 10,
+  background: '#1a1a1a',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: 6,
+  marginTop: 2,
+  boxSizing: 'border-box',
+};
+
+const filterableListStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  maxHeight: 200,
+  overflowY: 'auto',
 };
 
 const saveBtnStyle: React.CSSProperties = {
