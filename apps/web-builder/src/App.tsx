@@ -25,7 +25,7 @@ export function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/data-model-demo" element={<DataModelDemoPage />} />
-        <Route path="/data-manager" element={<DataManagerPage />} />
+        <Route path="/admin/data-manager" element={<DataManagerPage />} />
         <Route path="/admin/settings" element={<AppSettingsPage />} />
         <Route path="/admin/pages" element={<PageManagerPage />} />
         <Route path="/admin/styles" element={<StyleManagerPage />} />

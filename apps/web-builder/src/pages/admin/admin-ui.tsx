@@ -20,7 +20,7 @@ export const ADMIN_NAV: NavItem[] = [
   { to: "/admin/settings", label: "App 設定", desc: "全站共用設定" },
   { to: "/admin/pages", label: "頁面管理", desc: "新增 / 編輯 / 刪除頁面" },
   { to: "/admin/styles", label: "樣式管理", desc: "貼上並儲存樣式表" },
-  { to: "/data-manager", label: "資料管理", desc: "DataSource 來源" },
+  { to: "/admin/data-manager", label: "資料管理", desc: "DataSource 來源" },
 ];
 
 export function AdminLayout({
