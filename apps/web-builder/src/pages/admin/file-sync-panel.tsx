@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { RefreshCw, Cloud, HardDrive, TriangleAlert as AlertTriangle } from "lucide-react";
+import { RefreshCw, Cloud, HardDrive } from "lucide-react";
 import type { DataSource, FileDataSource } from "@workspace/ui/lib/data-model";
 import { ghostBtnStyle } from "./admin-ui";
 import { readUploadDestinations } from "../../lib/upload-destinations";
@@ -13,15 +13,14 @@ import {
 } from "../../lib/file-sync-status";
 
 // ------------------------------------------------------------
-// 檔案同步狀態區塊
+// 檔案同步狀態
 //
 // 讀取「來源管理」中所有 kind === "file" 的 DataSource，交叉比對
-// App 設定（/admin/settings）目前已啟用的上傳目的地，畫出一個
-// 檔案 × 目的地 的矩陣，記錄各自的同步狀態。
+// App 設定（/admin/settings）目前已啟用的上傳目的地，記錄每個檔案
+// × 目的地 的同步狀態。
 //
-// 先不做實際上傳：「模擬同步」按鈕只是把狀態切成 syncing，
-// 短暫延遲後隨機切成 synced / failed，方便之後接上真正的上傳
-// API 時，只需要替換掉 simulateSync 內部的邏輯即可。
+// 同步狀態直接整合進每一筆 file 資料列的標題列（刪除鈕左側），
+// 不再另外畫一個獨立矩陣。尚未實際串接上傳：「同步」僅模擬狀態切換。
 // ------------------------------------------------------------
 
 export function FileSyncRefreshButton({ onRefresh }: { onRefresh: () => void }) {
@@ -114,142 +113,90 @@ export function useFileSync(sources: Record<string, DataSource>) {
   return { files, destinations, syncMap, simulateSync, refresh };
 }
 
-export function FileSyncMatrix({
-  files,
+const SHORT_LABEL: Record<SyncState, string> = {
+  unsynced: "未",
+  syncing: "…",
+  synced: "✓",
+  failed: "✗",
+};
+
+// 單筆檔案列內的同步狀態叢集：每個已啟用目的地一個小藥丸（點擊模擬同步），
+// 加一個「全部同步」鈕。放在資料列刪除鈕的左側。
+export function FileRowSyncCluster({
+  file,
   destinations,
   syncMap,
   simulateSync,
 }: {
-  files: FileDataSource[];
+  file: FileDataSource;
   destinations: ReturnType<typeof readUploadDestinations>;
   syncMap: FileSyncMap;
   simulateSync: (fileId: string, destId: string) => void;
 }) {
-  const syncAllForFile = (fileId: string) => {
-    for (const d of destinations) simulateSync(fileId, d.id);
+  if (destinations.length === 0) {
+    return <span style={noDestStyle}>未啟用目的地</span>;
+  }
+
+  const syncAll = () => {
+    for (const d of destinations) simulateSync(file.id, d.id);
   };
 
   return (
-    <>
-      <p style={{ fontSize: 12, color: "#888", marginTop: 0, marginBottom: 12 }}>
-        列出所有「檔案」來源與目前在 App 設定已啟用的上傳目的地，記錄兩兩之間的同步狀態。尚未實際串接上傳，「同步」按鈕僅模擬狀態切換。
-      </p>
-
-      {files.length === 0 ? (
-        <div style={emptyStyle}>尚無檔案來源，請先在上方新增 File 類型的資料。</div>
-      ) : destinations.length === 0 ? (
-        <div style={emptyStyle}>
-          <AlertTriangle size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-          尚未啟用任何上傳目的地，請先到「App 設定」啟用至少一個。
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>檔案</th>
-                {destinations.map((d) => (
-                  <th key={d.id} style={thStyle}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {d.kind === "s3" ? <Cloud size={12} /> : <HardDrive size={12} />}
-                      {d.label || d.id}
-                    </span>
-                  </th>
-                ))}
-                <th style={thStyle} />
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((f) => (
-                <tr key={f.id}>
-                  <td style={tdFileStyle}>
-                    <div style={{ fontSize: 12, color: "#eee" }}>{f.label || f.id}</div>
-                    <code style={{ fontSize: 11, color: "#7aa2f7" }}>{f.id}</code>
-                    {f.url && (
-                      <div style={{ fontSize: 11, color: "#777", marginTop: 2 }} title={f.url}>
-                        {f.url}
-                      </div>
-                    )}
-                  </td>
-                  {destinations.map((d) => {
-                    const record = syncMap[syncKey(f.id, d.id)];
-                    const state: SyncState = record?.state ?? "unsynced";
-                    return (
-                      <td key={d.id} style={tdStyle}>
-                        <button
-                          style={{ ...statusBtnStyle, ...stateStyleMap[state] }}
-                          onClick={() => simulateSync(f.id, d.id)}
-                          disabled={state === "syncing"}
-                          title={
-                            record?.state === "failed" && record.errorMessage
-                              ? record.errorMessage
-                              : "點擊模擬同步一次"
-                          }
-                        >
-                          {SYNC_STATE_LABELS[state]}
-                        </button>
-                      </td>
-                    );
-                  })}
-                  <td style={tdStyle}>
-                    <button
-                      style={ghostBtnStyle}
-                      onClick={() => syncAllForFile(f.id)}
-                      title="同步到所有已啟用的目的地"
-                    >
-                      全部同步
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+    <div style={clusterStyle}>
+      {destinations.map((d) => {
+        const record = syncMap[syncKey(file.id, d.id)];
+        const state: SyncState = record?.state ?? "unsynced";
+        const tip = `${d.label || d.id}：${SYNC_STATE_LABELS[state]}`;
+        return (
+          <button
+            key={d.id}
+            style={{ ...pillStyle, ...stateStyleMap[state] }}
+            onClick={() => simulateSync(file.id, d.id)}
+            disabled={state === "syncing"}
+            title={tip}
+            aria-label={tip}
+          >
+            {d.kind === "s3" ? <Cloud size={11} /> : <HardDrive size={11} />}
+            <span>{SHORT_LABEL[state]}</span>
+          </button>
+        );
+      })}
+      <button
+        style={ghostBtnStyle}
+        onClick={syncAll}
+        title="同步到所有已啟用的目的地"
+      >
+        全部同步
+      </button>
+    </div>
   );
 }
 
-const emptyStyle: CSSProperties = {
-  fontSize: 12,
-  color: "#777",
+const clusterStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  flexShrink: 0,
+};
+
+const noDestStyle: CSSProperties = {
+  fontSize: 11,
+  color: "#e8b64c",
   fontStyle: "italic",
-  padding: "10px 2px",
+  flexShrink: 0,
 };
 
-const tableStyle: CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: 12,
-};
-
-const thStyle: CSSProperties = {
-  textAlign: "left",
-  padding: "6px 10px",
-  borderBottom: "1px solid #333",
-  color: "#999",
-  fontWeight: 500,
-  whiteSpace: "nowrap",
-};
-
-const tdStyle: CSSProperties = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #262626",
-  verticalAlign: "middle",
-};
-
-const tdFileStyle: CSSProperties = {
-  ...tdStyle,
-  minWidth: 180,
-};
-
-const statusBtnStyle: CSSProperties = {
+const pillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
   border: "1px solid #444",
   borderRadius: 999,
-  padding: "3px 10px",
+  padding: "2px 7px",
   fontSize: 11,
   cursor: "pointer",
   whiteSpace: "nowrap",
+  lineHeight: 1,
 };
 
 const stateStyleMap: Record<SyncState, CSSProperties> = {

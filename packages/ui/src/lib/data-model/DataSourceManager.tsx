@@ -35,6 +35,7 @@ import type {
   FieldType,
   ValueNode,
 } from './schema';
+import type { FileRowSyncSlot } from './DataSourceManager.types';
 import {
   InMemoryDataStore,
   createDefaultValueNode,
@@ -63,8 +64,10 @@ interface DataSourceManagerProps {
   onChangeLocales?: (next: string[]) => void;
   /** file tab 工具列右側額外按鈕（例如「重新整理目的地」） */
   fileToolbarExtra?: React.ReactNode;
-  /** file tab 卡片清單下方額外內容（例如檔案同步狀態矩陣） */
+  /** file tab 卡片清單下方額外內容（保留給未來其他用途） */
   fileSyncContent?: React.ReactNode;
+  /** 每筆 file 資料列標題列的同步狀態叢集（放在刪除鈕左側） */
+  fileRowSyncSlot?: FileRowSyncSlot;
 }
 
 const KIND_LABELS: Record<DataSourceKind, string> = {
@@ -113,6 +116,7 @@ export function DataSourceManager({
   onChangeLocales,
   fileToolbarExtra,
   fileSyncContent,
+  fileRowSyncSlot,
 }: DataSourceManagerProps) {
   // 目前所在的 tab（類型）
   const [activeKind, setActiveKind] = useState<DataSourceKind>('i18n');
@@ -383,6 +387,11 @@ export function DataSourceManager({
               onChange={updateSource}
               onRemove={() => removeSource(source.id)}
               onSaved={markSaved}
+              rowSyncSlot={
+                activeKind === 'file' && fileRowSyncSlot
+                  ? fileRowSyncSlot(source as FileDataSource)
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -467,6 +476,7 @@ function SourceCard({
   onChange,
   onRemove,
   onSaved,
+  rowSyncSlot,
 }: {
   source: DataSource;
   sources: Record<string, DataSource>;
@@ -480,6 +490,7 @@ function SourceCard({
   onChange: (next: DataSource, originalId?: string) => void;
   onRemove: () => void;
   onSaved: (id: string) => void;
+  rowSyncSlot?: React.ReactNode;
 }) {
   // 所有種類（i18n / route / file / typedData）都用同一套本地草稿：
   // 使用者輸入時只改草稿，不直接寫回 sources；通過驗證、按下「儲存」才 commit
@@ -531,7 +542,8 @@ function SourceCard({
             </span>
           )}
         </button>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+          {rowSyncSlot}
           {showSave && (
             <button
               style={{

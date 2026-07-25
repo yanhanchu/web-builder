@@ -14,7 +14,7 @@ import {
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
 import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
-import { FileSyncMatrix, FileSyncRefreshButton, useFileSync } from "./admin/file-sync-panel";
+import { FileSyncRefreshButton, FileRowSyncCluster, useFileSync } from "./admin/file-sync-panel";
 import { usePagesState } from "../lib/pages-store";
 
 export default function DataManagerPage() {
@@ -83,19 +83,14 @@ export default function DataManagerPage() {
             fileToolbarExtra={
               <FileSyncRefreshButton onRefresh={fileSync.refresh} />
             }
-            fileSyncContent={
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #2c2c2c" }}>
-                <h3 style={{ ...panelTitleStyle, fontSize: 14, margin: "0 0 8px" }}>
-                  檔案同步狀態
-                </h3>
-                <FileSyncMatrix
-                  files={fileSync.files}
-                  destinations={fileSync.destinations}
-                  syncMap={fileSync.syncMap}
-                  simulateSync={fileSync.simulateSync}
-                />
-              </div>
-            }
+            fileRowSyncSlot={(file) => (
+              <FileRowSyncCluster
+                file={file}
+                destinations={fileSync.destinations}
+                syncMap={fileSync.syncMap}
+                simulateSync={fileSync.simulateSync}
+              />
+            )}
           />
         </section>
 
