@@ -14,6 +14,7 @@ import {
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
 import { AdminLayout, panelStyle, panelTitleStyle } from "./admin/admin-ui";
+import { FileSyncPanel } from "./admin/file-sync-panel";
 
 export default function DataManagerPage() {
   // DataSource 全部收在頁面 state，DataSourceManager 是純受控元件
@@ -81,6 +82,8 @@ export default function DataManagerPage() {
           </section>
         </div>
       </div>
+
+      <FileSyncPanel sources={sources} />
     </AdminLayout>
   );
 }

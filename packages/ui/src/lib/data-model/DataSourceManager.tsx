@@ -22,7 +22,7 @@
 // ============================================================
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Save, Trash2, X } from 'lucide-react';
 import type {
   DataSource,
   DataSourceKind,
@@ -69,6 +69,30 @@ const PRIMITIVE_TYPES: PrimitiveType[] = ['string', 'number', 'boolean', 'date']
 type SortKey = 'id' | 'label';
 type SortDir = 'asc' | 'desc';
 
+/**
+ * 驗證一筆 i18n DataSource 是否可以儲存。
+ * - key（id）不可為空
+ * - key 不可與其他既有來源重複
+ * 各語系的值允許留空，方便先建立 key 之後再慢慢補齊翻譯。
+ * 回傳錯誤訊息陣列；空陣列代表驗證通過。
+ */
+function validateI18nSource(
+  source: I18nDataSource,
+  sources: Record<string, DataSource>,
+  originalId: string,
+): string[] {
+  const errors: string[] = [];
+  const id = source.id.trim();
+
+  if (!id) {
+    errors.push('key（id）不可為空');
+  } else if (id !== originalId && sources[id]) {
+    errors.push(`key「${id}」已存在，請改用其他 key`);
+  }
+
+  return errors;
+}
+
 export function DataSourceManager({
   sources,
   types,
@@ -85,6 +109,9 @@ export function DataSourceManager({
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   // 展開中的來源 id 集合（預設全部收合）
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // 新增後、尚未通過驗證正式「離開草稿狀態」的來源 id：這些一律釘在清單最上方，
+  // 不受排序影響，方便使用者立刻看到剛新增、還沒填完的項目。
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(() => new Set());
 
   // 用當前 sources + types 建一個 store，供 typedData 的 FieldEditor 綁定候選使用。
   // sources 一改就會重建，FieldEditor 內部的候選來源也會即時反映。
@@ -104,7 +131,7 @@ export function DataSourceManager({
     return g;
   }, [sources]);
 
-  // 目前 tab 的清單，套用篩選 + 排序
+  // 目前 tab 的清單，套用篩選 + 排序；新增中（尚未儲存過一次）的項目固定置頂
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = grouped[activeKind];
@@ -115,14 +142,16 @@ export function DataSourceManager({
           (s.label ?? '').toLowerCase().includes(q),
       );
     }
-    const sorted = [...list].sort((a, b) => {
+    const pinned = list.filter((s) => newlyAddedIds.has(s.id));
+    const rest = list.filter((s) => !newlyAddedIds.has(s.id));
+    const sorted = [...rest].sort((a, b) => {
       const av = (sortKey === 'label' ? a.label ?? a.id : a.id).toLowerCase();
       const bv = (sortKey === 'label' ? b.label ?? b.id : b.id).toLowerCase();
       const cmp = av.localeCompare(bv);
       return sortDir === 'asc' ? cmp : -cmp;
     });
-    return sorted;
-  }, [grouped, activeKind, query, sortKey, sortDir]);
+    return [...pinned, ...sorted];
+  }, [grouped, activeKind, query, sortKey, sortDir, newlyAddedIds]);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -132,14 +161,35 @@ export function DataSourceManager({
       return next;
     });
 
-  const updateSource = (next: DataSource) =>
-    onChangeSources({ ...sources, [next.id]: next });
+  // originalId 若與 next.id 不同，代表使用者改了 key（重新命名）：
+  // 需要移除舊 key、寫入新 key，而不是同時保留兩筆；並讓「展開中」狀態跟著新 key 走，
+  // 避免存檔後卡片意外收合。
+  const updateSource = (next: DataSource, originalId?: string) => {
+    const rest = { ...sources };
+    if (originalId && originalId !== next.id) {
+      delete rest[originalId];
+      setExpanded((prev) => {
+        if (!prev.has(originalId)) return prev;
+        const n = new Set(prev);
+        n.delete(originalId);
+        n.add(next.id);
+        return n;
+      });
+    }
+    onChangeSources({ ...rest, [next.id]: next });
+  };
 
   const removeSource = (id: string) => {
     const rest = { ...sources };
     delete rest[id];
     onChangeSources(rest);
     setExpanded((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setNewlyAddedIds((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
       next.delete(id);
@@ -154,10 +204,22 @@ export function DataSourceManager({
     return id;
   };
 
-  // 新增後自動展開該筆，讓使用者可以立刻編輯
+  // 新增後自動展開該筆，讓使用者可以立刻編輯；同時釘在清單最上方，
+  // 直到該筆通過驗證正式「儲存」過一次才回歸正常排序。
   const addAndExpand = (src: DataSource) => {
     updateSource(src);
     setExpanded((prev) => new Set(prev).add(src.id));
+    setNewlyAddedIds((prev) => new Set(prev).add(src.id));
+  };
+
+  // i18n 卡片在草稿通過驗證、正式 commit 後呼叫：解除置頂標記。
+  const markSaved = (id: string) => {
+    setNewlyAddedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const addI18n = () => {
@@ -279,7 +341,7 @@ export function DataSourceManager({
         </button>
         <div style={{ flex: 1 }} />
         <button style={addBtnStyle} onClick={addHandlers[activeKind]} title={`新增${KIND_LABELS[activeKind]}`}>
-          <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+          <Plus size={12} />
           新增{KIND_LABELS[activeKind]}
         </button>
       </div>
@@ -295,13 +357,16 @@ export function DataSourceManager({
             <SourceCard
               key={source.id}
               source={source}
+              sources={sources}
               store={store}
               types={types}
               locales={locales}
               expanded={expanded.has(source.id)}
+              isNew={newlyAddedIds.has(source.id)}
               onToggle={() => toggleExpand(source.id)}
               onChange={updateSource}
               onRemove={() => removeSource(source.id)}
+              onSaved={markSaved}
             />
           ))}
         </div>
@@ -360,7 +425,7 @@ function LocaleBar({
         style={{ ...inputStyle, maxWidth: 160 }}
       />
       <button style={addBtnStyle} onClick={add} title="加入 locale">
-        <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+        <Plus size={12} />
         加入 locale
       </button>
     </div>
@@ -373,23 +438,62 @@ function LocaleBar({
 
 function SourceCard({
   source,
+  sources,
   store,
   types,
   locales,
   expanded,
+  isNew,
   onToggle,
   onChange,
   onRemove,
+  onSaved,
 }: {
   source: DataSource;
+  sources: Record<string, DataSource>;
   store: InMemoryDataStore;
   types: Record<string, FieldType>;
   locales: string[];
   expanded: boolean;
+  isNew: boolean;
   onToggle: () => void;
-  onChange: (next: DataSource) => void;
+  onChange: (next: DataSource, originalId?: string) => void;
   onRemove: () => void;
+  onSaved: (id: string) => void;
 }) {
+  const isI18n = source.kind === 'i18n';
+
+  // i18n 用本地草稿：使用者輸入時只改草稿，不直接寫回 sources；
+  // 通過驗證才「儲存」（commit 進 onChange）。其餘 kind 維持原本即時雙向綁定。
+  const [draft, setDraft] = useState<I18nDataSource | null>(
+    isI18n ? (source as I18nDataSource) : null,
+  );
+  const [draftId, setDraftId] = useState(source.id);
+  const [touched, setTouched] = useState(false);
+
+  const effectiveI18n = isI18n ? draft ?? (source as I18nDataSource) : null;
+  const errors = isI18n
+    ? validateI18nSource(
+        { ...(effectiveI18n as I18nDataSource), id: draftId },
+        sources,
+        source.id,
+      )
+    : [];
+  const hasErrors = errors.length > 0;
+
+  const updateDraft = (patch: Partial<I18nDataSource>) => {
+    setTouched(true);
+    setDraft((prev) => ({ ...(prev ?? (source as I18nDataSource)), ...patch }));
+  };
+
+  const handleSave = () => {
+    if (!draft) return;
+    setTouched(true);
+    if (hasErrors) return; // 驗證未通過，不可儲存
+    onChange({ ...draft, id: draftId }, source.id);
+    onSaved(draftId);
+  };
+
   return (
     <div style={cardStyle}>
       {/* 收合列：整條可點擊展開/收合 */}
@@ -405,6 +509,7 @@ function SourceCard({
           </span>
           <code style={idStyle}>{source.id}</code>
           {source.label ? <span style={cardLabelStyle}>{source.label}</span> : null}
+          {isNew && <span style={draftBadgeStyle}>草稿</span>}
           {!expanded && (
             <span style={summaryStyle} title={summarize(source)}>
               {summarize(source)}
@@ -418,30 +523,79 @@ function SourceCard({
 
       {expanded && (
         <div style={cardBodyStyle}>
-          <Labeled label="label（顯示名稱）">
-            <input
-              value={source.label ?? ''}
-              onChange={(e) => onChange({ ...source, label: e.target.value })}
-              style={inputStyle}
-            />
-          </Labeled>
+          {isI18n ? (
+            <>
+              <Labeled label="key（id）">
+                <input
+                  value={draftId}
+                  onChange={(e) => {
+                    setTouched(true);
+                    setDraftId(e.target.value);
+                  }}
+                  style={inputStyle}
+                  placeholder="例如 home.hero.title"
+                />
+              </Labeled>
+              <Labeled label="label（顯示名稱）">
+                <input
+                  value={(effectiveI18n as I18nDataSource).label ?? ''}
+                  onChange={(e) => updateDraft({ label: e.target.value })}
+                  style={inputStyle}
+                />
+              </Labeled>
+              <I18nFields
+                source={effectiveI18n as I18nDataSource}
+                locales={locales}
+                onChange={(next) => updateDraft(next as Partial<I18nDataSource>)}
+              />
 
-          {source.kind === 'i18n' && (
-            <I18nFields source={source} locales={locales} onChange={onChange} />
-          )}
-          {source.kind === 'route' && (
-            <RouteFields source={source} onChange={onChange} />
-          )}
-          {source.kind === 'file' && (
-            <FileFields source={source} onChange={onChange} />
-          )}
-          {source.kind === 'typedData' && (
-            <TypedDataFields
-              source={source}
-              store={store}
-              types={types}
-              onChange={onChange}
-            />
+              {touched && hasErrors && (
+                <div style={errorBoxStyle}>
+                  {errors.map((err) => (
+                    <div key={err}>⚠ {err}</div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: 10 }}>
+                <button
+                  style={{
+                    ...addBtnStyle,
+                    opacity: hasErrors && touched ? 0.5 : 1,
+                  }}
+                  onClick={handleSave}
+                  title={hasErrors ? '請先修正錯誤才能儲存' : '儲存'}
+                >
+                  <Save size={12} />
+                  儲存
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Labeled label="label（顯示名稱）">
+                <input
+                  value={source.label ?? ''}
+                  onChange={(e) => onChange({ ...source, label: e.target.value })}
+                  style={inputStyle}
+                />
+              </Labeled>
+
+              {source.kind === 'route' && (
+                <RouteFields source={source} onChange={onChange} />
+              )}
+              {source.kind === 'file' && (
+                <FileFields source={source} onChange={onChange} />
+              )}
+              {source.kind === 'typedData' && (
+                <TypedDataFields
+                  source={source}
+                  store={store}
+                  types={types}
+                  onChange={onChange}
+                />
+              )}
+            </>
           )}
         </div>
       )}
@@ -871,6 +1025,8 @@ const localeRemoveStyle: React.CSSProperties = {
   fontSize: 11,
   padding: 0,
   lineHeight: 1,
+  display: 'inline-flex',
+  alignItems: 'center',
 };
 
 const countStyle: React.CSSProperties = {
@@ -933,6 +1089,27 @@ const cardLabelStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
+const draftBadgeStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: '#e8b64c',
+  background: '#332c18',
+  border: '1px solid #5a4a1f',
+  borderRadius: 999,
+  padding: '1px 8px',
+  flexShrink: 0,
+};
+
+const errorBoxStyle: React.CSSProperties = {
+  marginTop: 10,
+  padding: '8px 10px',
+  fontSize: 12,
+  lineHeight: 1.6,
+  color: '#e77',
+  background: '#2a1414',
+  border: '1px solid #5a2b2b',
+  borderRadius: 6,
+};
+
 const summaryStyle: React.CSSProperties = {
   fontSize: 12,
   color: '#777',
@@ -975,6 +1152,10 @@ const addBtnStyle: React.CSSProperties = {
   padding: '4px 10px',
   fontSize: 12,
   cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  whiteSpace: 'nowrap',
 };
 
 const removeBtnStyle: React.CSSProperties = {
@@ -986,4 +1167,6 @@ const removeBtnStyle: React.CSSProperties = {
   fontSize: 12,
   cursor: 'pointer',
   flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
 };

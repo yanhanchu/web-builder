@@ -308,7 +308,7 @@ function ArrayItems({
         </div>
       ))}
       <button onClick={addItem} style={addBtnStyle} title="新增項目">
-        <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+        <Plus size={12} />
         新增項目
       </button>
     </div>
@@ -340,6 +340,10 @@ const addBtnStyle: React.CSSProperties = {
   padding: '4px 10px',
   fontSize: 12,
   cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  whiteSpace: 'nowrap',
 };
 
 const removeBtnStyle: React.CSSProperties = {
@@ -351,4 +355,6 @@ const removeBtnStyle: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
   fontSize: 12,
+  display: 'inline-flex',
+  alignItems: 'center',
 };

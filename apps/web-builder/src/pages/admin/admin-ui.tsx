@@ -224,6 +224,10 @@ export const primaryBtnStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  whiteSpace: "nowrap",
 };
 
 export const ghostBtnStyle: React.CSSProperties = {
@@ -234,6 +238,10 @@ export const ghostBtnStyle: React.CSSProperties = {
   padding: "8px 14px",
   fontSize: 13,
   cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  whiteSpace: "nowrap",
 };
 
 export const dangerBtnStyle: React.CSSProperties = {
@@ -244,6 +252,10 @@ export const dangerBtnStyle: React.CSSProperties = {
   padding: "6px 12px",
   fontSize: 12,
   cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  whiteSpace: "nowrap",
 };
 
 export const savedFlashStyle: React.CSSProperties = {

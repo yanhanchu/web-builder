@@ -100,7 +100,7 @@ export default function PageManagerPage() {
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
           <button style={primaryBtnStyle} onClick={addPage} title="新增頁面">
-            <Plus size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+            <Plus size={14} />
             新增頁面
           </button>
         </>
@@ -166,7 +166,7 @@ export default function PageManagerPage() {
                   </span>
                 </div>
                 <button style={dangerBtnStyle} onClick={() => deletePage(selected.id)} title="刪除此頁">
-                  <Trash2 size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                  <Trash2 size={14} />
                   刪除此頁
                 </button>
               </div>

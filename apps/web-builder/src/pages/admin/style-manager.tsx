@@ -73,7 +73,7 @@ export default function StyleManagerPage() {
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
           <button style={primaryBtnStyle} onClick={addSheet} title="新增樣式表">
-            <Plus size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+            <Plus size={14} />
             新增樣式表
           </button>
         </>
