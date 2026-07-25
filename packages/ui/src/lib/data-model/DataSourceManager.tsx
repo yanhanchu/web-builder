@@ -22,6 +22,7 @@
 // ============================================================
 
 import React, { useMemo, useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react';
 import type {
   DataSource,
   DataSourceKind,
@@ -277,8 +278,9 @@ export function DataSourceManager({
           {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
         </button>
         <div style={{ flex: 1 }} />
-        <button style={addBtnStyle} onClick={addHandlers[activeKind]}>
-          + 新增{KIND_LABELS[activeKind]}
+        <button style={addBtnStyle} onClick={addHandlers[activeKind]} title={`新增${KIND_LABELS[activeKind]}`}>
+          <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+          新增{KIND_LABELS[activeKind]}
         </button>
       </div>
 
@@ -344,7 +346,7 @@ function LocaleBar({
             title={`移除 ${l}`}
             onClick={() => remove(l)}
           >
-            ✕
+            <X size={10} />
           </button>
         </span>
       ))}
@@ -357,8 +359,9 @@ function LocaleBar({
         }}
         style={{ ...inputStyle, maxWidth: 160 }}
       />
-      <button style={addBtnStyle} onClick={add}>
-        + 加入 locale
+      <button style={addBtnStyle} onClick={add} title="加入 locale">
+        <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+        加入 locale
       </button>
     </div>
   );
@@ -409,7 +412,7 @@ function SourceCard({
           )}
         </button>
         <button style={removeBtnStyle} title="刪除這筆來源" onClick={onRemove}>
-          刪除
+          <Trash2 size={12} />
         </button>
       </div>
 

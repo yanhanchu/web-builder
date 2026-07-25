@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Save, RotateCcw } from "lucide-react";
 import {
   AdminLayout,
   useSavedFlash,
@@ -68,7 +69,8 @@ export default function AppSettingsPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          <button style={primaryBtnStyle} onClick={save}>
+          <button style={primaryBtnStyle} onClick={save} title="儲存設定">
+            <Save size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
             儲存設定
           </button>
         </>
@@ -248,10 +250,12 @@ export default function AppSettingsPage() {
         </section>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={primaryBtnStyle} onClick={save}>
+          <button style={primaryBtnStyle} onClick={save} title="儲存設定">
+            <Save size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
             儲存設定
           </button>
-          <button style={ghostBtnStyle} onClick={reset}>
+          <button style={ghostBtnStyle} onClick={reset} title="還原預設值">
+            <RotateCcw size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
             還原預設值
           </button>
         </div>

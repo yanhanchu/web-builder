@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   AdminLayout,
   usePersistentState,
@@ -71,8 +72,9 @@ export default function StyleManagerPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          <button style={primaryBtnStyle} onClick={addSheet}>
-            + 新增樣式表
+          <button style={primaryBtnStyle} onClick={addSheet} title="新增樣式表">
+            <Plus size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+            新增樣式表
           </button>
         </>
       }
@@ -130,8 +132,8 @@ export default function StyleManagerPage() {
                 }}
               >
                 <h2 style={{ ...panelTitleStyle, margin: 0 }}>編輯樣式表</h2>
-                <button style={dangerBtnStyle} onClick={() => deleteSheet(selected.id)}>
-                  刪除
+                <button style={dangerBtnStyle} onClick={() => deleteSheet(selected.id)} title="刪除">
+                  <Trash2 size={14} />
                 </button>
               </div>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   AdminLayout,
   usePersistentState,
@@ -98,8 +99,9 @@ export default function PageManagerPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          <button style={primaryBtnStyle} onClick={addPage}>
-            + 新增頁面
+          <button style={primaryBtnStyle} onClick={addPage} title="新增頁面">
+            <Plus size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+            新增頁面
           </button>
         </>
       }
@@ -163,7 +165,8 @@ export default function PageManagerPage() {
                     SeoData
                   </span>
                 </div>
-                <button style={dangerBtnStyle} onClick={() => deletePage(selected.id)}>
+                <button style={dangerBtnStyle} onClick={() => deletePage(selected.id)} title="刪除此頁">
+                  <Trash2 size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
                   刪除此頁
                 </button>
               </div>

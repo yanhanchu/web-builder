@@ -12,20 +12,25 @@
 // 都會透過 resolveValue() 自動同步。
 // ============================================================
 
-import type { DataSource, ValueNode, FieldType } from './schema';
-import { InMemoryDataStore, resolveValue } from './schema';
+import type { DataSource, ValueNode, FieldType } from "./schema";
+import { InMemoryDataStore, resolveValue } from "./schema";
 import {
   typeRegistry as generatedTypeRegistry,
   componentPropsRegistry,
-} from './from-generated';
-import { seo as defaultSeo, siteInfo as defaultSiteInfo } from '../../components/site/default';
+} from "./from-generated";
+import {
+  seo as defaultSeo,
+  siteInfo as defaultSiteInfo,
+} from "../../components/site/default";
 
 // ------------------------------------------------------------
 // 從真實生成資料取出 Header / Footer 的 props 型別
 // ------------------------------------------------------------
 
-export const headerEntry = componentPropsRegistry['src/components/landing1/header.tsx#Header'];
-export const footerEntry = componentPropsRegistry['src/components/landing1/footer.tsx#Footer'];
+export const headerEntry =
+  componentPropsRegistry["src/components/landing1/header.tsx#Header"];
+export const footerEntry =
+  componentPropsRegistry["src/components/landing1/footer.tsx#Footer"];
 
 export const headerPropsType = headerEntry.propsType;
 export const footerPropsType = footerEntry.propsType;
@@ -38,47 +43,47 @@ export const footerPropsType = footerEntry.propsType;
 // 讓 data-manager / App 設定 / 頁面管理可以立刻綁定。等生成器跑過之後，
 // from-generated.ts 的 typeRegistry 會自動涵蓋，這裡的手動註冊即可移除。
 // ------------------------------------------------------------
-export const SeoDataTypeId = 'src/components/site/types.ts#SeoData';
-export const SiteInfoDataTypeId = 'src/components/site/types.ts#SiteInfoData';
+export const SeoDataTypeId = "src/components/site/types.ts#SeoData";
+export const SiteInfoDataTypeId = "src/components/site/types.ts#SiteInfoData";
 
 export const typeRegistry: Record<string, FieldType> = {
   ...generatedTypeRegistry,
   [SeoDataTypeId]: {
-    kind: 'object',
+    kind: "object",
     fields: {
-      title: { kind: 'primitive', type: 'string' },
-      titleTemplate: { kind: 'primitive', type: 'string' },
-      description: { kind: 'primitive', type: 'string' },
-      keywords: { kind: 'primitive', type: 'string' },
-      ogImage: { kind: 'primitive', type: 'string', hint: 'url-like' },
-      ogType: { kind: 'primitive', type: 'string' },
-      twitterCard: { kind: 'primitive', type: 'string' },
-      twitterSite: { kind: 'primitive', type: 'string' },
-      canonicalUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
-      robots: { kind: 'primitive', type: 'string' },
+      title: { kind: "primitive", type: "string" },
+      titleTemplate: { kind: "primitive", type: "string" },
+      description: { kind: "primitive", type: "string" },
+      keywords: { kind: "primitive", type: "string" },
+      ogImage: { kind: "primitive", type: "string", hint: "url-like" },
+      ogType: { kind: "primitive", type: "string" },
+      twitterCard: { kind: "primitive", type: "string" },
+      twitterSite: { kind: "primitive", type: "string" },
+      canonicalUrl: { kind: "primitive", type: "string", hint: "url-like" },
+      robots: { kind: "primitive", type: "string" },
     },
   },
   [SiteInfoDataTypeId]: {
-    kind: 'object',
+    kind: "object",
     fields: {
-      siteName: { kind: 'primitive', type: 'string' },
-      tagline: { kind: 'primitive', type: 'string' },
-      siteUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
-      faviconUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
-      manifestUrl: { kind: 'primitive', type: 'string', hint: 'url-like' },
-      themeColor: { kind: 'primitive', type: 'string' },
-      defaultLocale: { kind: 'primitive', type: 'string' },
-      contactEmail: { kind: 'primitive', type: 'string' },
-      publisher: { kind: 'primitive', type: 'string' },
+      siteName: { kind: "primitive", type: "string" },
+      tagline: { kind: "primitive", type: "string" },
+      siteUrl: { kind: "primitive", type: "string", hint: "url-like" },
+      faviconUrl: { kind: "primitive", type: "string", hint: "url-like" },
+      manifestUrl: { kind: "primitive", type: "string", hint: "url-like" },
+      themeColor: { kind: "primitive", type: "string" },
+      defaultLocale: { kind: "primitive", type: "string" },
+      contactEmail: { kind: "primitive", type: "string" },
+      publisher: { kind: "primitive", type: "string" },
     },
   },
 };
 
 // 複合 typeId 直接對應 component-types.json 裡的 id（生成器已提供，不需自己組）
-const BrandDataTypeId = 'src/components/landing1/types.ts#BrandData';
-const NavItemTypeId = 'src/components/landing1/types.ts#NavItem';
-const NavColumnTypeId = 'src/components/landing1/types.ts#NavColumn';
-const ThemeOptionTypeId = 'src/components/landing1/types.ts#ThemeOption';
+const BrandDataTypeId = "src/components/landing1/types.ts#BrandData";
+const NavItemTypeId = "src/components/landing1/types.ts#NavItem";
+const NavColumnTypeId = "src/components/landing1/types.ts#NavColumn";
+const ThemeOptionTypeId = "src/components/landing1/types.ts#ThemeOption";
 
 // ------------------------------------------------------------
 // DataSource 清單：模擬「型別資料管理」「i18n 管理」「檔案管理」已經建好的資料
@@ -86,124 +91,124 @@ const ThemeOptionTypeId = 'src/components/landing1/types.ts#ThemeOption';
 
 export const sources: Record<string, DataSource> = {
   // --- i18n（基本型別容器，這裡都是 string） ---
-  'i18n:brand.ariaLabel': {
-    id: 'i18n:brand.ariaLabel',
-    kind: 'i18n',
-    label: 'i18n: 品牌連結 aria-label',
-    valueType: 'string',
-    values: { 'zh-TW': '回到首頁', en: 'OZSV home' },
+  "i18n:brand.ariaLabel": {
+    id: "i18n:brand.ariaLabel",
+    kind: "i18n",
+    label: "i18n: 品牌連結 aria-label",
+    valueType: "string",
+    values: { "zh-TW": "回到首頁", en: "OZSV home" },
   },
-  'i18n:brand.mark': {
-    id: 'i18n:brand.mark',
-    kind: 'i18n',
-    label: 'i18n: Logo alt text',
-    valueType: 'string',
-    values: { 'zh-TW': 'OZSV', en: 'OZSV' },
+  "i18n:brand.mark": {
+    id: "i18n:brand.mark",
+    kind: "i18n",
+    label: "i18n: Logo alt text",
+    valueType: "string",
+    values: { "zh-TW": "OZSV", en: "OZSV" },
   },
-  'i18n:brand.wordmark.lead': {
-    id: 'i18n:brand.wordmark.lead',
-    kind: 'i18n',
-    label: 'i18n: Wordmark 主字',
-    valueType: 'string',
-    values: { 'zh-TW': 'OZ', en: 'OZ' },
+  "i18n:brand.wordmark.lead": {
+    id: "i18n:brand.wordmark.lead",
+    kind: "i18n",
+    label: "i18n: Wordmark 主字",
+    valueType: "string",
+    values: { "zh-TW": "OZ", en: "OZ" },
   },
-  'i18n:brand.wordmark.accent': {
-    id: 'i18n:brand.wordmark.accent',
-    kind: 'i18n',
-    label: 'i18n: Wordmark 強調字',
-    valueType: 'string',
-    values: { 'zh-TW': 'SV', en: 'SV' },
+  "i18n:brand.wordmark.accent": {
+    id: "i18n:brand.wordmark.accent",
+    kind: "i18n",
+    label: "i18n: Wordmark 強調字",
+    valueType: "string",
+    values: { "zh-TW": "SV", en: "SV" },
   },
-  'i18n:nav.product': {
-    id: 'i18n:nav.product',
-    kind: 'i18n',
-    label: 'i18n: 導覽 - 產品',
-    valueType: 'string',
-    values: { 'zh-TW': '產品', en: 'Product' },
+  "i18n:nav.product": {
+    id: "i18n:nav.product",
+    kind: "i18n",
+    label: "i18n: 導覽 - 產品",
+    valueType: "string",
+    values: { "zh-TW": "產品", en: "Product" },
   },
-  'i18n:nav.about': {
-    id: 'i18n:nav.about',
-    kind: 'i18n',
-    label: 'i18n: 導覽 - 關於我們',
-    valueType: 'string',
-    values: { 'zh-TW': '關於我們', en: 'About' },
+  "i18n:nav.about": {
+    id: "i18n:nav.about",
+    kind: "i18n",
+    label: "i18n: 導覽 - 關於我們",
+    valueType: "string",
+    values: { "zh-TW": "關於我們", en: "About" },
   },
-  'i18n:nav.contact': {
-    id: 'i18n:nav.contact',
-    kind: 'i18n',
-    label: 'i18n: 導覽 - 聯絡我們',
-    valueType: 'string',
-    values: { 'zh-TW': '聯絡我們', en: 'Contact' },
+  "i18n:nav.contact": {
+    id: "i18n:nav.contact",
+    kind: "i18n",
+    label: "i18n: 導覽 - 聯絡我們",
+    valueType: "string",
+    values: { "zh-TW": "聯絡我們", en: "Contact" },
   },
-  'i18n:theme.groupLabel': {
-    id: 'i18n:theme.groupLabel',
-    kind: 'i18n',
-    label: 'i18n: 主題群組標籤',
-    valueType: 'string',
-    values: { 'zh-TW': '主題', en: 'Theme' },
+  "i18n:theme.groupLabel": {
+    id: "i18n:theme.groupLabel",
+    kind: "i18n",
+    label: "i18n: 主題群組標籤",
+    valueType: "string",
+    values: { "zh-TW": "主題", en: "Theme" },
   },
-  'i18n:menu.open': {
-    id: 'i18n:menu.open',
-    kind: 'i18n',
-    label: 'i18n: 開啟選單',
-    valueType: 'string',
-    values: { 'zh-TW': '開啟選單', en: 'Open menu' },
+  "i18n:menu.open": {
+    id: "i18n:menu.open",
+    kind: "i18n",
+    label: "i18n: 開啟選單",
+    valueType: "string",
+    values: { "zh-TW": "開啟選單", en: "Open menu" },
   },
-  'i18n:menu.close': {
-    id: 'i18n:menu.close',
-    kind: 'i18n',
-    label: 'i18n: 關閉選單',
-    valueType: 'string',
-    values: { 'zh-TW': '關閉選單', en: 'Close menu' },
+  "i18n:menu.close": {
+    id: "i18n:menu.close",
+    kind: "i18n",
+    label: "i18n: 關閉選單",
+    valueType: "string",
+    values: { "zh-TW": "關閉選單", en: "Close menu" },
   },
-  'i18n:footer.tagline': {
-    id: 'i18n:footer.tagline',
-    kind: 'i18n',
-    label: 'i18n: Footer 標語',
-    valueType: 'string',
+  "i18n:footer.tagline": {
+    id: "i18n:footer.tagline",
+    kind: "i18n",
+    label: "i18n: Footer 標語",
+    valueType: "string",
     values: {
-      'zh-TW': '一起打造更好的軟體。',
-      en: 'Building better software, together.',
+      "zh-TW": "一起打造更好的軟體。",
+      en: "Building better software, together.",
     },
   },
-  'i18n:footer.copyright': {
-    id: 'i18n:footer.copyright',
-    kind: 'i18n',
-    label: 'i18n: 版權宣告',
-    valueType: 'string',
+  "i18n:footer.copyright": {
+    id: "i18n:footer.copyright",
+    kind: "i18n",
+    label: "i18n: 版權宣告",
+    valueType: "string",
     values: {
-      'zh-TW': '© 2026 OZSV. 版權所有。',
-      en: '© 2026 OZSV. All rights reserved.',
+      "zh-TW": "© 2026 OZSV. 版權所有。",
+      en: "© 2026 OZSV. All rights reserved.",
     },
   },
 
   // --- 檔案 ---
-  'file:logo-main': {
-    id: 'file:logo-main',
-    kind: 'file',
-    label: '檔案: 主要 Logo',
-    url: 'https://example.com/logo.svg',
-    mimeType: 'image/svg+xml',
+  "file:logo-main": {
+    id: "file:logo-main",
+    kind: "file",
+    label: "檔案: 主要 Logo",
+    url: "https://example.com/logo.svg",
+    mimeType: "image/svg+xml",
   },
 
   // --- 型別資料：BrandData（單筆），Header 與 Footer 共用同一筆 ---
-  'typedData:brand:main': {
-    id: 'typedData:brand:main',
-    kind: 'typedData',
-    label: '型別資料: 主品牌 (BrandData)',
+  "typedData:brand:main": {
+    id: "typedData:brand:main",
+    kind: "typedData",
+    label: "型別資料: 主品牌 (BrandData)",
     typeId: BrandDataTypeId,
     value: {
-      mode: 'object',
+      mode: "object",
       fields: {
-        toHome: { mode: 'literal', value: '/' },
-        ariaLabel: { mode: 'bound', sourceId: 'i18n:brand.ariaLabel' },
-        mark: { mode: 'bound', sourceId: 'i18n:brand.mark' },
-        logoSrc: { mode: 'bound', sourceId: 'file:logo-main' },
+        toHome: { mode: "literal", value: "/" },
+        ariaLabel: { mode: "bound", sourceId: "i18n:brand.ariaLabel" },
+        mark: { mode: "bound", sourceId: "i18n:brand.mark" },
+        logoSrc: { mode: "bound", sourceId: "file:logo-main" },
         wordmark: {
-          mode: 'object',
+          mode: "object",
           fields: {
-            lead: { mode: 'bound', sourceId: 'i18n:brand.wordmark.lead' },
-            accent: { mode: 'bound', sourceId: 'i18n:brand.wordmark.accent' },
+            lead: { mode: "bound", sourceId: "i18n:brand.wordmark.lead" },
+            accent: { mode: "bound", sourceId: "i18n:brand.wordmark.accent" },
           },
         },
       },
@@ -211,33 +216,33 @@ export const sources: Record<string, DataSource> = {
   },
 
   // --- 型別資料：NavItem[]（主導覽，Header 用） ---
-  'typedData:nav:primary': {
-    id: 'typedData:nav:primary',
-    kind: 'typedData',
-    label: '型別資料: 主導覽 (NavItem[])',
+  "typedData:nav:primary": {
+    id: "typedData:nav:primary",
+    kind: "typedData",
+    label: "型別資料: 主導覽 (NavItem[])",
     typeId: `${NavItemTypeId}[]`,
     value: {
-      mode: 'array',
+      mode: "array",
       items: [
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            label: { mode: 'bound', sourceId: 'i18n:nav.product' },
-            to: { mode: 'literal', value: '/product' },
+            label: { mode: "bound", sourceId: "i18n:nav.product" },
+            to: { mode: "literal", value: "/product" },
           },
         },
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            label: { mode: 'bound', sourceId: 'i18n:nav.about' },
-            to: { mode: 'literal', value: '/about' },
+            label: { mode: "bound", sourceId: "i18n:nav.about" },
+            to: { mode: "literal", value: "/about" },
           },
         },
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            label: { mode: 'bound', sourceId: 'i18n:nav.contact' },
-            to: { mode: 'literal', value: '/contact' },
+            label: { mode: "bound", sourceId: "i18n:nav.contact" },
+            to: { mode: "literal", value: "/contact" },
           },
         },
       ],
@@ -245,33 +250,33 @@ export const sources: Record<string, DataSource> = {
   },
 
   // --- 型別資料：ThemeOption[]（Header 與 ThemeToggle 共用） ---
-  'typedData:theme:options': {
-    id: 'typedData:theme:options',
-    kind: 'typedData',
-    label: '型別資料: 主題選項 (ThemeOption[])',
+  "typedData:theme:options": {
+    id: "typedData:theme:options",
+    kind: "typedData",
+    label: "型別資料: 主題選項 (ThemeOption[])",
     typeId: `${ThemeOptionTypeId}[]`,
     value: {
-      mode: 'array',
+      mode: "array",
       items: [
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            value: { mode: 'literal', value: 'light' },
-            label: { mode: 'literal', value: 'Light' },
+            value: { mode: "literal", value: "light" },
+            label: { mode: "literal", value: "Light" },
           },
         },
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            value: { mode: 'literal', value: 'dark' },
-            label: { mode: 'literal', value: 'Dark' },
+            value: { mode: "literal", value: "dark" },
+            label: { mode: "literal", value: "Dark" },
           },
         },
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            value: { mode: 'literal', value: 'system' },
-            label: { mode: 'literal', value: 'System' },
+            value: { mode: "literal", value: "system" },
+            label: { mode: "literal", value: "System" },
           },
         },
       ],
@@ -279,33 +284,33 @@ export const sources: Record<string, DataSource> = {
   },
 
   // --- 型別資料：NavColumn[]（Footer 的分組連結） ---
-  'typedData:nav:footerColumns': {
-    id: 'typedData:nav:footerColumns',
-    kind: 'typedData',
-    label: '型別資料: Footer 導覽分組 (NavColumn[])',
+  "typedData:nav:footerColumns": {
+    id: "typedData:nav:footerColumns",
+    kind: "typedData",
+    label: "型別資料: Footer 導覽分組 (NavColumn[])",
     typeId: `${NavColumnTypeId}[]`,
     value: {
-      mode: 'array',
+      mode: "array",
       items: [
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            title: { mode: 'literal', value: 'Product' },
+            title: { mode: "literal", value: "Product" },
             items: {
-              mode: 'array',
+              mode: "array",
               items: [
                 {
-                  mode: 'object',
+                  mode: "object",
                   fields: {
-                    label: { mode: 'literal', value: 'Features' },
-                    to: { mode: 'literal', value: '/features' },
+                    label: { mode: "literal", value: "Features" },
+                    to: { mode: "literal", value: "/features" },
                   },
                 },
                 {
-                  mode: 'object',
+                  mode: "object",
                   fields: {
-                    label: { mode: 'literal', value: 'Pricing' },
-                    to: { mode: 'literal', value: '/pricing' },
+                    label: { mode: "literal", value: "Pricing" },
+                    to: { mode: "literal", value: "/pricing" },
                   },
                 },
               ],
@@ -313,24 +318,24 @@ export const sources: Record<string, DataSource> = {
           },
         },
         {
-          mode: 'object',
+          mode: "object",
           fields: {
-            title: { mode: 'literal', value: 'Company' },
+            title: { mode: "literal", value: "Company" },
             items: {
-              mode: 'array',
+              mode: "array",
               items: [
                 {
-                  mode: 'object',
+                  mode: "object",
                   fields: {
-                    label: { mode: 'bound', sourceId: 'i18n:nav.about' },
-                    to: { mode: 'literal', value: '/about' },
+                    label: { mode: "bound", sourceId: "i18n:nav.about" },
+                    to: { mode: "literal", value: "/about" },
                   },
                 },
                 {
-                  mode: 'object',
+                  mode: "object",
                   fields: {
-                    label: { mode: 'bound', sourceId: 'i18n:nav.contact' },
-                    to: { mode: 'literal', value: '/contact' },
+                    label: { mode: "bound", sourceId: "i18n:nav.contact" },
+                    to: { mode: "literal", value: "/contact" },
                   },
                 },
               ],
@@ -341,31 +346,31 @@ export const sources: Record<string, DataSource> = {
     },
   },
   // --- 型別資料：SiteInfoData（全站基本資訊，App 設定綁定用） ---
-  'typedData:siteInfo:main': {
-    id: 'typedData:siteInfo:main',
-    kind: 'typedData',
-    label: '型別資料: 網站基本資訊 (SiteInfoData)',
+  "typedData:siteInfo:main": {
+    id: "typedData:siteInfo:main",
+    kind: "typedData",
+    label: "型別資料: 網站基本資訊 (SiteInfoData)",
     typeId: SiteInfoDataTypeId,
-    value: literalObjectFrom(defaultSiteInfo),
+    value: literalObjectFrom(defaultSiteInfo as unknown as Record<string, string>),
   },
 
   // --- 型別資料：SeoData（全站 SEO 預設，App 設定綁定用） ---
-  'typedData:seo:default': {
-    id: 'typedData:seo:default',
-    kind: 'typedData',
-    label: '型別資料: 全站 SEO 預設 (SeoData)',
+  "typedData:seo:default": {
+    id: "typedData:seo:default",
+    kind: "typedData",
+    label: "型別資料: 全站 SEO 預設 (SeoData)",
     typeId: SeoDataTypeId,
-    value: literalObjectFrom(defaultSeo),
+    value: literalObjectFrom(defaultSeo as unknown as Record<string, string>),
   },
 };
 
 // 把一個扁平 string-value 物件轉成 object ValueNode（每個欄位都是 literal）
-function literalObjectFrom<T extends object>(obj: T): ValueNode {
+function literalObjectFrom(obj: Record<string, string>): ValueNode {
   const fields: Record<string, ValueNode> = {};
   for (const [k, v] of Object.entries(obj)) {
-    fields[k] = { mode: 'literal', value: v as string };
+    fields[k] = { mode: "literal", value: v };
   }
-  return { mode: 'object', fields };
+  return { mode: "object", fields };
 }
 //
 // 對照 default.ts：header 和 footer 都手動填了一份 brandData —— 這裡兩者
@@ -373,29 +378,29 @@ function literalObjectFrom<T extends object>(obj: T): ValueNode {
 // ------------------------------------------------------------
 
 export const initialHeaderProps: ValueNode = {
-  mode: 'object',
+  mode: "object",
   fields: {
-    brand: { mode: 'bound', sourceId: 'typedData:brand:main' },
-    primaryNav: { mode: 'bound', sourceId: 'typedData:nav:primary' },
-    themeOptions: { mode: 'bound', sourceId: 'typedData:theme:options' },
-    themeGroupLabel: { mode: 'bound', sourceId: 'i18n:theme.groupLabel' },
-    themeLabel: { mode: 'bound', sourceId: 'i18n:theme.groupLabel' },
-    openMenuLabel: { mode: 'bound', sourceId: 'i18n:menu.open' },
-    closeMenuLabel: { mode: 'bound', sourceId: 'i18n:menu.close' },
+    brand: { mode: "bound", sourceId: "typedData:brand:main" },
+    primaryNav: { mode: "bound", sourceId: "typedData:nav:primary" },
+    themeOptions: { mode: "bound", sourceId: "typedData:theme:options" },
+    themeGroupLabel: { mode: "bound", sourceId: "i18n:theme.groupLabel" },
+    themeLabel: { mode: "bound", sourceId: "i18n:theme.groupLabel" },
+    openMenuLabel: { mode: "bound", sourceId: "i18n:menu.open" },
+    closeMenuLabel: { mode: "bound", sourceId: "i18n:menu.close" },
   },
 };
 
 export const initialFooterProps: ValueNode = {
-  mode: 'object',
+  mode: "object",
   fields: {
     // 同一筆 typedData:brand:main，跟 header 共用 —— 這是整格引用的核心價值
-    brand: { mode: 'bound', sourceId: 'typedData:brand:main' },
-    tagline: { mode: 'bound', sourceId: 'i18n:footer.tagline' },
-    email: { mode: 'literal', value: 'hello@example.com' },
-    emailAriaLabel: { mode: 'literal', value: 'Email us at hello@example.com' },
-    columns: { mode: 'bound', sourceId: 'typedData:nav:footerColumns' },
-    copyright: { mode: 'bound', sourceId: 'i18n:footer.copyright' },
-    meta: { mode: 'literal', value: 'Made in Australia' },
+    brand: { mode: "bound", sourceId: "typedData:brand:main" },
+    tagline: { mode: "bound", sourceId: "i18n:footer.tagline" },
+    email: { mode: "literal", value: "hello@example.com" },
+    emailAriaLabel: { mode: "literal", value: "Email us at hello@example.com" },
+    columns: { mode: "bound", sourceId: "typedData:nav:footerColumns" },
+    copyright: { mode: "bound", sourceId: "i18n:footer.copyright" },
+    meta: { mode: "literal", value: "Made in Australia" },
   },
 };
 

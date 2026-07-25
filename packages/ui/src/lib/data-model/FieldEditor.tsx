@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus, X } from 'lucide-react';
 import type {
   DataStore,
   FieldType,
@@ -288,8 +289,8 @@ function ArrayItems({
             position: 'relative',
           }}
         >
-          <button onClick={() => removeItem(idx)} style={removeBtnStyle}>
-            ✕
+          <button onClick={() => removeItem(idx)} style={removeBtnStyle} title="刪除">
+            <X size={12} />
           </button>
           <div style={{ fontSize: 11, color: '#666' }}>#{idx}</div>
           <FieldEditor
@@ -306,8 +307,9 @@ function ArrayItems({
           />
         </div>
       ))}
-      <button onClick={addItem} style={addBtnStyle}>
-        + 新增項目
+      <button onClick={addItem} style={addBtnStyle} title="新增項目">
+        <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+        新增項目
       </button>
     </div>
   );
