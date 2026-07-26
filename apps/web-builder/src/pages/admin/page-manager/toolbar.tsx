@@ -83,13 +83,22 @@ export function BuilderToolbar({
         flexShrink: 0,
       }}
     >
-      <button
-        style={toolbarToggleStyle(componentsOpen)}
-        onClick={onToggleComponents}
-        title={componentsOpen ? "收合現有組件面板" : "展開現有組件面板"}
-      >
-        <PanelLeft size={15} />
-      </button>
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <button
+          style={toolbarToggleStyle(componentsOpen)}
+          onClick={onToggleComponents}
+          title={componentsOpen ? "收合現有組件面板" : "展開現有組件面板"}
+        >
+          <PanelLeft size={15} />
+        </button>
+        <button
+          style={toolbarToggleStyle(treeOpen)}
+          onClick={onToggleTree}
+          title={treeOpen ? "關閉組件樹狀結構" : "顯示組件樹狀結構"}
+        >
+          <ListTree size={15} />
+        </button>
+      </div>
 
       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
         <button
@@ -126,16 +135,6 @@ export function BuilderToolbar({
       </div>
 
       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <button
-          style={toolbarToggleStyle(treeOpen)}
-          onClick={onToggleTree}
-          title={treeOpen ? "關閉組件樹狀結構" : "顯示組件樹狀結構"}
-        >
-          <ListTree size={15} />
-        </button>
-
-        <span style={{ width: 1, alignSelf: "stretch", background: "#2a2a2a", margin: "0 2px" }} />
-
         {/* 頁面屬性 / 組件屬性 切換：獨立按鈕，取代原本「點畫布組件才會切換」的隱性行為，
             讓使用者可以明確知道右側面板現在顯示的是哪一種屬性，也能主動切回頁面屬性。 */}
         <button

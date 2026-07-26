@@ -6,6 +6,10 @@ import {
   usePagesState,
   makePageId,
   makeBlockId,
+  findBlockDeep,
+  removeBlockDeep,
+  insertIntoSlotDeep,
+  insertAtRoot,
   type PageItem,
   type PageBlock,
 } from "../../lib/pages-store";
@@ -17,30 +21,24 @@ import { ComponentPropertiesPanel } from "./page-manager/component-properties-pa
 import { ComponentTreeModal } from "./page-manager/component-tree-modal";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
 
-// 頁面管理：頁面本身的新增 / 刪除 / 編輯，以及每頁的 SEO 設定與內容組件組合。
-//
-// 編輯採「草稿 + 明確儲存」模式（與資料管理一致）：
-// 使用者輸入時只改本地草稿，按下「儲存」才寫回 store。
-// 儲存按鈕只在有未儲存變更時出現。
+// 頁面管理：頁面的新增 / 刪除 / 編輯，以及每頁的 SEO 設定與內容組件組合。
+// 編輯採草稿 + 明確儲存模式，儲存按鈕只在有未儲存變更時出現。
 //
 // 版面：
-//  - 頂部工具列（跨中間欄）：左右面板開關 + viewport 切換（desktop/tablet/mobile）
-//  - 左：現有組件面板 —— 收合時完全隱藏（不佔寬度），
-//        只留 VSCode 風格的邊界拉柄可再次展開，或用工具列按鈕；
-//        依 filePath 目錄攤平分組，點卡片可預覽組件
-//  - 中：視圖／畫布 —— 依 viewport 切換寬度並置中，之後會改成拖拉放置區
-//  - 右：頁面屬性（頁面名稱 / 狀態 / SEO）—— 收合方式同左側
-//  - 「頁面清單」在工具列的 popover 裡，點了才浮出
+//  - 頂部工具列：左右面板開關 + viewport 切換（desktop/tablet/mobile）
+//  - 左：現有組件面板，可收合；依 filePath 目錄分組，點卡片預覽組件
+//  - 中：視圖／畫布，依 viewport 切換寬度並置中
+//  - 右：頁面屬性（名稱 / 狀態 / SEO），可收合
+//  - 「頁面清單」在工具列 popover 裡
 //
-// 這支檔案本身只負責 state / orchestration；實際 UI 拆到
-// ./page-manager/ 底下的子模組，避免單一檔案過長難以維護：
+// 本檔案負責 state / orchestration，UI 拆到 ./page-manager/ 子模組：
 //   toolbar.tsx              工具列 / 收合拉柄 / 頁面切換 popover
-//   components-panel.tsx     左側「現有組件」+ 分組 + 預覽 modal，寬度可拖動調整
-//   component-tree-modal.tsx 左側「組件樹狀結構」停靠面板（跟現有組件面板同側，
-//                             版面風格一致），可拖拉排序頁面內組件順序
-//   canvas-panel.tsx          中間「視圖」畫布 + block 卡片
+//   components-panel.tsx     左側「現有組件」面板
+//   component-tree-modal.tsx 左側「組件樹狀結構」停靠面板，依巢狀關係遞迴顯示
+//                             並支援拖拉搬移組件到 ReactNode（插槽）prop
+//   canvas-panel.tsx          中間畫布 + block 卡片
 //   properties-panel.tsx     右側「頁面屬性」+ SEO 欄位
-//   component-grouping.ts    組件分組 / 讀取 default.ts 預覽資料的純函式
+//   component-grouping.ts    組件分組 / 預覽資料的純函式
 //   shared.ts                跨模組共用的型別與樣式常數
 
 export default function PageManagerPage() {
@@ -59,32 +57,29 @@ export default function PageManagerPage() {
   const [pagePickerOpen, setPagePickerOpen] = useState(false);
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
 
-  // 中間視圖全螢幕：只影響 CSS 呈現（fixed 覆蓋整個畫面），不影響底下的
-  // componentsOpen / propertiesOpen 狀態本身，離開全螢幕後面板開合維持原樣。
+  // 中間視圖全螢幕，不影響 componentsOpen / propertiesOpen 狀態本身。
   const [fullscreen, setFullscreen] = useState(false);
-  // 組件樹狀結構面板（停靠在畫面最左側，跟「現有組件」面板同一側、同樣的版面風格，
-  // 不是蓋版 modal，可以跟其他面板同時開著）
+  // 組件樹狀結構面板，停靠在最左側，可與其他面板同時開啟。
   const [treeOpen, setTreeOpen] = useState(false);
   // 畫布中目前被選取的組件實例
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  // 右側面板目前顯示「頁面屬性」還是「組件屬性」——獨立於「有沒有選取組件」，
-  // 靠工具列的明確按鈕切換，使用者可以在選了組件之後仍主動切回頁面屬性查看，
-  // 不會被「選組件＝自動跳組件屬性」這種隱性行為卡住。
+  // 右側面板顯示「頁面屬性」或「組件屬性」，獨立於是否有選取組件，由工具列按鈕切換。
   const [rightPanelView, setRightPanelView] = useState<"page" | "component">("page");
 
   const selected = pages.find((p) => p.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
   const dirty = selected ? drafts[selected.id] != null : false;
-  const selectedBlock = draft?.blocks.find((b) => b.instanceId === selectedBlockId) ?? null;
+  // 選取的組件實例可能巢狀在某個 slot 裡，用 findBlockDeep 遞迴尋找。
+  const selectedBlock = draft && selectedBlockId ? findBlockDeep(draft.blocks, selectedBlockId) : null;
   const showingComponentProps = rightPanelView === "component" && selectedBlock != null;
 
-  // 切換頁面後，舊頁面選取的組件實例不會存在於新頁面裡，清掉避免面板顯示錯亂的資料。
+  // 切換頁面後清掉舊頁面選取的組件實例。
   useEffect(() => {
     setSelectedBlockId(null);
     setRightPanelView("page");
   }, [selectedId]);
 
-  // 全螢幕模式下按 Esc 直接退出，跟其他 modal 的操作習慣一致。
+  // 全螢幕模式下按 Esc 退出。
   useEffect(() => {
     if (!fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -164,13 +159,15 @@ export default function PageManagerPage() {
   const removeBlock = (instanceId: string) => {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
-    updateDraft({ blocks: base.blocks.filter((b) => b.instanceId !== instanceId) });
+    const [nextBlocks] = removeBlockDeep(base.blocks, instanceId);
+    updateDraft({ blocks: nextBlocks });
     if (selectedBlockId === instanceId) {
       setSelectedBlockId(null);
       setRightPanelView("page");
     }
   };
 
+  // 頂層排序用（目前保留給畫布卡片的上移/下移按鈕，只在頂層 blocks 之間交換）。
   const moveBlock = (instanceId: string, dir: -1 | 1) => {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
@@ -183,29 +180,56 @@ export default function PageManagerPage() {
     updateDraft({ blocks: next });
   };
 
-  // 拖拉排序用：把某個 block 從原本位置抽出，插入到 toIndex（依拖放後的目標位置），
-  // 供 ComponentTreeModal 的上下拖拉重新排序使用（跟 moveBlock 的「交換上下一個」不同，
-  // 這裡是任意位置插入）。
-  const reorderBlock = (instanceId: string, toIndex: number) => {
+  // 組件樹狀結構的拖拉放置：先把 block（含其巢狀子組件）從原位置移除，
+  // 再插入目標位置——頂層（targetParentId 為 null）或某個 block 的 slot prop。
+  const moveBlockToSlot = (
+    instanceId: string,
+    targetParentId: string | null,
+    targetSlotKey: string | null,
+    toIndex: number
+  ) => {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
-    const fromIndex = base.blocks.findIndex((b) => b.instanceId === instanceId);
-    if (fromIndex < 0) return;
-    const next = [...base.blocks];
-    const [moved] = next.splice(fromIndex, 1);
-    const clampedTo = Math.max(0, Math.min(toIndex, next.length));
-    next.splice(clampedTo, 0, moved);
-    updateDraft({ blocks: next });
+    const [withoutMoved, moved] = removeBlockDeep(base.blocks, instanceId);
+    if (!moved) return;
+    // 防呆：不能把組件拖進自己或自己的子孫底下。
+    if (targetParentId && findBlockDeep([moved], targetParentId)) return;
+    const nextBlocks =
+      targetParentId && targetSlotKey
+        ? insertIntoSlotDeep(withoutMoved, targetParentId, targetSlotKey, toIndex, moved)
+        : insertAtRoot(withoutMoved, toIndex, moved);
+    updateDraft({ blocks: nextBlocks });
   };
 
   const updateBlockProp = (instanceId: string, key: string, value: unknown) => {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
-    updateDraft({
-      blocks: base.blocks.map((b) =>
-        b.instanceId === instanceId ? { ...b, props: { ...b.props, [key]: value } } : b
-      ),
-    });
+    const setProp = (blocks: PageBlock[]): PageBlock[] =>
+      blocks.map((b) => {
+        if (b.instanceId === instanceId) {
+          return { ...b, props: { ...b.props, [key]: value } };
+        }
+        let changedProps: Record<string, unknown> | null = null;
+        for (const [propKey, propValue] of Object.entries(b.props)) {
+          if (
+            typeof propValue === "object" &&
+            propValue !== null &&
+            (propValue as { __slot?: unknown }).__slot === true &&
+            Array.isArray((propValue as { blocks?: unknown }).blocks)
+          ) {
+            const children = (propValue as { blocks: PageBlock[] }).blocks;
+            const nextChildren = setProp(children);
+            if (nextChildren !== children) {
+              changedProps = {
+                ...(changedProps ?? b.props),
+                [propKey]: { __slot: true, blocks: nextChildren },
+              };
+            }
+          }
+        }
+        return changedProps ? { ...b, props: changedProps } : b;
+      });
+    updateDraft({ blocks: setProp(base.blocks) });
   };
 
   const saveSelected = () => {
@@ -312,7 +336,7 @@ export default function PageManagerPage() {
                 setRightPanelView("component");
                 setPropertiesOpen(true);
               }}
-              onReorderBlock={reorderBlock}
+              onMoveBlock={moveBlockToSlot}
             />
           )}
 
