@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import {
   AdminLayout,
   useSavedFlash,
@@ -24,12 +24,9 @@ import {
 
 // 頁面管理：頁面本身的新增 / 刪除 / 編輯，以及每頁的 SEO 設定。
 //
-// 變更重點：
-//  - 每頁的 SEO 綁定到單一型別資料記錄（SeoData），不再各自重複定義欄位。
-//  - 頁面路徑（path）移除，改由路由管理（data-manager 的 route 來源）選擇。
-//  - noindex 同樣由路由管理設定，不在頁面這裡處理。
-//  - 頁面清單的 key / 預設值集中在 lib/pages-store.ts，跟「資料管理」共用，
-//    避免兩邊 fallback 初始值不一致導致「明明有頁面卻選不到」的問題。
+// 編輯採「草稿 + 明確儲存」模式（與資料管理一致）：
+// 使用者輸入時只改本地草稿，按下「儲存」才寫回 store。
+// 儲存按鈕只在有未儲存變更時出現。
 
 const SEO_KEY_PREFIX = "wb.typedData.seo:page:";
 
@@ -38,9 +35,13 @@ export default function PageManagerPage() {
   const [selectedId, setSelectedId] = useState<string | null>(
     pages[0]?.id ?? null
   );
+  // 草稿：以 page id 為 key，存放該頁尚未儲存的暫存內容。
+  const [drafts, setDrafts] = useState<Record<string, PageItem>>({});
   const [saved, flashSaved] = useSavedFlash();
 
   const selected = pages.find((p) => p.id === selectedId) ?? null;
+  const draft = selected ? (drafts[selected.id] ?? selected) : null;
+  const dirty = selected ? drafts[selected.id] != null : false;
 
   const addPage = () => {
     const id = makePageId();
@@ -58,17 +59,43 @@ export default function PageManagerPage() {
     const next = pages.filter((p) => p.id !== id);
     setPages(next);
     if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+    setDrafts((prev) => {
+      if (!prev[id]) return prev;
+      const { [id]: _drop, ...rest } = prev;
+      return rest;
+    });
   };
 
-  const updateSelected = (patch: Partial<PageItem>) => {
+  const updateDraft = (patch: Partial<PageItem>) => {
     if (!selected) return;
-    setPages(pages.map((p) => (p.id === selected.id ? { ...p, ...patch } : p)));
+    const base = drafts[selected.id] ?? selected;
+    setDrafts({ ...drafts, [selected.id]: { ...base, ...patch } });
+  };
+
+  const updateSeoDraft = (patch: Partial<SeoData>) => {
+    if (!selected) return;
+    const base = drafts[selected.id] ?? selected;
+    updateDraft({ seo: { ...base.seo, ...patch } });
+  };
+
+  const saveSelected = () => {
+    if (!selected || !dirty) return;
+    const next = drafts[selected.id];
+    setPages(pages.map((p) => (p.id === selected.id ? next : p)));
+    setDrafts((prev) => {
+      const { [selected.id]: _drop, ...rest } = prev;
+      return rest;
+    });
     flashSaved();
   };
 
-  const updateSeo = (patch: Partial<SeoData>) => {
+  const discardDraft = () => {
     if (!selected) return;
-    updateSelected({ seo: { ...selected.seo, ...patch } });
+    setDrafts((prev) => {
+      if (!prev[selected.id]) return prev;
+      const { [selected.id]: _drop, ...rest } = prev;
+      return rest;
+    });
   };
 
   return (
@@ -95,6 +122,7 @@ export default function PageManagerPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {pages.map((p) => {
               const active = p.id === selectedId;
+              const hasDraft = drafts[p.id] != null;
               return (
                 <div
                   key={p.id}
@@ -112,7 +140,14 @@ export default function PageManagerPage() {
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>
+                      {p.name}
+                      {hasDraft && (
+                        <span style={{ color: "#e8b64c", marginLeft: 6, fontSize: 11 }}>
+                          •
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 11, color: "#888" }}>{p.id}</div>
                   </div>
                   <span style={statusBadge(p.status)}>
@@ -126,7 +161,7 @@ export default function PageManagerPage() {
 
         {/* 右：編輯區 */}
         <section style={{ ...panelStyle, flex: 2, minWidth: 340, marginBottom: 0 }}>
-          {!selected ? (
+          {!draft ? (
             <p style={{ color: "#777", fontSize: 13 }}>選擇左側頁面以編輯，或新增一個頁面。</p>
           ) : (
             <>
@@ -143,19 +178,35 @@ export default function PageManagerPage() {
                   <span style={typeBadgeStyle} title={SeoDataTypeId}>
                     SeoData
                   </span>
+                  {dirty && (
+                    <span style={{ fontSize: 11, color: "#e8b64c" }}>未儲存變更</span>
+                  )}
                 </div>
-                <button style={dangerBtnStyle} onClick={() => deletePage(selected.id)} title="刪除此頁">
-                  <Trash2 size={14} />
-                  刪除此頁
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {dirty && (
+                    <>
+                      <button style={ghostBtnStyle} onClick={discardDraft} title="放棄變更">
+                        還原
+                      </button>
+                      <button style={primaryBtnStyle} onClick={saveSelected} title="儲存此頁">
+                        <Save size={14} />
+                        儲存
+                      </button>
+                    </>
+                  )}
+                  <button style={dangerBtnStyle} onClick={() => deletePage(draft.id)} title="刪除此頁">
+                    <Trash2 size={14} />
+                    刪除此頁
+                  </button>
+                </div>
               </div>
 
               <div style={fieldRowStyle}>
                 <label style={labelStyle}>頁面名稱</label>
                 <input
                   style={inputStyle}
-                  value={selected.name}
-                  onChange={(e) => updateSelected({ name: e.target.value })}
+                  value={draft.name}
+                  onChange={(e) => updateDraft({ name: e.target.value })}
                 />
               </div>
 
@@ -165,8 +216,8 @@ export default function PageManagerPage() {
                   {(["draft", "published"] as const).map((s) => (
                     <button
                       key={s}
-                      style={selected.status === s ? primaryBtnStyle : ghostBtnStyle}
-                      onClick={() => updateSelected({ status: s })}
+                      style={draft.status === s ? primaryBtnStyle : ghostBtnStyle}
+                      onClick={() => updateDraft({ status: s })}
                     >
                       {s === "published" ? "已發布" : "草稿"}
                     </button>
@@ -176,7 +227,7 @@ export default function PageManagerPage() {
 
               <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
                 頁面路徑與 noindex 由「資料管理 → 路由」設定。此頁綁定型別資料：
-                <code> {SEO_KEY_PREFIX}{selected.id} </code>
+                <code> {SEO_KEY_PREFIX}{draft.id} </code>
               </p>
 
               <div
@@ -189,7 +240,7 @@ export default function PageManagerPage() {
                 <h3 style={{ fontSize: 13, color: "#ccc", margin: "0 0 12px" }}>
                   SEO 設定（綁定 SeoData）
                 </h3>
-                <SeoFields seo={selected.seo} onChange={updateSeo} />
+                <SeoFields seo={draft.seo} onChange={updateSeoDraft} />
               </div>
             </>
           )}

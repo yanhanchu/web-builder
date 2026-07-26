@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import {
   AdminLayout,
   usePersistentState,
@@ -15,8 +15,11 @@ import {
   savedFlashStyle,
 } from "./admin-ui";
 
-// 樣式管理：先只提供一個「貼上樣式表並儲存」的地方。
-// 支援多份樣式表（各有名稱與內容），儲存到 localStorage。
+// 樣式管理：貼上樣式表並儲存，支援多份樣式表（各有名稱與內容）。
+//
+// 編輯採「草稿 + 明確儲存」模式（與資料管理、頁面管理一致）：
+// 使用者輸入時只改本地草稿，按下「儲存」才寫回 store。
+// 儲存按鈕只在有未儲存變更時出現。
 interface StyleSheet {
   id: string;
   name: string;
@@ -43,9 +46,13 @@ export default function StyleManagerPage() {
   const [selectedId, setSelectedId] = useState<string | null>(
     INITIAL_SHEETS[0]?.id ?? null
   );
+  // 草稿：以 sheet id 為 key，存放該樣式表尚未儲存的暫存內容。
+  const [drafts, setDrafts] = useState<Record<string, StyleSheet>>({});
   const [saved, flashSaved] = useSavedFlash();
 
   const selected = sheets.find((s) => s.id === selectedId) ?? null;
+  const draft = selected ? (drafts[selected.id] ?? selected) : null;
+  const dirty = selected ? drafts[selected.id] != null : false;
 
   const addSheet = () => {
     const id = makeId();
@@ -57,18 +64,43 @@ export default function StyleManagerPage() {
     const next = sheets.filter((s) => s.id !== id);
     setSheets(next);
     if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+    setDrafts((prev) => {
+      if (!prev[id]) return prev;
+      const { [id]: _drop, ...rest } = prev;
+      return rest;
+    });
   };
 
-  const updateSelected = (patch: Partial<StyleSheet>) => {
+  const updateDraft = (patch: Partial<StyleSheet>) => {
     if (!selected) return;
-    setSheets(sheets.map((s) => (s.id === selected.id ? { ...s, ...patch } : s)));
+    const base = drafts[selected.id] ?? selected;
+    setDrafts({ ...drafts, [selected.id]: { ...base, ...patch } });
+  };
+
+  const saveSelected = () => {
+    if (!selected || !dirty) return;
+    const next = drafts[selected.id];
+    setSheets(sheets.map((s) => (s.id === selected.id ? next : s)));
+    setDrafts((prev) => {
+      const { [selected.id]: _drop, ...rest } = prev;
+      return rest;
+    });
     flashSaved();
+  };
+
+  const discardDraft = () => {
+    if (!selected) return;
+    setDrafts((prev) => {
+      if (!prev[selected.id]) return prev;
+      const { [selected.id]: _drop, ...rest } = prev;
+      return rest;
+    });
   };
 
   return (
     <AdminLayout
       title="樣式管理"
-      description="貼上並儲存自訂 CSS 樣式表。可建立多份，內容會自動儲存。之後可套用到網站頁面。"
+      description="貼上並儲存自訂 CSS 樣式表。可建立多份。之後可套用到網站頁面。"
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
@@ -89,6 +121,7 @@ export default function StyleManagerPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {sheets.map((s) => {
               const active = s.id === selectedId;
+              const hasDraft = drafts[s.id] != null;
               return (
                 <div
                   key={s.id}
@@ -106,7 +139,14 @@ export default function StyleManagerPage() {
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>
+                      {s.name}
+                      {hasDraft && (
+                        <span style={{ color: "#e8b64c", marginLeft: 6, fontSize: 11 }}>
+                          •
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 11, color: "#888" }}>
                       {s.css.length} 字元
                     </div>
@@ -119,7 +159,7 @@ export default function StyleManagerPage() {
 
         {/* 右：編輯區 */}
         <section style={{ ...panelStyle, flex: 3, minWidth: 340, marginBottom: 0 }}>
-          {!selected ? (
+          {!draft ? (
             <p style={{ color: "#777", fontSize: 13 }}>選擇左側樣式表以編輯，或新增一個。</p>
           ) : (
             <>
@@ -131,18 +171,36 @@ export default function StyleManagerPage() {
                   marginBottom: 12,
                 }}
               >
-                <h2 style={{ ...panelTitleStyle, margin: 0 }}>編輯樣式表</h2>
-                <button style={dangerBtnStyle} onClick={() => deleteSheet(selected.id)} title="刪除">
-                  <Trash2 size={14} />
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h2 style={{ ...panelTitleStyle, margin: 0 }}>編輯樣式表</h2>
+                  {dirty && (
+                    <span style={{ fontSize: 11, color: "#e8b64c" }}>未儲存變更</span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {dirty && (
+                    <>
+                      <button style={ghostBtnStyle} onClick={discardDraft} title="放棄變更">
+                        還原
+                      </button>
+                      <button style={primaryBtnStyle} onClick={saveSelected} title="儲存此樣式表">
+                        <Save size={14} />
+                        儲存
+                      </button>
+                    </>
+                  )}
+                  <button style={dangerBtnStyle} onClick={() => deleteSheet(draft.id)} title="刪除此樣式表">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
 
               <div style={fieldRowStyle}>
                 <label style={labelStyle}>名稱</label>
                 <input
                   style={inputStyle}
-                  value={selected.name}
-                  onChange={(e) => updateSelected({ name: e.target.value })}
+                  value={draft.name}
+                  onChange={(e) => updateDraft({ name: e.target.value })}
                 />
               </div>
 
@@ -160,8 +218,8 @@ export default function StyleManagerPage() {
                     whiteSpace: "pre",
                     overflowWrap: "normal",
                   }}
-                  value={selected.css}
-                  onChange={(e) => updateSelected({ css: e.target.value })}
+                  value={draft.css}
+                  onChange={(e) => updateDraft({ css: e.target.value })}
                   placeholder="在此貼上 CSS…"
                 />
               </div>
@@ -170,14 +228,14 @@ export default function StyleManagerPage() {
                 <button
                   style={ghostBtnStyle}
                   onClick={() => navigator.clipboard?.readText().then(
-                    (t) => updateSelected({ css: t }),
+                    (t) => updateDraft({ css: t }),
                     () => {}
                   )}
                 >
                   從剪貼簿貼上
                 </button>
                 <span style={{ fontSize: 12, color: "#777" }}>
-                  編輯即自動儲存到瀏覽器。
+                  {dirty ? "有未儲存變更，按「儲存」寫入。" : "已儲存。"}
                 </span>
               </div>
             </>

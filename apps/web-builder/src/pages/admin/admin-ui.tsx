@@ -163,12 +163,18 @@ const mainStyle: React.CSSProperties = {
 };
 
 const headerStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
+  background: "#121212",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: 16,
+  padding: "12px 0",
   marginBottom: 20,
   flexWrap: "wrap",
+  borderBottom: "1px solid #2a2a2a",
 };
 
 export const panelStyle: React.CSSProperties = {

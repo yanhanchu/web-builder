@@ -61,30 +61,47 @@ export default function AppSettingsPage() {
     readUploadDestsArray(UPLOAD_DESTS_KEY, DEFAULT_UPLOAD_DESTS),
   );
   const [saved, flashSaved] = useSavedFlash();
+  const [dirty, setDirty] = useState(false);
 
   const setSite = <K extends keyof SiteInfoData>(
     key: K,
     value: SiteInfoData[K],
-  ) => setSiteInfo((prev) => ({ ...prev, [key]: value }));
+  ) => {
+    setSiteInfo((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+  };
 
-  const setSeoField = <K extends keyof SeoData>(key: K, value: SeoData[K]) =>
+  const setSeoField = <K extends keyof SeoData>(key: K, value: SeoData[K]) => {
     setSeo((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+  };
 
-  const addLocalDest = () => setUploadDests((prev) => [...prev, makeLocalDest()]);
-  const addS3Dest = () => setUploadDests((prev) => [...prev, makeS3Dest()]);
+  const addLocalDest = () => {
+    setUploadDests((prev) => [...prev, makeLocalDest()]);
+    setDirty(true);
+  };
+  const addS3Dest = () => {
+    setUploadDests((prev) => [...prev, makeS3Dest()]);
+    setDirty(true);
+  };
 
-  const updateDest = (id: string, patch: Partial<UploadDest>) =>
+  const updateDest = (id: string, patch: Partial<UploadDest>) => {
     setUploadDests((prev) =>
       prev.map((d) => (d.id === id ? ({ ...d, ...patch } as UploadDest) : d)),
     );
+    setDirty(true);
+  };
 
-  const removeDest = (id: string) =>
+  const removeDest = (id: string) => {
     setUploadDests((prev) => prev.filter((d) => d.id !== id));
+    setDirty(true);
+  };
 
   const save = () => {
     writePersistent(SITE_INFO_KEY, siteInfo);
     writePersistent(SEO_KEY, seo);
     writePersistent(UPLOAD_DESTS_KEY, uploadDests);
+    setDirty(false);
     flashSaved();
   };
 
@@ -92,6 +109,7 @@ export default function AppSettingsPage() {
     setSiteInfo(defaultSiteInfo);
     setSeo(defaultSeo);
     setUploadDests(DEFAULT_UPLOAD_DESTS);
+    setDirty(true);
   };
 
   return (
@@ -101,9 +119,15 @@ export default function AppSettingsPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          <button style={primaryBtnStyle} onClick={save} title="儲存設定">
-            <Save size={14} />
-            儲存設定
+          {dirty && (
+            <button style={primaryBtnStyle} onClick={save} title="儲存設定">
+              <Save size={14} />
+              儲存設定
+            </button>
+          )}
+          <button style={ghostBtnStyle} onClick={reset} title="還原預設值">
+            <RotateCcw size={14} />
+            還原預設值
           </button>
         </>
       }
@@ -289,16 +313,6 @@ export default function AppSettingsPage() {
           onRemove={removeDest}
         />
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={primaryBtnStyle} onClick={save} title="儲存設定">
-            <Save size={14} />
-            儲存設定
-          </button>
-          <button style={ghostBtnStyle} onClick={reset} title="還原預設值">
-            <RotateCcw size={14} />
-            還原預設值
-          </button>
-        </div>
       </div>
     </AdminLayout>
   );
