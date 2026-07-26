@@ -23,4 +23,7 @@ export const componentMap: Record<string, ComponentLoader> = {
   'components/landing1/section-list': () => import('@workspace/ui/components/landing1/section-list.tsx'),
   'components/landing1/theme-toggle': () => import('@workspace/ui/components/landing1/theme-toggle.tsx'),
   'components/landing1/value-props': () => import('@workspace/ui/components/landing1/value-props.tsx'),
+  'components/demo/default': () => import('@workspace/ui/components/demo/default.ts'),
+  'components/landing1/default': () => import('@workspace/ui/components/landing1/default.ts'),
+  'components/site/default': () => import('@workspace/ui/components/site/default.ts'),
 };

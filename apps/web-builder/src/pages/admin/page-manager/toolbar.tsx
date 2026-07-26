@@ -11,6 +11,9 @@ import {
   Tablet,
   Smartphone,
   FileText,
+  Maximize2,
+  Minimize2,
+  ListTree,
 } from "lucide-react";
 import {
   panelTitleStyle,
@@ -40,6 +43,9 @@ export function BuilderToolbar({
   onToggleProperties,
   viewport,
   onChangeViewport,
+  fullscreen,
+  onToggleFullscreen,
+  onOpenTree,
 }: {
   componentsOpen: boolean;
   onToggleComponents: () => void;
@@ -47,6 +53,9 @@ export function BuilderToolbar({
   onToggleProperties: () => void;
   viewport: ViewportMode;
   onChangeViewport: (v: ViewportMode) => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
+  onOpenTree: () => void;
 }) {
   return (
     <div
@@ -91,15 +100,30 @@ export function BuilderToolbar({
         >
           <Smartphone size={14} />
         </button>
+
+        <span style={{ width: 1, alignSelf: "stretch", background: "#2a2a2a", margin: "0 2px" }} />
+
+        <button
+          style={toolbarToggleStyle(fullscreen)}
+          onClick={onToggleFullscreen}
+          title={fullscreen ? "結束全螢幕" : "全螢幕檢視"}
+        >
+          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
       </div>
 
-      <button
-        style={toolbarToggleStyle(propertiesOpen)}
-        onClick={onToggleProperties}
-        title={propertiesOpen ? "收合頁面屬性面板" : "展開頁面屬性面板"}
-      >
-        <PanelRight size={15} />
-      </button>
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <button style={toolbarToggleStyle(false)} onClick={onOpenTree} title="顯示組件樹狀結構">
+          <ListTree size={15} />
+        </button>
+        <button
+          style={toolbarToggleStyle(propertiesOpen)}
+          onClick={onToggleProperties}
+          title={propertiesOpen ? "收合頁面屬性面板" : "展開頁面屬性面板"}
+        >
+          <PanelRight size={15} />
+        </button>
+      </div>
     </div>
   );
 }

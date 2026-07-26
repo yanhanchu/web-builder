@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminLayout, useSavedFlash, panelStyle, savedFlashStyle } from "./admin-ui";
 import { defaultSeo, type SeoData } from "@workspace/ui/lib/data-model";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
@@ -13,6 +13,8 @@ import { BuilderToolbar, ResizeHandle, PageSwitcher } from "./page-manager/toolb
 import { ComponentsPanel } from "./page-manager/components-panel";
 import { CanvasPanel } from "./page-manager/canvas-panel";
 import { PropertiesPanel } from "./page-manager/properties-panel";
+import { ComponentPropertiesPanel } from "./page-manager/component-properties-panel";
+import { ComponentTreeModal } from "./page-manager/component-tree-modal";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
 
 // 頁面管理：頁面本身的新增 / 刪除 / 編輯，以及每頁的 SEO 設定與內容組件組合。
@@ -55,9 +57,33 @@ export default function PageManagerPage() {
   const [pagePickerOpen, setPagePickerOpen] = useState(false);
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
 
+  // 中間視圖全螢幕：只影響 CSS 呈現（fixed 覆蓋整個畫面），不影響底下的
+  // componentsOpen / propertiesOpen 狀態本身，離開全螢幕後面板開合維持原樣。
+  const [fullscreen, setFullscreen] = useState(false);
+  // 組件樹狀結構彈窗
+  const [treeOpen, setTreeOpen] = useState(false);
+  // 畫布中目前被選取的組件實例；選取時右側改顯示「組件屬性」面板。
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+
   const selected = pages.find((p) => p.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
   const dirty = selected ? drafts[selected.id] != null : false;
+  const selectedBlock = draft?.blocks.find((b) => b.instanceId === selectedBlockId) ?? null;
+
+  // 切換頁面後，舊頁面選取的組件實例不會存在於新頁面裡，清掉避免面板顯示錯亂的資料。
+  useEffect(() => {
+    setSelectedBlockId(null);
+  }, [selectedId]);
+
+  // 全螢幕模式下按 Esc 直接退出，跟其他 modal 的操作習慣一致。
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
 
   const filteredPages = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -130,6 +156,7 @@ export default function PageManagerPage() {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
     updateDraft({ blocks: base.blocks.filter((b) => b.instanceId !== instanceId) });
+    if (selectedBlockId === instanceId) setSelectedBlockId(null);
   };
 
   const moveBlock = (instanceId: string, dir: -1 | 1) => {
@@ -210,6 +237,17 @@ export default function PageManagerPage() {
           flexDirection: "column",
           minHeight: 600,
           overflow: "hidden",
+          // 全螢幕：整個工具列 + 視圖區塊蓋滿整個瀏覽器畫面，
+          // 左右面板暫時不渲染（見下方），只留中間視圖 + 工具列可離開全螢幕。
+          ...(fullscreen
+            ? ({
+                position: "fixed",
+                inset: 0,
+                zIndex: 150,
+                borderRadius: 0,
+                minHeight: "100vh",
+              } as React.CSSProperties)
+            : null),
         }}
       >
         <BuilderToolbar
@@ -219,17 +257,20 @@ export default function PageManagerPage() {
           onToggleProperties={() => setPropertiesOpen((v) => !v)}
           viewport={viewport}
           onChangeViewport={setViewport}
+          fullscreen={fullscreen}
+          onToggleFullscreen={() => setFullscreen((v) => !v)}
+          onOpenTree={() => setTreeOpen(true)}
         />
 
         <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-          {componentsOpen && (
+          {componentsOpen && !fullscreen && (
             <ComponentsPanel
               onClose={() => setComponentsOpen(false)}
               onAddBlock={addBlock}
               disabled={!draft}
             />
           )}
-          {!componentsOpen && (
+          {!componentsOpen && !fullscreen && (
             <ResizeHandle side="left" onExpand={() => setComponentsOpen(true)} />
           )}
 
@@ -248,6 +289,8 @@ export default function PageManagerPage() {
               draft={draft}
               dirty={dirty}
               viewport={viewport}
+              selectedBlockId={selectedBlockId}
+              onSelectBlock={setSelectedBlockId}
               onOpenPagePicker={() => setPagePickerOpen(true)}
               onRemoveBlock={removeBlock}
               onMoveBlock={moveBlock}
@@ -257,23 +300,44 @@ export default function PageManagerPage() {
             />
           </div>
 
-          {!propertiesOpen && (
+          {!propertiesOpen && !fullscreen && (
             <ResizeHandle side="right" onExpand={() => setPropertiesOpen(true)} />
           )}
-          {propertiesOpen && (
-            <PropertiesPanel
-              onClose={() => setPropertiesOpen(false)}
-              draft={draft}
-              dirty={dirty}
-              onUpdateDraft={updateDraft}
-              onUpdateSeoDraft={updateSeoDraft}
-              onSave={saveSelected}
-              onDiscard={discardDraft}
-              onDelete={selected ? () => deletePage(selected.id) : undefined}
-            />
+          {propertiesOpen && !fullscreen && (
+            selectedBlock ? (
+              <ComponentPropertiesPanel
+                block={selectedBlock}
+                onClose={() => setSelectedBlockId(null)}
+                onUpdateProp={(key, value) => updateBlockProp(selectedBlock.instanceId, key, value)}
+                onRemove={() => removeBlock(selectedBlock.instanceId)}
+              />
+            ) : (
+              <PropertiesPanel
+                onClose={() => setPropertiesOpen(false)}
+                draft={draft}
+                dirty={dirty}
+                onUpdateDraft={updateDraft}
+                onUpdateSeoDraft={updateSeoDraft}
+                onSave={saveSelected}
+                onDiscard={discardDraft}
+                onDelete={selected ? () => deletePage(selected.id) : undefined}
+              />
+            )
           )}
         </div>
       </div>
+
+      {treeOpen && draft && (
+        <ComponentTreeModal
+          draft={draft}
+          onClose={() => setTreeOpen(false)}
+          onSelectBlock={(instanceId) => {
+            setSelectedBlockId(instanceId);
+            setPropertiesOpen(true);
+            setTreeOpen(false);
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }

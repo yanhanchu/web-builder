@@ -51,10 +51,13 @@ export function LivePreview({ importPath, componentName, demoProps }: LivePrevie
 
   return (
     <div
-      className="flex min-h-[140px] items-center justify-center rounded-xl border border-border bg-[image:repeating-linear-gradient(45deg,var(--secondary),var(--secondary)_1px,var(--card)_1px,var(--card)_10px)] bg-card bg-blend-normal p-10"
+      // 固定用深色棋盤格背景（不依賴 --card / --secondary 等可能是淺色主題的
+      // CSS 變數），避免淺色主題下背景太白、蓋掉本身文字也是深色的組件，
+      // 讓預覽在任何主題設定下都維持可辨識的對比度。
+      className="flex min-h-[140px] items-center justify-center rounded-xl border border-[#333] bg-[image:repeating-linear-gradient(45deg,#242424,#242424_1px,#141414_1px,#141414_10px)] p-10"
     >
-      {state.status === 'loading' && <div className="font-mono text-[0.8125rem] text-muted-foreground/70">載入組件中…</div>}
-      {state.status === 'error' && <div className="text-center font-mono text-[0.8125rem] text-destructive">⚠ {state.message}</div>}
+      {state.status === 'loading' && <div className="font-mono text-[0.8125rem] text-[#888]">載入組件中…</div>}
+      {state.status === 'error' && <div className="text-center font-mono text-[0.8125rem] text-[#e77]">⚠ {state.message}</div>}
       {state.status === 'ready' && <state.Component {...demoProps} />}
     </div>
   );

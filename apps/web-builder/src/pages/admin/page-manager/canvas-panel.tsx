@@ -13,6 +13,8 @@ export function CanvasPanel({
   draft,
   dirty,
   viewport,
+  selectedBlockId,
+  onSelectBlock,
   onOpenPagePicker,
   onRemoveBlock,
   onMoveBlock,
@@ -24,6 +26,8 @@ export function CanvasPanel({
   draft: PageItem | null;
   dirty: boolean;
   viewport: ViewportMode;
+  selectedBlockId: string | null;
+  onSelectBlock: (instanceId: string) => void;
   onOpenPagePicker: () => void;
   onRemoveBlock: (instanceId: string) => void;
   onMoveBlock: (instanceId: string, dir: -1 | 1) => void;
@@ -151,6 +155,8 @@ export function CanvasPanel({
                   block={block}
                   index={idx}
                   total={draft.blocks.length}
+                  selected={block.instanceId === selectedBlockId}
+                  onSelect={() => onSelectBlock(block.instanceId)}
                   onRemove={() => onRemoveBlock(block.instanceId)}
                   onMoveUp={() => onMoveBlock(block.instanceId, -1)}
                   onMoveDown={() => onMoveBlock(block.instanceId, 1)}
@@ -170,6 +176,8 @@ function CanvasBlockCard({
   block,
   index,
   total,
+  selected,
+  onSelect,
   onRemove,
   onMoveUp,
   onMoveDown,
@@ -178,6 +186,8 @@ function CanvasBlockCard({
   block: PageBlock;
   index: number;
   total: number;
+  selected: boolean;
+  onSelect: () => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -189,10 +199,11 @@ function CanvasBlockCard({
   return (
     <div
       style={{
-        border: "1px solid #333",
+        border: selected ? "1px solid #2d9c74" : "1px solid #333",
         borderRadius: 6,
         background: "#1a1a1a",
         overflow: "hidden",
+        boxShadow: selected ? "0 0 0 1px #2d9c74" : undefined,
       }}
     >
       <div
@@ -203,7 +214,10 @@ function CanvasBlockCard({
           padding: "10px 12px",
           cursor: "pointer",
         }}
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          onSelect();
+          setExpanded((v) => !v);
+        }}
       >
         <GripVertical size={14} style={{ color: "#555", flexShrink: 0, cursor: "grab" }} />
         {expanded ? (

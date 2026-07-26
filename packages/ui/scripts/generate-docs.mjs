@@ -39,6 +39,13 @@ const ROOT = path.resolve(__dirname, '..');
 const TSCONFIG_PATH = path.join(ROOT, 'tsconfig.app.json');
 // src/components/**  → 文件系統要解析的範例組件本體（generator 的資料來源）
 const COMPONENTS_GLOBS = ['src/components/demo/*.tsx','src/components/landing1/*.tsx'];
+// 每個組件目錄底下的 default.ts（預覽用的預設 demo props，見
+// apps/web-builder .../component-grouping.ts 的 loadDefaultProps）。
+// 這些檔案不是組件本體，不會被 react-docgen-typescript 解析進 components.json，
+// 但預覽視窗一樣要動態 import 到它們，所以要單獨把它們也寫進 component-map.ts，
+// 否則 loadComponentModule("components/<group>/default") 會找不到對應的 map 項目，
+// 即使 default.ts 檔案實際上存在於磁碟上。
+const DEFAULT_PROPS_GLOB = 'src/components/*/default.ts';
 const OUTPUT_JSON = path.join(ROOT, 'data', 'components.json');
 const OUTPUT_TYPES_JSON = path.join(ROOT, 'data', 'component-types.json');
 const OUTPUT_MAP = path.join(ROOT, 'src', 'lib', 'generator', 'component-map.ts');
@@ -374,9 +381,20 @@ function main() {
   // Vite/webpack 沒辦法對執行期組出來的字串路徑做 code-splitting，
   // 所以這裡直接把每個 import() 字面量寫死進一個產生出來的檔案。
   const uniqueByImportPath = [...new Map(results.map((r) => [r.importPath, r])).values()];
-  const mapEntries = uniqueByImportPath
-    .map((r) => `  '${r.importPath}': () => import('@workspace/ui/${r.importPath}.tsx'),`)
-    .join('\n');
+  const componentMapEntries = uniqueByImportPath.map(
+    (r) => `  '${r.importPath}': () => import('@workspace/ui/${r.importPath}.tsx'),`
+  );
+
+  // default.ts 不是組件本體、不在 results 裡，但預覽用的 loadDefaultProps
+  // 一樣是透過 loadComponentModule 依 importPath 動態載入，所以要獨立 glob
+  // 出來、一併寫進同一份 map，用 .ts（而非 .tsx）當副檔名。
+  const defaultPropsFiles = globSync(DEFAULT_PROPS_GLOB, { cwd: ROOT }).sort();
+  const defaultPropsEntries = defaultPropsFiles.map((relFile) => {
+    const importPath = relFile.replace(/^src\//, '').replace(/\.ts$/, '');
+    return `  '${importPath}': () => import('@workspace/ui/${importPath}.ts'),`;
+  });
+
+  const mapEntries = [...componentMapEntries, ...defaultPropsEntries].join('\n');
 
   const mapFileContent = `// 此檔案由 scripts/generate-docs.mjs 自動產生，請勿手動編輯。
 // 執行 \`npm run docs:generate\` 以重新產生。
