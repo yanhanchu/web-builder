@@ -15,7 +15,7 @@ const brandData = {
   toHome: "/",
   ariaLabel: "OZSV home",
   mark: "OZSV",
-  logoSrc: "https://example.com/logo.svg",
+  logoSrc: "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
   wordmark: {
     lead: "OZ",
     accent: "SV",

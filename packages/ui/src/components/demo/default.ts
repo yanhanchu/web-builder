@@ -7,7 +7,7 @@ import { type HeaderProps as HeaderProps } from "./header";
 import { type InputProps as InputProps } from "./input";
 
 export const avatar: AvatarProps = {
-  src: "https://example.com",
+  src: "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
   name: "Alden Chu",
 }
 
@@ -22,7 +22,7 @@ export const brand: BrandProps = {
     toHome: "/",
     ariaLabel: "OZSV home",
     mark: "OZSV",
-    logoSrc: "https://example.com/logo.svg",
+    logoSrc: "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
     wordmark: {
       lead: "OZ",
       accent: "SV",
@@ -52,7 +52,7 @@ export const header: HeaderProps = {
     toHome: "/",
     ariaLabel: "OZSV home",
     mark: "OZSV",
-    logoSrc: "https://example.com/logo.svg",
+    logoSrc: "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
     wordmark: {
       lead: "OZ",
       accent: "SV",

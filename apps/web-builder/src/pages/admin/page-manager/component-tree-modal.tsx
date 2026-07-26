@@ -10,9 +10,10 @@ import { iconBtnStyle } from "./shared";
 // （沿用 component-grouping.ts 的 groupLabelForComponent，跟左側「現有組件」
 // 面板同一套分組邏輯），畫成一棵簡易的樹：頁面 -> 目錄分組 -> 組件實例。
 //
-// 版面呈現方式參考 components-panel.tsx：固定在畫面右下角的浮動面板
-// （不是蓋版置中的 modal），開啟後可以留著繼續操作畫布 / 其他面板，
-// 點 X 或再按一次工具列按鈕才關閉。
+// 版面呈現方式參考 components-panel.tsx：固定停靠在畫面最左側的面板
+// （跟現有組件面板一樣是版面裡的一個 flex 欄位，不是蓋版 modal / 浮動視窗），
+// 開啟時渲染在「現有組件」面板的左邊，兩者可以同時顯示；點 X 或再按一次
+// 工具列按鈕才關閉。
 //
 // 組件實例列可以上下拖拉：拖拉時用 HTML5 drag & drop，放開後透過
 // onReorderBlock(instanceId, toIndex) 通知父層重新排序 —— 排序是「整份
@@ -53,18 +54,13 @@ export function ComponentTreeModal({
   return (
     <section
       style={{
-        position: "fixed",
-        right: 24,
-        bottom: 24,
-        width: 340,
-        maxHeight: "70vh",
+        width: 280,
+        minWidth: 280,
+        flexShrink: 0,
+        borderRight: "1px solid #2a2a2a",
+        background: "#171717",
         display: "flex",
         flexDirection: "column",
-        background: "#171717",
-        border: "1px solid #2a2a2a",
-        borderRadius: 8,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-        zIndex: 120,
         padding: 14,
         boxSizing: "border-box",
       }}
@@ -82,7 +78,7 @@ export function ComponentTreeModal({
           <ListTree size={15} style={{ color: "#7fdbca" }} />
           組件樹狀結構
         </h2>
-        <button style={iconBtnStyle} onClick={onClose} title="關閉">
+        <button style={iconBtnStyle} onClick={onClose} title="收合面板">
           <X size={16} />
         </button>
       </div>

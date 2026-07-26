@@ -34,12 +34,14 @@ import type { StatusFilter, ViewportMode } from "./page-manager/shared";
 //
 // 這支檔案本身只負責 state / orchestration；實際 UI 拆到
 // ./page-manager/ 底下的子模組，避免單一檔案過長難以維護：
-//   toolbar.tsx           工具列 / 收合拉柄 / 頁面切換 popover
-//   components-panel.tsx  左側「現有組件」+ 分組 + 預覽 modal
-//   canvas-panel.tsx       中間「視圖」畫布 + block 卡片
-//   properties-panel.tsx  右側「頁面屬性」+ SEO 欄位
-//   component-grouping.ts 組件分組 / 讀取 default.ts 預覽資料的純函式
-//   shared.ts             跨模組共用的型別與樣式常數
+//   toolbar.tsx              工具列 / 收合拉柄 / 頁面切換 popover
+//   components-panel.tsx     左側「現有組件」+ 分組 + 預覽 modal，寬度可拖動調整
+//   component-tree-modal.tsx 左側「組件樹狀結構」停靠面板（跟現有組件面板同側，
+//                             版面風格一致），可拖拉排序頁面內組件順序
+//   canvas-panel.tsx          中間「視圖」畫布 + block 卡片
+//   properties-panel.tsx     右側「頁面屬性」+ SEO 欄位
+//   component-grouping.ts    組件分組 / 讀取 default.ts 預覽資料的純函式
+//   shared.ts                跨模組共用的型別與樣式常數
 
 export default function PageManagerPage() {
   const [pages, setPages] = usePagesState();
@@ -60,7 +62,8 @@ export default function PageManagerPage() {
   // 中間視圖全螢幕：只影響 CSS 呈現（fixed 覆蓋整個畫面），不影響底下的
   // componentsOpen / propertiesOpen 狀態本身，離開全螢幕後面板開合維持原樣。
   const [fullscreen, setFullscreen] = useState(false);
-  // 組件樹狀結構面板（固定浮動面板，不是蓋版 modal，可以跟其他面板同時開著）
+  // 組件樹狀結構面板（停靠在畫面最左側，跟「現有組件」面板同一側、同樣的版面風格，
+  // 不是蓋版 modal，可以跟其他面板同時開著）
   const [treeOpen, setTreeOpen] = useState(false);
   // 畫布中目前被選取的組件實例
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -299,6 +302,20 @@ export default function PageManagerPage() {
         />
 
         <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+          {treeOpen && draft && !fullscreen && (
+            <ComponentTreeModal
+              draft={draft}
+              selectedBlockId={selectedBlockId}
+              onClose={() => setTreeOpen(false)}
+              onSelectBlock={(instanceId) => {
+                setSelectedBlockId(instanceId);
+                setRightPanelView("component");
+                setPropertiesOpen(true);
+              }}
+              onReorderBlock={reorderBlock}
+            />
+          )}
+
           {componentsOpen && !fullscreen && (
             <ComponentsPanel
               onClose={() => setComponentsOpen(false)}
@@ -366,20 +383,6 @@ export default function PageManagerPage() {
           )}
         </div>
       </div>
-
-      {treeOpen && draft && (
-        <ComponentTreeModal
-          draft={draft}
-          selectedBlockId={selectedBlockId}
-          onClose={() => setTreeOpen(false)}
-          onSelectBlock={(instanceId) => {
-            setSelectedBlockId(instanceId);
-            setRightPanelView("component");
-            setPropertiesOpen(true);
-          }}
-          onReorderBlock={reorderBlock}
-        />
-      )}
     </AdminLayout>
   );
 }

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Search,
-  GripVertical,
   PanelLeft,
   ChevronDown,
   ChevronRight,
@@ -18,6 +17,16 @@ import { iconBtnStyle } from "./shared";
 
 // 左側「現有組件」面板：依目錄分組（攤平多層路徑）、可收合每個群組、
 // 點擊卡片本身開預覽 modal，卡片上的「+」圖示按鈕維持原本「加入」行為。
+//
+// 組件卡片不是每列一個：卡片寬度由標題文字內容決定（不強制撐滿整列），
+// 用 flex-wrap 由左至右、由上至下自動排列，一列能放幾個全看標題長短。
+//
+// 面板本身寬度可由使用者在右邊界拖動調整（預設 280px，可在 MIN/MAX 之間拖動），
+// 拖動時操作與 VS Code 側欄一致：滑鼠移到邊界出現 col-resize 游標，拖曳中即時更新寬度。
+
+const DEFAULT_WIDTH = 280;
+const MIN_WIDTH = 220;
+const MAX_WIDTH = 560;
 
 export function ComponentsPanel({
   onClose,
@@ -30,6 +39,28 @@ export function ComponentsPanel({
 }) {
   const [componentQuery, setComponentQuery] = useState("");
   const [previewing, setPreviewing] = useState<ComponentDoc | null>(null);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const draggingRef = useRef(false);
+
+  const onDragHandleDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = width;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const next = startWidth + (ev.clientX - startX);
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, next)));
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [width]);
 
   const filteredComponents = useMemo(() => {
     const q = componentQuery.trim().toLowerCase();
@@ -46,9 +77,11 @@ export function ComponentsPanel({
   return (
     <section
       style={{
-        width: 280,
-        minWidth: 280,
+        width,
+        minWidth: MIN_WIDTH,
+        maxWidth: MAX_WIDTH,
         flexShrink: 0,
+        position: "relative",
         borderRight: "1px solid #2a2a2a",
         background: "#171717",
         display: "flex",
@@ -91,9 +124,6 @@ export function ComponentsPanel({
 
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
           overflowY: "auto",
           flex: 1,
           paddingRight: 4,
@@ -113,6 +143,21 @@ export function ComponentsPanel({
           />
         ))}
       </div>
+
+      {/* 右邊界拖拉手把：不佔版位（絕對定位疊在邊界上），拖曳調整面板寬度 */}
+      <div
+        onMouseDown={onDragHandleDown}
+        title="拖動調整面板寬度"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: -3,
+          width: 6,
+          height: "100%",
+          cursor: "col-resize",
+          zIndex: 10,
+        }}
+      />
 
       {previewing && (
         <ComponentPreviewModal component={previewing} onClose={() => setPreviewing(null)} />
@@ -204,50 +249,36 @@ function ComponentCard({
       draggable
       onClick={() => onPreview(c)}
       style={{
-        display: "flex",
-        justifyContent: "space-between",
+        display: "inline-flex",
         alignItems: "center",
-        gap: 8,
-        padding: "8px 10px",
+        gap: 6,
+        padding: "7px 8px 7px 10px",
         borderRadius: 6,
         border: "1px solid #333",
         background: "#151515",
         cursor: "pointer",
-        // 依標題（componentName）長短決定卡片寬度：短標題不會被撐成整行，
-        // 讓 flex-wrap 的父容器可以一行塞進多張卡片；長標題則自然換行變寬。
-        flex: "0 1 auto",
+        // 寬度純粹由標題文字內容決定（inline-flex + fit-content），
+        // 不強制撐滿一列，讓 flex-wrap 的父容器可以由左至右、由上至下
+        // 自動排列，一列能放幾張全看標題長短。
         width: "fit-content",
-        minWidth: 120,
         maxWidth: "100%",
       }}
-      title="點擊預覽，之後可拖拉此卡片到中間視圖"
+      title={c.description.replace(/\n/g, " ")}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <GripVertical
-          size={13}
-          style={{ color: "#555", flexShrink: 0, cursor: "grab" }}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>
-            {c.componentName}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "#888",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: 180,
-            }}
-          >
-            {c.description.replace(/\n/g, " ")}
-          </div>
-        </div>
-      </div>
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: 220,
+        }}
+      >
+        {c.componentName}
+      </span>
       <button
-        style={{ ...iconBtnStyle, border: "1px solid #444", flexShrink: 0 }}
+        style={{ ...iconBtnStyle, border: "1px solid #444", flexShrink: 0, padding: 2 }}
         onClick={(e) => {
           e.stopPropagation();
           onAddBlock(c);
@@ -255,7 +286,7 @@ function ComponentCard({
         title="加入此頁內容"
         disabled={disabled}
       >
-        <Plus size={13} />
+        <Plus size={12} />
       </button>
     </div>
   );
