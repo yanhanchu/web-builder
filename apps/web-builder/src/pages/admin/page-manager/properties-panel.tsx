@@ -1,4 +1,4 @@
-import { Save, Trash2, PanelRight } from "lucide-react";
+import { Save, Trash2, Undo2 } from "lucide-react";
 import {
   panelTitleStyle,
   labelStyle,
@@ -7,7 +7,6 @@ import {
   textareaStyle,
   primaryBtnStyle,
   ghostBtnStyle,
-  dangerBtnStyle,
 } from "../admin-ui";
 import type { SeoData } from "@workspace/ui/lib/data-model";
 import { SeoDataTypeId } from "@workspace/ui/lib/data-model/sample-data";
@@ -15,10 +14,9 @@ import type { PageItem } from "@/lib/pages-store";
 import { SEO_KEY_PREFIX, typeBadgeStyle, iconBtnStyle } from "./shared";
 
 // 右側「頁面屬性」：頁面名稱 / 狀態 / SEO 設定。
-// 對應目前選中的頁面草稿；面板本身收合邏輯交由父層決定是否渲染。
+// 對應目前選中的頁面草稿。
 
 export function PropertiesPanel({
-  onClose,
   draft,
   dirty,
   onUpdateDraft,
@@ -27,7 +25,6 @@ export function PropertiesPanel({
   onDiscard,
   onDelete,
 }: {
-  onClose: () => void;
   draft: PageItem | null;
   dirty: boolean;
   onUpdateDraft: (patch: Partial<PageItem>) => void;
@@ -54,51 +51,41 @@ export function PropertiesPanel({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 12,
+          marginBottom: 8,
+          flexWrap: "wrap",
+          gap: 8,
         }}
       >
         <h2 style={{ ...panelTitleStyle, margin: 0 }}>頁面屬性</h2>
-        <button style={iconBtnStyle} onClick={onClose} title="收合面板">
-          <PanelRight size={14} />
-        </button>
+        {draft && (
+          <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+            {dirty && (
+              <>
+                <button style={{ ...iconBtnStyle, color: "#aaa" }} onClick={onDiscard} title="放棄變更">
+                  <Undo2 size={14} />
+                </button>
+                <button style={{ ...iconBtnStyle, color: "#2d9c74" }} onClick={onSave} title="儲存此頁">
+                  <Save size={14} />
+                </button>
+              </>
+            )}
+            {onDelete && (
+              <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onDelete} title="刪除此頁">
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {!draft ? (
         <p style={{ color: "#777", fontSize: 13 }}>請先從上方工具列選擇頁面。</p>
       ) : (
         <>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
+          <div style={{ marginBottom: 12 }}>
             <span style={typeBadgeStyle} title={SeoDataTypeId}>
               SeoData
             </span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {dirty && (
-                <>
-                  <button style={ghostBtnStyle} onClick={onDiscard} title="放棄變更">
-                    還原
-                  </button>
-                  <button style={primaryBtnStyle} onClick={onSave} title="儲存此頁">
-                    <Save size={14} />
-                    儲存
-                  </button>
-                </>
-              )}
-              {onDelete && (
-                <button style={dangerBtnStyle} onClick={onDelete} title="刪除此頁">
-                  <Trash2 size={14} />
-                  刪除此頁
-                </button>
-              )}
-            </div>
           </div>
 
           <div style={fieldRowStyle}>

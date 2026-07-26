@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { PanelRight, Trash2, ChevronDown, Plus, X, Search } from "lucide-react";
-import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, dangerBtnStyle, usePersistentState } from "../admin-ui";
+import { Trash2, ChevronDown, Plus, X, Search } from "lucide-react";
+import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, usePersistentState } from "../admin-ui";
 import { allComponents, allComponentTypes } from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
 import {
@@ -14,24 +14,14 @@ import { typeBadgeStyle, iconBtnStyle } from "./shared";
 import { groupComponents } from "./component-grouping";
 
 // 右側「組件屬性」：對應畫布中目前被選取的單一組件實例。
-// 版面 / 樣式跟 properties-panel.tsx（頁面屬性）刻意保持一致
-// （同寬、同樣的標題列 + 收合按鈕、同樣的欄位樣式），
-// 讓使用者在「選取組件」與「未選取（回到頁面屬性）」兩種狀態間切換時
-// 觀感一致，不會覺得是完全不同的介面。
 //
-// 由 page-manager.tsx 依「目前是否有選取 block」決定渲染這個面板
-// 還是 PropertiesPanel；收合邏輯（propertiesOpen）仍由父層控制。
-//
-// ------------------------------------------------------------
-// 重要：這個面板編輯的一律是「這個頁面、這個組件實例」的 props 覆寫
-// （block.props，存在頁面內容資料 PageItem.blocks 裡），透過 onUpdateProp
-// 寫回 —— 絕對不會、也不需要修改組件定義本身（allComponents /
-// allComponentTypes，build time 產生的靜態資料）或資料來源
-// （wb.dataSources，「資料管理」頁面維護的 DataSource 清單）。
+// 這個面板編輯的一律是「這個頁面、這個組件實例」的 props 覆寫（block.props，
+// 存在頁面內容資料 PageItem.blocks 裡），透過 onUpdateProp 寫回 —— 不會、也不需要
+// 修改組件定義本身（allComponents / allComponentTypes，build time 產生的靜態資料）
+// 或資料來源（wb.dataSources，「資料管理」頁面維護的 DataSource 清單）。
 // 下方讀取 allComponents / allComponentTypes / dataSources 都只是「唯讀查找」，
 // 用來決定要渲染哪一種欄位控制項、以及下拉選單有哪些候選項目，
 // 選擇的結果一律透過 onUpdateProp 寫進當前組件實例的 props。
-// ------------------------------------------------------------
 
 /** 依 prop 型別字串分類出的欄位種類，決定要渲染哪一種輸入控制項。 */
 type FieldKind =
@@ -125,12 +115,10 @@ function classifyField(propType: string, componentId: string): FieldKind {
 
 export function ComponentPropertiesPanel({
   block,
-  onClose,
   onUpdateProp,
   onRemove,
 }: {
   block: PageBlock;
-  onClose: () => void;
   onUpdateProp: (key: string, value: unknown) => void;
   onRemove: () => void;
 }) {
@@ -160,32 +148,19 @@ export function ComponentPropertiesPanel({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 12,
+          marginBottom: 8,
         }}
       >
         <h2 style={{ ...panelTitleStyle, margin: 0 }}>組件屬性</h2>
-        <button style={iconBtnStyle} onClick={onClose} title="收合面板（回到頁面屬性）">
-          <PanelRight size={14} />
+        <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除此組件">
+          <Trash2 size={14} />
         </button>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 12,
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
+      <div style={{ marginBottom: 12 }}>
         <span style={typeBadgeStyle} title={block.componentId}>
           {block.componentName}
         </span>
-        <button style={dangerBtnStyle} onClick={onRemove} title="從此頁移除此組件">
-          <Trash2 size={14} />
-          移除此組件
-        </button>
       </div>
 
       {!component ? (
@@ -227,11 +202,6 @@ export function ComponentPropertiesPanel({
           );
         })
       )}
-
-      <p style={{ fontSize: 11, color: "#666", marginTop: 16 }}>
-        此面板只顯示 / 編輯畫布中目前選取的組件實例。收合面板或選取其他頁面元素
-        （例如點工具列的頁面屬性）可回到「頁面屬性」。
-      </p>
     </section>
   );
 }

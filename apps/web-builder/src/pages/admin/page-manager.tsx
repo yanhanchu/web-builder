@@ -388,13 +388,11 @@ export default function PageManagerPage() {
             showingComponentProps && selectedBlock ? (
               <ComponentPropertiesPanel
                 block={selectedBlock}
-                onClose={() => setPropertiesOpen(false)}
                 onUpdateProp={(key, value) => updateBlockProp(selectedBlock.instanceId, key, value)}
                 onRemove={() => removeBlock(selectedBlock.instanceId)}
               />
             ) : (
               <PropertiesPanel
-                onClose={() => setPropertiesOpen(false)}
                 draft={draft}
                 dirty={dirty}
                 onUpdateDraft={updateDraft}
