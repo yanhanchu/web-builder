@@ -35,6 +35,7 @@ import {
   type LocalUploadDest,
   type S3UploadDest,
 } from "../../lib/upload-destinations";
+import { syncUploadSettings, DEFAULT_APP_NAME } from "../../lib/upload-client";
 
 // App 設定：網站基本資訊與 SEO 直接綁定到單一型別資料記錄。
 // 這裡不再各自重複定義欄位，而是對應到 data-model 裡的 SiteInfoData / SeoData
@@ -62,6 +63,7 @@ export default function AppSettingsPage() {
   );
   const [saved, flashSaved] = useSavedFlash();
   const [dirty, setDirty] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const setSite = <K extends keyof SiteInfoData>(
     key: K,
@@ -97,12 +99,26 @@ export default function AppSettingsPage() {
     setDirty(true);
   };
 
-  const save = () => {
+  const save = async () => {
     writePersistent(SITE_INFO_KEY, siteInfo);
     writePersistent(SEO_KEY, seo);
     writePersistent(UPLOAD_DESTS_KEY, uploadDests);
     setDirty(false);
     flashSaved();
+
+    // 把上傳目的地同步到 dev server（server/upload-dev-plugin.ts），
+    // 本機上傳 / S3 presign API 之後都是讀這份存檔。localStorage 的
+    // 儲存已經完成，這裡失敗只顯示提示、不影響上面的「已儲存」狀態。
+    try {
+      setSyncError(null);
+      await syncUploadSettings(uploadDests, DEFAULT_APP_NAME);
+    } catch (err) {
+      setSyncError(
+        err instanceof Error
+          ? `上傳設定同步到伺服器失敗：${err.message}`
+          : "上傳設定同步到伺服器失敗",
+      );
+    }
   };
 
   const reset = () => {
@@ -119,6 +135,11 @@ export default function AppSettingsPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
+          {syncError && (
+            <span style={syncErrorStyle} title={syncError}>
+              ⚠ 伺服器同步失敗
+            </span>
+          )}
           {dirty && (
             <button style={primaryBtnStyle} onClick={save} title="儲存設定">
               <Save size={14} />
@@ -615,6 +636,15 @@ const badgeStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "1px 6px",
   fontFamily: "monospace",
+};
+
+const syncErrorStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#e77",
+  border: "1px solid #5a2b2b",
+  background: "#2a1414",
+  borderRadius: 4,
+  padding: "2px 8px",
 };
 
 const countBadgeStyle: React.CSSProperties = {

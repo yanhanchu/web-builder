@@ -1,71 +1,27 @@
 // ============================================================
-// 上傳目的地：共用型別 / localStorage key / 讀取工具
+// 上傳目的地：localStorage 持久化（瀏覽器專用）
+//
+// 型別定義 / 預設值 / 建構函式都在 upload-destinations.types.ts
+// （純型別，不含 window，後端 server/*.ts 也會 import 那份）。
+// 這個檔案只負責瀏覽器端的 localStorage 讀寫。
 //
 // 在 App 設定（/admin/settings）維護；資料管理（/admin/data-manager）
-// 的「檔案同步狀態」區塊會讀取這裡的資料，把每個 file DataSource
+// 的「檔案同步狀態」區塊也會讀取這裡的資料，把每個 file DataSource
 // 對應到目前已啟用的上傳目的地，顯示同步狀態（先不做實際上傳）。
 // ============================================================
 
-export const UPLOAD_DESTS_KEY = "wb.settings.uploadDestinations";
+export {
+  UPLOAD_DESTS_KEY,
+  makeLocalDest,
+  makeS3Dest,
+  DEFAULT_UPLOAD_DESTS,
+  type LocalUploadDest,
+  type S3UploadDest,
+  type UploadDest,
+} from "./upload-destinations.types";
 
-export interface LocalUploadDest {
-  id: string;
-  kind: "local";
-  enabled: boolean;
-  label: string;
-  /** 伺服器上的儲存目錄 */
-  storagePath: string;
-  /** 存好之後，檔案的對外網址前綴，例如 https://example.com/uploads */
-  publicBaseUrl: string;
-}
-
-export interface S3UploadDest {
-  id: string;
-  kind: "s3";
-  enabled: boolean;
-  label: string;
-  bucket: string;
-  region: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  /** 自訂 endpoint：留空即用 AWS 官方端點；填寫可接 MinIO / R2 / B2 等 S3 相容節點 */
-  endpoint: string;
-  /** path-style（http(s)://endpoint/bucket/key）而非 virtual-hosted-style，許多自架 S3 相容節點需要開啟 */
-  forcePathStyle: boolean;
-  /** 選填：存好之後，檔案的對外網址前綴（例如接了 CDN 或自訂網域時使用） */
-  publicBaseUrl: string;
-}
-
-export type UploadDest = LocalUploadDest | S3UploadDest;
-
-export function makeLocalDest(): LocalUploadDest {
-  return {
-    id: `local-${Date.now()}`,
-    kind: "local",
-    enabled: true,
-    label: "本機儲存",
-    storagePath: "/var/www/uploads",
-    publicBaseUrl: "",
-  };
-}
-
-export function makeS3Dest(): S3UploadDest {
-  return {
-    id: `s3-${Date.now()}`,
-    kind: "s3",
-    enabled: false,
-    label: "新 S3 節點",
-    bucket: "",
-    region: "auto",
-    accessKeyId: "",
-    secretAccessKey: "",
-    endpoint: "",
-    forcePathStyle: false,
-    publicBaseUrl: "",
-  };
-}
-
-export const DEFAULT_UPLOAD_DESTS: UploadDest[] = [makeLocalDest()];
+import { UPLOAD_DESTS_KEY, DEFAULT_UPLOAD_DESTS } from "./upload-destinations.types";
+import type { UploadDest } from "./upload-destinations.types";
 
 // 陣列型資料的持久化讀取（不能用物件展開合併預設值，否則會破壞陣列結構）
 export function readPersistentArray<T>(key: string, fallback: T[]): T[] {
