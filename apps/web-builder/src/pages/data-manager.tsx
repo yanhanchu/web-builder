@@ -16,6 +16,7 @@ import {
 import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
 import { FileSyncRefreshButton, FileRowSyncCluster, useFileSync } from "./admin/file-sync-panel";
 import { usePagesState } from "../lib/pages-store";
+import { uploadFileToFirstEnabledDest, DEFAULT_APP_NAME } from "../lib/upload-client";
 
 export default function DataManagerPage() {
   // DataSource 全部收在 localStorage（key: wb.dataSources），DataSourceManager
@@ -91,6 +92,10 @@ export default function DataManagerPage() {
                 simulateSync={fileSync.simulateSync}
               />
             )}
+            onUploadFile={async (file) => {
+              const result = await uploadFileToFirstEnabledDest(file, DEFAULT_APP_NAME);
+              return { url: result.url, mimeType: result.mimeType };
+            }}
           />
         </section>
 

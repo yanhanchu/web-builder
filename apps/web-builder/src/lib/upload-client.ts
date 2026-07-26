@@ -130,6 +130,25 @@ export async function uploadFileToS3(
   };
 }
 
+/**
+ * 簡易上傳：不指定目的地，自動挑「目前已啟用」的第一個上傳目的地
+ * （優先本機，其次 S3）。給不需要讓使用者選目的地的簡單上傳 UI 用，
+ * 例如資料管理頁的「檔案 File」來源。
+ */
+export async function uploadFileToFirstEnabledDest(
+  file: File,
+  appName: string = DEFAULT_APP_NAME,
+): Promise<UploadResult> {
+  const destinations = await listUploadDestinations(appName);
+  if (destinations.length === 0) {
+    throw new Error(
+      '尚未設定任何已啟用的上傳目的地，請先到「App 設定」新增並啟用一個。',
+    );
+  }
+  const dest = destinations.find((d) => d.kind === "local") ?? destinations[0];
+  return uploadFile(file, dest, appName);
+}
+
 /** 依目的地種類自動選擇上傳方式。 */
 export async function uploadFile(
   file: File,

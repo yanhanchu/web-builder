@@ -6,7 +6,7 @@
 //   POST /api/settings/:appName
 //     body: { uploadDestinations: UploadDest[] }
 //     App 設定頁按「儲存設定」時呼叫，把上傳目的地設定同步寫到
-//     server/.data/app-settings/<appName>.json。這是本機上傳 /
+//     apps/web-builder/.data/<appName>/app-settings.json。這是本機上傳 /
 //     S3 presign 這兩個 API 讀取設定的唯一來源。
 //
 //   GET  /api/settings/:appName

@@ -68,6 +68,12 @@ interface DataSourceManagerProps {
   fileSyncContent?: React.ReactNode;
   /** 每筆 file 資料列標題列的同步狀態叢集（放在刪除鈕左側） */
   fileRowSyncSlot?: FileRowSyncSlot;
+  /**
+   * 檔案上傳（file tab 專用）：提供時，FileFields 會多顯示一顆「上傳檔案」
+   * 按鈕，選好本機檔案後呼叫這個函式，回傳的 url / mimeType 直接填回草稿。
+   * 不提供則只保留原本手動輸入 url 的欄位（維持向下相容）。
+   */
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
 }
 
 const KIND_LABELS: Record<DataSourceKind, string> = {
@@ -117,6 +123,7 @@ export function DataSourceManager({
   fileToolbarExtra,
   fileSyncContent,
   fileRowSyncSlot,
+  onUploadFile,
 }: DataSourceManagerProps) {
   // 目前所在的 tab（類型）
   const [activeKind, setActiveKind] = useState<DataSourceKind>('i18n');
@@ -445,6 +452,7 @@ export function DataSourceManager({
               onChange={updateSource}
               onRemove={() => removeSource(source.id)}
               onSaved={markSaved}
+              onUploadFile={onUploadFile}
               rowSyncSlot={
                 activeKind === 'file' && fileRowSyncSlot
                   ? fileRowSyncSlot(source as FileDataSource)
@@ -719,6 +727,7 @@ function SourceCard({
   onChange,
   onRemove,
   onSaved,
+  onUploadFile,
   rowSyncSlot,
 }: {
   source: DataSource;
@@ -733,6 +742,7 @@ function SourceCard({
   onChange: (next: DataSource, originalId?: string) => void;
   onRemove: () => void;
   onSaved: (id: string) => void;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
   rowSyncSlot?: React.ReactNode;
 }) {
   // 所有種類（i18n / route / file / typedData）都用同一套本地草稿：
@@ -834,7 +844,7 @@ function SourceCard({
             <RouteFields source={draft} pages={pages} onChange={updateDraft} />
           )}
           {draft.kind === 'file' && (
-            <FileFields source={draft} onChange={updateDraft} />
+            <FileFields source={draft} onChange={updateDraft} onUploadFile={onUploadFile} />
           )}
           {draft.kind === 'typedData' && (
             <TypedDataFields
@@ -1039,19 +1049,72 @@ function RouteFields({
 function FileFields({
   source,
   onChange,
+  onUploadFile,
 }: {
   source: FileDataSource;
   onChange: (next: DataSource) => void;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handlePickFile = () => inputRef.current?.click();
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // 立刻清空 input value，允許使用者連續選同一個檔案也能觸發 onChange
+    e.target.value = '';
+    if (!file || !onUploadFile) return;
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const result = await onUploadFile(file);
+      onChange({
+        ...source,
+        url: result.url,
+        mimeType: result.mimeType ?? source.mimeType,
+      });
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : '上傳失敗');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <>
       <Labeled label="url">
-        <input
-          value={source.url}
-          placeholder="https://…/logo.svg"
-          onChange={(e) => onChange({ ...source, url: e.target.value })}
-          style={inputStyle}
-        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            value={source.url}
+            placeholder="https://…/logo.svg"
+            onChange={(e) => onChange({ ...source, url: e.target.value })}
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          {onUploadFile && (
+            <>
+              <input
+                ref={inputRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={handleFileSelected}
+              />
+              <button
+                type="button"
+                onClick={handlePickFile}
+                disabled={uploading}
+                style={uploadBtnStyle}
+                title="上傳檔案，成功後自動填入 url"
+              >
+                <Upload size={12} />
+                {uploading ? '上傳中…' : '上傳檔案'}
+              </button>
+            </>
+          )}
+        </div>
+        {uploadError && <div style={uploadErrorStyle}>⚠ {uploadError}</div>}
       </Labeled>
       <Labeled label="mimeType（可選）">
         <input
@@ -1064,6 +1127,26 @@ function FileFields({
     </>
   );
 }
+
+const uploadBtnStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  fontSize: 12,
+  color: '#eee',
+  background: '#2d2d2d',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: '0 10px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+const uploadErrorStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: '#e77',
+  marginTop: 4,
+};
 
 // ---------- typedData ----------
 
