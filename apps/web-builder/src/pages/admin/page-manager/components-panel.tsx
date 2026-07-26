@@ -172,7 +172,7 @@ function ComponentGroupSection({
       </div>
 
       {expanded && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 2 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
           {components.map((c) => (
             <ComponentCard
               key={c.id}
@@ -213,6 +213,12 @@ function ComponentCard({
         border: "1px solid #333",
         background: "#151515",
         cursor: "pointer",
+        // 依標題（componentName）長短決定卡片寬度：短標題不會被撐成整行，
+        // 讓 flex-wrap 的父容器可以一行塞進多張卡片；長標題則自然換行變寬。
+        flex: "0 1 auto",
+        width: "fit-content",
+        minWidth: 120,
+        maxWidth: "100%",
       }}
       title="點擊預覽，之後可拖拉此卡片到中間視圖"
     >
@@ -223,7 +229,9 @@ function ComponentCard({
           onClick={(e) => e.stopPropagation()}
         />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{c.componentName}</div>
+          <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>
+            {c.componentName}
+          </div>
           <div
             style={{
               fontSize: 11,
@@ -231,6 +239,7 @@ function ComponentCard({
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              maxWidth: 180,
             }}
           >
             {c.description.replace(/\n/g, " ")}

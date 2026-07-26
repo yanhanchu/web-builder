@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ListTree, ChevronDown, ChevronRight, X } from "lucide-react";
+import { ListTree, ChevronDown, ChevronRight, X, GripVertical } from "lucide-react";
 import { panelTitleStyle } from "../admin-ui";
 import { allComponents } from "@workspace/ui/lib/generator/component-registry";
 import { groupLabelForComponent } from "./component-grouping";
@@ -9,63 +9,89 @@ import { iconBtnStyle } from "./shared";
 // 工具列「組件樹狀結構」：把目前頁面草稿裡的 blocks 依組件所在目錄分組
 // （沿用 component-grouping.ts 的 groupLabelForComponent，跟左側「現有組件」
 // 面板同一套分組邏輯），畫成一棵簡易的樹：頁面 -> 目錄分組 -> 組件實例。
-// 點某個組件實例可以直接跳去選取它（開啟右側「組件屬性」面板）。
+//
+// 版面呈現方式參考 components-panel.tsx：固定在畫面右下角的浮動面板
+// （不是蓋版置中的 modal），開啟後可以留著繼續操作畫布 / 其他面板，
+// 點 X 或再按一次工具列按鈕才關閉。
+//
+// 組件實例列可以上下拖拉：拖拉時用 HTML5 drag & drop，放開後透過
+// onReorderBlock(instanceId, toIndex) 通知父層重新排序 —— 排序是「整份
+// 頁面 blocks 陣列」層級的操作，分組只是顯示上的歸類，所以拖放目標位置
+// 是以「blocks 陣列中的絕對 index」表示，實際插入位置由父層計算。
+// 點某個組件實例可以直接跳去選取它（開啟右側「組件屬性」面板），
+// 選取後面板不會自動關閉，方便連續選取多個組件比對。
 
 export function ComponentTreeModal({
   draft,
+  selectedBlockId,
   onClose,
   onSelectBlock,
+  onReorderBlock,
 }: {
   draft: PageItem;
+  selectedBlockId?: string | null;
   onClose: () => void;
   onSelectBlock: (instanceId: string) => void;
+  onReorderBlock: (instanceId: string, toIndex: number) => void;
 }) {
   const groups = groupBlocksByLocation(draft.blocks);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDrop = (targetInstanceId: string) => {
+    if (!draggingId || draggingId === targetInstanceId) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+    const toIndex = draft.blocks.findIndex((b) => b.instanceId === targetInstanceId);
+    if (toIndex >= 0) onReorderBlock(draggingId, toIndex);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
 
   return (
-    <div
-      onClick={onClose}
+    <section
       style={{
         position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        right: 24,
+        bottom: 24,
+        width: 340,
+        maxHeight: "70vh",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        padding: 24,
+        flexDirection: "column",
+        background: "#171717",
+        border: "1px solid #2a2a2a",
+        borderRadius: 8,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+        zIndex: 120,
+        padding: 14,
+        boxSizing: "border-box",
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: 420,
-          maxWidth: "100%",
-          maxHeight: "80vh",
-          overflowY: "auto",
-          background: "#1a1a1a",
-          border: "1px solid #333",
-          borderRadius: 8,
-          padding: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 12,
+          flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ ...panelTitleStyle, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-            <ListTree size={15} style={{ color: "#7fdbca" }} />
-            組件樹狀結構
-          </h2>
-          <button style={iconBtnStyle} onClick={onClose} title="關閉">
-            <X size={16} />
-          </button>
-        </div>
+        <h2 style={{ ...panelTitleStyle, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <ListTree size={15} style={{ color: "#7fdbca" }} />
+          組件樹狀結構
+        </h2>
+        <button style={iconBtnStyle} onClick={onClose} title="關閉">
+          <X size={16} />
+        </button>
+      </div>
 
+      <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
+        拖拉 <GripVertical size={10} style={{ verticalAlign: -1 }} /> 可調整組件在頁面中的順序，點名稱可選取該組件。
+      </p>
+
+      <div style={{ overflowY: "auto", flex: 1, paddingRight: 4 }}>
         <TreeNode label={`${draft.name}（${draft.blocks.length} 個組件）`} depth={0} defaultOpen>
           {groups.length === 0 ? (
             <p style={{ color: "#777", fontSize: 12, margin: "4px 0 0 20px" }}>
@@ -75,37 +101,87 @@ export function ComponentTreeModal({
             groups.map((group) => (
               <TreeNode key={group.label} label={`${group.label}（${group.items.length}）`} depth={1} defaultOpen>
                 {group.items.map(({ block, index }) => (
-                  <button
+                  <div
                     key={block.instanceId}
-                    onClick={() => onSelectBlock(block.instanceId)}
+                    draggable
+                    onDragStart={() => setDraggingId(block.instanceId)}
+                    onDragEnd={() => {
+                      setDraggingId(null);
+                      setDragOverId(null);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverId !== block.instanceId) setDragOverId(block.instanceId);
+                    }}
+                    onDragLeave={() => {
+                      setDragOverId((cur) => (cur === block.instanceId ? null : cur));
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDrop(block.instanceId);
+                    }}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
                       width: "100%",
-                      textAlign: "left",
-                      background: "transparent",
-                      border: "none",
-                      color: "#ccc",
-                      fontSize: 12,
-                      cursor: "pointer",
                       padding: `4px 4px 4px ${20 + 2 * 14}px`,
                       borderRadius: 4,
+                      background:
+                        dragOverId === block.instanceId && draggingId !== block.instanceId
+                          ? "#1c2b23"
+                          : block.instanceId === selectedBlockId
+                            ? "#18271f"
+                            : "transparent",
+                      border:
+                        dragOverId === block.instanceId && draggingId !== block.instanceId
+                          ? "1px dashed #2d9c74"
+                          : "1px solid transparent",
+                      opacity: draggingId === block.instanceId ? 0.5 : 1,
                     }}
-                    title="點擊選取此組件（開啟組件屬性面板）"
                   >
-                    <span style={{ color: "#555", flexShrink: 0 }}>#{index + 1}</span>
-                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {block.componentName}
-                    </span>
-                  </button>
+                    <GripVertical
+                      size={12}
+                      style={{ color: "#555", flexShrink: 0, cursor: "grab" }}
+                    />
+                    <button
+                      onClick={() => onSelectBlock(block.instanceId)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flex: 1,
+                        minWidth: 0,
+                        textAlign: "left",
+                        background: "transparent",
+                        border: "none",
+                        color: block.instanceId === selectedBlockId ? "#8fe" : "#ccc",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        padding: "4px 0",
+                      }}
+                      title="點擊選取此組件（開啟組件屬性面板）"
+                    >
+                      <span style={{ color: "#555", flexShrink: 0 }}>#{index + 1}</span>
+                      <span
+                        style={{
+                          minWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {block.componentName}
+                      </span>
+                    </button>
+                  </div>
                 ))}
               </TreeNode>
             ))
           )}
         </TreeNode>
       </div>
-    </div>
+    </section>
   );
 }
 

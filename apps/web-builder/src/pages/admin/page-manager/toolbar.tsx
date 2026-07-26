@@ -14,6 +14,7 @@ import {
   Maximize2,
   Minimize2,
   ListTree,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   panelTitleStyle,
@@ -45,7 +46,12 @@ export function BuilderToolbar({
   onChangeViewport,
   fullscreen,
   onToggleFullscreen,
-  onOpenTree,
+  treeOpen,
+  onToggleTree,
+  showingComponentProps,
+  onShowPageProps,
+  onShowComponentProps,
+  hasSelectedBlock,
 }: {
   componentsOpen: boolean;
   onToggleComponents: () => void;
@@ -55,7 +61,14 @@ export function BuilderToolbar({
   onChangeViewport: (v: ViewportMode) => void;
   fullscreen: boolean;
   onToggleFullscreen: () => void;
-  onOpenTree: () => void;
+  treeOpen: boolean;
+  onToggleTree: () => void;
+  /** 右側面板目前顯示的是「組件屬性」還是「頁面屬性」，用來高亮對應的切換按鈕。 */
+  showingComponentProps: boolean;
+  onShowPageProps: () => void;
+  onShowComponentProps: () => void;
+  /** 是否有選取中的組件實例；沒有的話「組件屬性」按鈕停用（沒有內容可顯示）。 */
+  hasSelectedBlock: boolean;
 }) {
   return (
     <div
@@ -113,13 +126,42 @@ export function BuilderToolbar({
       </div>
 
       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <button style={toolbarToggleStyle(false)} onClick={onOpenTree} title="顯示組件樹狀結構">
+        <button
+          style={toolbarToggleStyle(treeOpen)}
+          onClick={onToggleTree}
+          title={treeOpen ? "關閉組件樹狀結構" : "顯示組件樹狀結構"}
+        >
           <ListTree size={15} />
         </button>
+
+        <span style={{ width: 1, alignSelf: "stretch", background: "#2a2a2a", margin: "0 2px" }} />
+
+        {/* 頁面屬性 / 組件屬性 切換：獨立按鈕，取代原本「點畫布組件才會切換」的隱性行為，
+            讓使用者可以明確知道右側面板現在顯示的是哪一種屬性，也能主動切回頁面屬性。 */}
+        <button
+          style={toolbarToggleStyle(propertiesOpen && !showingComponentProps)}
+          onClick={onShowPageProps}
+          title="顯示頁面屬性"
+        >
+          <FileText size={13} />
+          <span style={{ fontSize: 11, marginLeft: 4 }}>頁面</span>
+        </button>
+        <button
+          style={toolbarToggleStyle(propertiesOpen && showingComponentProps)}
+          onClick={onShowComponentProps}
+          disabled={!hasSelectedBlock}
+          title={hasSelectedBlock ? "顯示組件屬性" : "尚未選取組件"}
+        >
+          <SlidersHorizontal size={13} />
+          <span style={{ fontSize: 11, marginLeft: 4 }}>組件</span>
+        </button>
+
+        <span style={{ width: 1, alignSelf: "stretch", background: "#2a2a2a", margin: "0 2px" }} />
+
         <button
           style={toolbarToggleStyle(propertiesOpen)}
           onClick={onToggleProperties}
-          title={propertiesOpen ? "收合頁面屬性面板" : "展開頁面屬性面板"}
+          title={propertiesOpen ? "收合右側面板" : "展開右側面板"}
         >
           <PanelRight size={15} />
         </button>

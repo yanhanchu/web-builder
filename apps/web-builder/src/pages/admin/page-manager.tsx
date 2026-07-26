@@ -60,19 +60,25 @@ export default function PageManagerPage() {
   // 中間視圖全螢幕：只影響 CSS 呈現（fixed 覆蓋整個畫面），不影響底下的
   // componentsOpen / propertiesOpen 狀態本身，離開全螢幕後面板開合維持原樣。
   const [fullscreen, setFullscreen] = useState(false);
-  // 組件樹狀結構彈窗
+  // 組件樹狀結構面板（固定浮動面板，不是蓋版 modal，可以跟其他面板同時開著）
   const [treeOpen, setTreeOpen] = useState(false);
-  // 畫布中目前被選取的組件實例；選取時右側改顯示「組件屬性」面板。
+  // 畫布中目前被選取的組件實例
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // 右側面板目前顯示「頁面屬性」還是「組件屬性」——獨立於「有沒有選取組件」，
+  // 靠工具列的明確按鈕切換，使用者可以在選了組件之後仍主動切回頁面屬性查看，
+  // 不會被「選組件＝自動跳組件屬性」這種隱性行為卡住。
+  const [rightPanelView, setRightPanelView] = useState<"page" | "component">("page");
 
   const selected = pages.find((p) => p.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
   const dirty = selected ? drafts[selected.id] != null : false;
   const selectedBlock = draft?.blocks.find((b) => b.instanceId === selectedBlockId) ?? null;
+  const showingComponentProps = rightPanelView === "component" && selectedBlock != null;
 
   // 切換頁面後，舊頁面選取的組件實例不會存在於新頁面裡，清掉避免面板顯示錯亂的資料。
   useEffect(() => {
     setSelectedBlockId(null);
+    setRightPanelView("page");
   }, [selectedId]);
 
   // 全螢幕模式下按 Esc 直接退出，跟其他 modal 的操作習慣一致。
@@ -156,7 +162,10 @@ export default function PageManagerPage() {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
     updateDraft({ blocks: base.blocks.filter((b) => b.instanceId !== instanceId) });
-    if (selectedBlockId === instanceId) setSelectedBlockId(null);
+    if (selectedBlockId === instanceId) {
+      setSelectedBlockId(null);
+      setRightPanelView("page");
+    }
   };
 
   const moveBlock = (instanceId: string, dir: -1 | 1) => {
@@ -168,6 +177,21 @@ export default function PageManagerPage() {
     if (target < 0 || target >= base.blocks.length) return;
     const next = [...base.blocks];
     [next[idx], next[target]] = [next[target], next[idx]];
+    updateDraft({ blocks: next });
+  };
+
+  // 拖拉排序用：把某個 block 從原本位置抽出，插入到 toIndex（依拖放後的目標位置），
+  // 供 ComponentTreeModal 的上下拖拉重新排序使用（跟 moveBlock 的「交換上下一個」不同，
+  // 這裡是任意位置插入）。
+  const reorderBlock = (instanceId: string, toIndex: number) => {
+    if (!selected) return;
+    const base = drafts[selected.id] ?? selected;
+    const fromIndex = base.blocks.findIndex((b) => b.instanceId === instanceId);
+    if (fromIndex < 0) return;
+    const next = [...base.blocks];
+    const [moved] = next.splice(fromIndex, 1);
+    const clampedTo = Math.max(0, Math.min(toIndex, next.length));
+    next.splice(clampedTo, 0, moved);
     updateDraft({ blocks: next });
   };
 
@@ -259,7 +283,19 @@ export default function PageManagerPage() {
           onChangeViewport={setViewport}
           fullscreen={fullscreen}
           onToggleFullscreen={() => setFullscreen((v) => !v)}
-          onOpenTree={() => setTreeOpen(true)}
+          treeOpen={treeOpen}
+          onToggleTree={() => setTreeOpen((v) => !v)}
+          showingComponentProps={showingComponentProps}
+          onShowPageProps={() => {
+            setRightPanelView("page");
+            setPropertiesOpen(true);
+          }}
+          onShowComponentProps={() => {
+            if (!selectedBlockId) return;
+            setRightPanelView("component");
+            setPropertiesOpen(true);
+          }}
+          hasSelectedBlock={selectedBlockId != null}
         />
 
         <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -290,7 +326,11 @@ export default function PageManagerPage() {
               dirty={dirty}
               viewport={viewport}
               selectedBlockId={selectedBlockId}
-              onSelectBlock={setSelectedBlockId}
+              onSelectBlock={(instanceId) => {
+                setSelectedBlockId(instanceId);
+                setRightPanelView("component");
+                setPropertiesOpen(true);
+              }}
               onOpenPagePicker={() => setPagePickerOpen(true)}
               onRemoveBlock={removeBlock}
               onMoveBlock={moveBlock}
@@ -304,10 +344,10 @@ export default function PageManagerPage() {
             <ResizeHandle side="right" onExpand={() => setPropertiesOpen(true)} />
           )}
           {propertiesOpen && !fullscreen && (
-            selectedBlock ? (
+            showingComponentProps && selectedBlock ? (
               <ComponentPropertiesPanel
                 block={selectedBlock}
-                onClose={() => setSelectedBlockId(null)}
+                onClose={() => setPropertiesOpen(false)}
                 onUpdateProp={(key, value) => updateBlockProp(selectedBlock.instanceId, key, value)}
                 onRemove={() => removeBlock(selectedBlock.instanceId)}
               />
@@ -330,12 +370,14 @@ export default function PageManagerPage() {
       {treeOpen && draft && (
         <ComponentTreeModal
           draft={draft}
+          selectedBlockId={selectedBlockId}
           onClose={() => setTreeOpen(false)}
           onSelectBlock={(instanceId) => {
             setSelectedBlockId(instanceId);
+            setRightPanelView("component");
             setPropertiesOpen(true);
-            setTreeOpen(false);
           }}
+          onReorderBlock={reorderBlock}
         />
       )}
     </AdminLayout>
