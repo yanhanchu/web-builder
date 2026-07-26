@@ -80,8 +80,28 @@ function toRelPath(absPath) {
 }
 
 /**
- * 展開一個型別節點，如果它是對某個 interface / type alias 的參照，
- * 回傳該型別的「攤平後欄位清單」；否則回傳 null（代表是原生型別，不需要展開）。
+ * 判斷一個 TypeAliasDeclaration 是不是「簡單別名」（底層不是 object type literal，
+ * 例如 union literal `"a" | "b"`、或其他型別的單純別名）。
+ * 這種別名沒有欄位可展開，只是幫一串字面型別取個名字 —— 對使用者來說，
+ * 直接看到 `"start" | "center" | "end"` 比看到 `FlexAlign` 再多一層去查「FlexAlign 是什麼」
+ * 更直接，所以這種別名不應該被當成獨立的 ComponentTypeDoc 收錄，也不應該留在
+ * relatedTypeNames 裡造成「還要再展開一層」的間接參照，而是直接把它的定義字串
+ * 內聯回 prop 的 type 欄位（見 inlineSimpleAliasTypeText）。
+ */
+function simpleAliasTypeText(typeAliasDecl) {
+  const typeNode = typeAliasDecl.getTypeNode();
+  if (typeNode && typeNode.getKind() === SyntaxKind.TypeLiteral) {
+    return null; // object type literal，屬於「複雜型別」，交由 extractTypeAliasFields 展開欄位
+  }
+  return truncateType(typeNode ? typeNode.getText() : typeAliasDecl.getType().getText());
+}
+
+/**
+ * 展開一個型別節點，如果它是對某個 interface，或底層為 object type literal 的
+ * type alias 的參照，回傳該型別的「攤平後欄位清單」；否則回傳 null——
+ * 包括原生型別（不需要展開），以及「簡單別名」（union / primitive 別名，
+ * 見 simpleAliasTypeText），這兩種都不會被收進 relatedTypesMap /
+ * relatedTypeNames，避免多一層「型別名稱 -> 還要再查一次定義」的間接參照。
  * 跟 generate-functions-docs.mjs 的 resolveTypeDeclaration 同一套邏輯，只是
  * 這裡收集進 ComponentTypeDoc（id 為 `{宣告檔案路徑}#{型別名稱}`，供跨組件共用參照）。
  */
@@ -98,6 +118,12 @@ function resolveTypeDeclaration(type, seenTypeIds, nestedTypeCollector) {
   // 只展開專案原始碼裡的型別，跳過 node_modules / lib.d.ts 內建型別（例如 Array, Date...）
   const sourceFilePath = decl.getSourceFile().getFilePath();
   if (sourceFilePath.includes('node_modules') || sourceFilePath.includes('typescript/lib')) {
+    return null;
+  }
+
+  // 簡單別名（union / primitive 別名）：不展開成 ComponentTypeDoc，直接視為原生型別跳過，
+  // 讓呼叫端（top-level prop.type）改用 inlineSimpleAliasTypeText 直接內聯定義字串。
+  if (decl.getKind() === SyntaxKind.TypeAliasDeclaration && simpleAliasTypeText(decl) !== null) {
     return null;
   }
 
@@ -140,30 +166,22 @@ function extractInterfaceFields(interfaceDecl, typeId, typeName, nestedTypeColle
   };
 }
 
-/** 從 TypeAliasDeclaration 抽出資訊：若底層是 object literal type 則當成欄位清單，否則當成單純的型別別名（例如 union） */
+/**
+ * 從 TypeAliasDeclaration 抽出欄位清單。呼叫端（resolveTypeDeclaration）已經先用
+ * simpleAliasTypeText 濾掉底層不是 object type literal 的簡單別名（union / primitive
+ * 別名，例如 FlexAlign），所以這裡永遠是「底層為 object type literal」的具名別名
+ * （例如 `type Wordmark = { lead: string; accent: string }`），可以直接當欄位清單展開。
+ */
 function extractTypeAliasFields(typeAliasDecl, typeId, typeName, nestedTypeCollector) {
   const typeNode = typeAliasDecl.getTypeNode();
-
-  if (typeNode && typeNode.getKind() === SyntaxKind.TypeLiteral) {
-    const members = typeNode.getMembers().filter((m) => m.getKind() === SyntaxKind.PropertySignature);
-    const fields = members.map((prop) => propertyToFieldDoc(prop, nestedTypeCollector));
-    return {
-      id: typeId,
-      name: typeName,
-      kind: 'type',
-      description: jsDocDescription(typeAliasDecl.getJsDocs()),
-      fields,
-    };
-  }
-
-  // union / primitive alias 等：沒有欄位清單，只記錄型別本身的字串定義
+  const members = typeNode.getMembers().filter((m) => m.getKind() === SyntaxKind.PropertySignature);
+  const fields = members.map((prop) => propertyToFieldDoc(prop, nestedTypeCollector));
   return {
     id: typeId,
     name: typeName,
     kind: 'type',
     description: jsDocDescription(typeAliasDecl.getJsDocs()),
-    aliasOf: truncateType(typeNode ? typeNode.getText() : typeAliasDecl.getType().getText()),
-    fields: [],
+    fields,
   };
 }
 
@@ -279,6 +297,30 @@ function extractRelatedTypeIdsForComponent(sourceFile, componentName, relatedTyp
   return [...seenTypeIds];
 }
 
+/**
+ * 收集一個檔案內所有「簡單別名」（union / primitive 別名，例如
+ * `export type FlexAlign = "start" | "center" | ...`）的 名稱 -> 展開後字串 對照表。
+ * react-docgen-typescript 對具名型別參照（不像 inline union literal）不會自動展開，
+ * prop.type 只會拿到裸名稱（例如 "FlexAlign"），所以用這張表在輸出前把它換成
+ * 實際的限制字串，避免「型別名稱 -> 還要再去 component-types.json 查一次定義」
+ * 這一層不必要的間接參照。
+ */
+function collectSimpleAliasesByName(sourceFile) {
+  const map = new Map();
+  for (const alias of sourceFile.getTypeAliases()) {
+    const text = simpleAliasTypeText(alias);
+    if (text !== null) map.set(alias.getName(), text);
+  }
+  return map;
+}
+
+/** 把 prop 型別字串中的具名簡單別名換成它的展開定義；不是簡單別名（或找不到）就原樣回傳。 */
+function inlineSimpleAliasTypeText(typeText, simpleAliasesByName) {
+  const trimmed = typeText.trim();
+  const expanded = simpleAliasesByName.get(trimmed);
+  return expanded ?? typeText;
+}
+
 function main() {
   const files = globSync(COMPONENTS_GLOBS, {
     cwd: ROOT,
@@ -307,6 +349,7 @@ function main() {
     try {
       const docs = parser.parse(absFile);
       const sourceFile = project.getSourceFileOrThrow(absFile);
+      const simpleAliasesByName = collectSimpleAliasesByName(sourceFile);
 
       for (const doc of docs) {
         // 略過沒有解析出任何 props、且沒有 displayName 的雜訊結果
@@ -342,7 +385,12 @@ function main() {
               // 的 type.name 固定回傳 "enum"，真正的型別字串在 type.raw。
               // 一般型別（string / boolean / ReactNode / string[] / SomeType[]...）
               // 沒有 raw，就退回 name，name 本身已含陣列 `[]` 等完整寫法。
-              type: truncateType(prop.type?.raw ?? prop.type?.name ?? 'unknown'),
+              // 若這個型別字串剛好是本檔案內某個「簡單別名」（union / primitive 別名，
+              // 例如 FlexAlign）的裸名稱，直接內聯展開成它的實際限制字串，
+              // 不留下需要再查一次 component-types.json 的間接參照。
+              type: truncateType(
+                inlineSimpleAliasTypeText(prop.type?.raw ?? prop.type?.name ?? 'unknown', simpleAliasesByName)
+              ),
               defaultValue:
                 prop.defaultValue && prop.defaultValue.value !== undefined
                   ? String(prop.defaultValue.value)

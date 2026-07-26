@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { ListTree, ChevronDown, ChevronRight, X, GripVertical } from "lucide-react";
-import { panelTitleStyle } from "../admin-ui";
+import { useMemo, useRef, useState } from "react";
+import { ListTree, ChevronDown, ChevronRight, X, GripVertical, Search } from "lucide-react";
+import { panelTitleStyle, inputStyle } from "../admin-ui";
 import { allComponents } from "@workspace/ui/lib/generator/component-registry";
 import type { PageItem, PageBlock } from "@/lib/pages-store";
 import { isSlotValue } from "@/lib/pages-store";
@@ -45,6 +45,17 @@ function slotPropsOf(componentId: string): string[] {
   return component.props.filter((p) => isSlotProp(p.type)).map((p) => p.name);
 }
 
+/** 判斷 block 自己或其任一巢狀子孫的組件名稱是否符合篩選字串。 */
+function matchesQuery(block: PageBlock, q: string): boolean {
+  if (block.componentName.toLowerCase().includes(q)) return true;
+  for (const slotKey of slotPropsOf(block.componentId)) {
+    const value = block.props[slotKey];
+    const children = isSlotValue(value) ? value.blocks : [];
+    if (children.some((child) => matchesQuery(child, q))) return true;
+  }
+  return false;
+}
+
 export function ComponentTreeModal({
   draft,
   selectedBlockId,
@@ -66,8 +77,15 @@ export function ComponentTreeModal({
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [treeQuery, setTreeQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const autoScrollFrame = useRef<number | null>(null);
+
+  const q = treeQuery.trim().toLowerCase();
+  const visibleBlocks = useMemo(() => {
+    if (!q) return draft.blocks;
+    return draft.blocks.filter((block) => matchesQuery(block, q));
+  }, [draft.blocks, q]);
 
   const dropKey = (parentId: string | null, slotKey: string | null) => `${parentId ?? "root"}::${slotKey ?? ""}`;
 
@@ -143,10 +161,15 @@ export function ComponentTreeModal({
         </button>
       </div>
 
-      <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
-        拖拉 <GripVertical size={10} style={{ verticalAlign: -1 }} /> 可搬移組件，只能放進組件的
-        ReactNode（插槽）欄位，例如 children。點名稱可選取該組件。
-      </p>
+      <div style={{ position: "relative", marginBottom: 10, flexShrink: 0 }}>
+        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#777" }} />
+        <input
+          style={{ ...inputStyle, paddingLeft: 30 }}
+          placeholder="搜尋組件名稱…"
+          value={treeQuery}
+          onChange={(e) => setTreeQuery(e.target.value)}
+        />
+      </div>
 
       <div
         ref={scrollRef}
@@ -171,8 +194,10 @@ export function ComponentTreeModal({
             <p style={{ color: "#777", fontSize: 12, margin: "4px 0 0 20px" }}>
               尚無組件，從左側「現有組件」加入。
             </p>
+          ) : visibleBlocks.length === 0 ? (
+            <p style={{ color: "#777", fontSize: 12, margin: "4px 0 0 20px" }}>找不到符合的組件。</p>
           ) : (
-            draft.blocks.map((block, index) => (
+            visibleBlocks.map((block, index) => (
               <BlockNode
                 key={block.instanceId}
                 block={block}
@@ -188,6 +213,7 @@ export function ComponentTreeModal({
                 setDragOverKey={setDragOverKey}
                 onSelectBlock={onSelectBlock}
                 onDrop={handleDrop}
+                query={q}
               />
             ))
           )}
@@ -212,6 +238,7 @@ function BlockNode({
   setDragOverKey,
   onSelectBlock,
   onDrop,
+  query,
 }: {
   block: PageBlock;
   index: number;
@@ -228,11 +255,16 @@ function BlockNode({
   setDragOverKey: (key: string | null) => void;
   onSelectBlock: (instanceId: string) => void;
   onDrop: (parentId: string | null, slotKey: string | null, toIndex: number) => void;
+  /** 目前搜尋樹狀結構用的關鍵字（已 trim + 轉小寫），空字串代表未篩選。 */
+  query: string;
 }) {
+  const hasQuery = query.length > 0;
   const [expanded, setExpanded] = useState(true);
   const slots = slotPropsOf(block.componentId);
   const isSelected = block.instanceId === selectedBlockId;
   const isDragging = draggingId === block.instanceId;
+  // 有搜尋字串時強制展開（讓命中的子孫節點可見），沒有搜尋字串則沿用手動展開狀態。
+  const isExpanded = hasQuery ? true : expanded;
 
   return (
     <div>
@@ -255,7 +287,7 @@ function BlockNode({
             }}
             style={{ cursor: "pointer", lineHeight: 0, flexShrink: 0 }}
           >
-            {expanded ? (
+            {isExpanded ? (
               <ChevronDown size={12} style={{ color: "#777", flexShrink: 0 }} />
             ) : (
               <ChevronRight size={12} style={{ color: "#777", flexShrink: 0 }} />
@@ -327,10 +359,11 @@ function BlockNode({
         onDrop={() => onDrop(parentId, ownSlotKey, index)}
       />
 
-      {expanded &&
+      {isExpanded &&
         slots.map((slotKey) => {
           const value = block.props[slotKey];
-          const children = isSlotValue(value) ? value.blocks : [];
+          const allChildren = isSlotValue(value) ? value.blocks : [];
+          const children = hasQuery ? allChildren.filter((child) => matchesQuery(child, query)) : allChildren;
           const slotActive = dragOverKey === dropKey(block.instanceId, slotKey);
           const isEmpty = children.length === 0;
           return (
@@ -348,7 +381,7 @@ function BlockNode({
               >
                 {slotKey}
                 {/* 空插槽的常駐提示，非拖曳狀態下也可見。 */}
-                {isEmpty && !draggingId && (
+                {isEmpty && !draggingId && !hasQuery && (
                   <span style={{ color: "#444", fontStyle: "italic", fontSize: 9 }}>（空，可拖曳組件放入）</span>
                 )}
               </div>
@@ -376,6 +409,7 @@ function BlockNode({
                   setDragOverKey={setDragOverKey}
                   onSelectBlock={onSelectBlock}
                   onDrop={onDrop}
+                  query={query}
                 />
               ))}
             </div>

@@ -411,6 +411,94 @@
       ]
     },
     {
+      "id": "src/components/landing1/flex.tsx#FlexItemProps",
+      "name": "FlexItemProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "grow",
+          "required": false,
+          "type": "number",
+          "description": "Flex-grow factor: how much this item grows to fill extra space. Defaults to `0`."
+        },
+        {
+          "name": "shrink",
+          "required": false,
+          "type": "number",
+          "description": "Flex-shrink factor: how much this item shrinks when space is tight. Defaults to `1`."
+        },
+        {
+          "name": "basis",
+          "required": false,
+          "type": "string | number",
+          "description": "Flex-basis: the item's starting size before growing/shrinking. Defaults to `auto`."
+        },
+        {
+          "name": "alignSelf",
+          "required": false,
+          "type": "FlexAlign",
+          "description": "Overrides the container's `align` for this item alone (CSS `align-self`)."
+        },
+        {
+          "name": "children",
+          "required": true,
+          "type": "ReactNode",
+          "description": "Content rendered inside this flex item, e.g. sample filler content."
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/flex.tsx#FlexProps",
+      "name": "FlexProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "direction",
+          "required": false,
+          "type": "FlexDirection",
+          "description": "Flex-direction: which way the main axis runs. Defaults to `row`."
+        },
+        {
+          "name": "justify",
+          "required": false,
+          "type": "FlexJustify",
+          "description": "Alignment along the main axis (horizontal for `row`, vertical for\n`column`) — left / center / right plus the distributed-spacing modes.\nDefaults to `start`."
+        },
+        {
+          "name": "align",
+          "required": false,
+          "type": "FlexAlign",
+          "description": "Alignment along the cross axis (vertical for `row`, horizontal for\n`column`) — top / center / bottom / stretch / baseline.\nDefaults to `stretch`."
+        },
+        {
+          "name": "wrap",
+          "required": false,
+          "type": "FlexWrap",
+          "description": "Whether items wrap onto additional lines. Defaults to `nowrap`."
+        },
+        {
+          "name": "gap",
+          "required": false,
+          "type": "number",
+          "description": "Gap between items in pixels. Defaults to `12`."
+        },
+        {
+          "name": "minHeight",
+          "required": false,
+          "type": "number",
+          "description": "Minimum height in pixels, useful for previewing alignment on an otherwise short container."
+        },
+        {
+          "name": "children",
+          "required": true,
+          "type": "ReactNode",
+          "description": "Child elements laid out by this flex container."
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/footer.tsx#FooterProps",
       "name": "FooterProps",
       "kind": "interface",

@@ -2,6 +2,7 @@ import { type BrandProps as BrandProps } from "./brand";
 import { type ButtonProps as ButtonProps } from "./button";
 import { type ContactCardProps as ContactCardProps } from "./contact-card";
 import { type CtaBannerProps as CtaBannerProps } from "./cta-banner";
+import { type FlexProps as FlexProps, type FlexItemProps as FlexItemProps } from "./flex";
 import { type FooterProps as FooterProps } from "./footer";
 import { type HeaderProps as HeaderProps } from "./header";
 import { type HeroProps as HeroProps } from "./hero";
@@ -57,6 +58,23 @@ export const ctaBanner: CtaBannerProps = {
   body: "Reach out and we'll get back to you within one business day.",
   ctaLabel: "Get in touch",
   ctaHref: "mailto:hello@example.com",
+}
+
+export const flex: FlexProps = {
+  direction: "row",
+  justify: "start",
+  align: "stretch",
+  wrap: "nowrap",
+  gap: 12,
+  minHeight: 160,
+  children: undefined,
+}
+
+export const flexItem: FlexItemProps = {
+  grow: 0,
+  shrink: 1,
+  basis: "auto",
+  children: "1",
 }
 
 export const footer: FooterProps = {
