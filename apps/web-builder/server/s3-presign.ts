@@ -92,12 +92,16 @@ export interface PresignPutResult {
 }
 
 /**
- * 產生 S3 PutObject 的 presigned URL（query-string 簽名版本）。
- * 相容 AWS S3、MinIO、Cloudflare R2、Backblaze B2 等任何走 SigV4 的節點。
+ * 手刻 SigV4 query-string 簽名，PUT / GET 共用同一套流程，
+ * 差別只在 HTTP method（其餘 canonical request 組成規則完全相同）。
  */
-export function presignPutObject(params: PresignPutParams): PresignPutResult {
-  const { dest, key, contentType, expiresSeconds = DEFAULT_EXPIRES_SECONDS } =
-    params;
+function presignQueryString(params: {
+  dest: S3UploadDest;
+  method: "PUT" | "GET";
+  key: string;
+  expiresSeconds: number;
+}): { url: string; expiresAt: string } {
+  const { dest, method, key, expiresSeconds } = params;
   const region = dest.region || "auto";
   const now = new Date();
   const { amzDate, dateStamp } = toAmzDate(now);
@@ -122,12 +126,12 @@ export function presignPutObject(params: PresignPutParams): PresignPutResult {
 
   const canonicalHeaders = `host:${host}\n`;
   const signedHeaders = "host";
-  // presigned URL 是給瀏覽器直接 PUT 二進位檔案用的，事先不知道內容，
-  // 所以 payload hash 固定用 UNSIGNED-PAYLOAD（AWS 官方支援的做法）。
+  // presigned URL 事先不知道內容（PUT 是瀏覽器待上傳的檔案；GET 則本來就沒有
+  // request body），payload hash 固定用 AWS 官方支援的 UNSIGNED-PAYLOAD。
   const payloadHash = "UNSIGNED-PAYLOAD";
 
   const canonicalRequest = [
-    "PUT",
+    method,
     canonicalUri,
     canonicalQuery,
     canonicalHeaders,
@@ -152,17 +156,67 @@ export function presignPutObject(params: PresignPutParams): PresignPutResult {
     .digest("hex");
 
   const finalQuery = `${canonicalQuery}&X-Amz-Signature=${signature}`;
-  const uploadUrl = `${protocol}://${host}${canonicalUri}?${finalQuery}`;
+
+  return {
+    url: `${protocol}://${host}${canonicalUri}?${finalQuery}`,
+    expiresAt: new Date(now.getTime() + expiresSeconds * 1000).toISOString(),
+  };
+}
+
+/**
+ * 產生 S3 PutObject 的 presigned URL（query-string 簽名版本）。
+ * 相容 AWS S3、MinIO、Cloudflare R2、Backblaze B2 等任何走 SigV4 的節點。
+ */
+export function presignPutObject(params: PresignPutParams): PresignPutResult {
+  const { dest, key, contentType, expiresSeconds = DEFAULT_EXPIRES_SECONDS } =
+    params;
+  const { url, expiresAt } = presignQueryString({
+    dest,
+    method: "PUT",
+    key,
+    expiresSeconds,
+  });
 
   const requiredHeaders: Record<string, string> = {};
   if (contentType) requiredHeaders["Content-Type"] = contentType;
 
   return {
-    uploadUrl,
+    uploadUrl: url,
     requiredHeaders,
     method: "PUT",
-    expiresAt: new Date(now.getTime() + expiresSeconds * 1000).toISOString(),
+    expiresAt,
   };
+}
+
+export interface PresignGetParams {
+  dest: S3UploadDest;
+  key: string;
+  expiresSeconds?: number;
+}
+
+export interface PresignGetResult {
+  downloadUrl: string;
+  method: "GET";
+  expiresAt: string;
+}
+
+/**
+ * 產生 S3 GetObject 的 presigned URL。
+ *
+ * 用途：「跨目的地同步」時，若檔案的來源就存放在某個 S3 相容節點（而非本機
+ * 磁碟），這個 dev server 需要先把檔案內容讀出來，才能再寫到另一個同步
+ * 目的地。私有 bucket 沒有公開讀取權限，所以用這個簽名 URL 讓 server 端
+ * 用 fetch() 讀取物件內容，而不需要額外的憑證交換流程。
+ */
+export function presignGetObject(params: PresignGetParams): PresignGetResult {
+  const { dest, key, expiresSeconds = DEFAULT_EXPIRES_SECONDS } = params;
+  const { url, expiresAt } = presignQueryString({
+    dest,
+    method: "GET",
+    key,
+    expiresSeconds,
+  });
+  return { downloadUrl: url, method: "GET", expiresAt };
 }
 
 /** 簽好的 URL 上傳成功後，物件的「公開網址」（若有設定 publicBaseUrl 就用它，否則退回節點本身網址）。 */
@@ -172,4 +226,42 @@ export function resolvePublicUrl(dest: S3UploadDest, key: string): string {
   }
   const { protocol, host, pathPrefix } = resolveHost(dest);
   return `${protocol}://${host}${pathPrefix}/${encodeS3Key(key)}`;
+}
+
+/**
+ * 反向解析：給一個 URL，判斷它是否指向這個 S3 目的地（不論當初是用
+ * publicBaseUrl 或節點本身網址產生的），是的話回傳解碼後的物件 key。
+ *
+ * 用途：「跨目的地同步」時，前端只知道來源檔案目前的 url，不知道它對應
+ * 哪個 key；這個函式讓 server 端能反推回 key，才能對來源目的地產生
+ * presigned GET URL 讀取內容。
+ */
+export function extractKeyIfMatches(
+  dest: S3UploadDest,
+  url: string,
+): string | null {
+  const tryStrip = (prefix: string): string | null => {
+    if (!url.startsWith(prefix)) return null;
+    const rest = url.slice(prefix.length).replace(/^\/+/, "");
+    if (!rest) return null;
+    try {
+      return rest
+        .split("/")
+        .map((seg) => decodeURIComponent(seg))
+        .join("/");
+    } catch {
+      return null;
+    }
+  };
+
+  if (dest.publicBaseUrl) {
+    const viaPublicBase = tryStrip(`${dest.publicBaseUrl.replace(/\/+$/, "")}/`);
+    if (viaPublicBase) return viaPublicBase;
+  }
+
+  const { protocol, host, pathPrefix } = resolveHost(dest);
+  const viaHost = tryStrip(`${protocol}://${host}${pathPrefix}/`);
+  if (viaHost) return viaHost;
+
+  return null;
 }

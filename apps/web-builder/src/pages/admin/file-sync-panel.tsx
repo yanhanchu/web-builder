@@ -3,6 +3,7 @@ import { RefreshCw, Cloud, HardDrive } from "lucide-react";
 import type { DataSource, FileDataSource } from "@workspace/ui/lib/data-model";
 import { ghostBtnStyle } from "./admin-ui";
 import { readUploadDestinations } from "../../lib/upload-destinations";
+import { syncFileToDestination, DEFAULT_APP_NAME } from "../../lib/upload-client";
 import {
   readFileSyncMap,
   writeFileSyncMap,
@@ -20,7 +21,12 @@ import {
 // × 目的地 的同步狀態。
 //
 // 同步狀態直接整合進每一筆 file 資料列的標題列（刪除鈕左側），
-// 不再另外畫一個獨立矩陣。尚未實際串接上傳：「同步」僅模擬狀態切換。
+// 不再另外畫一個獨立矩陣。
+//
+// 實際同步：呼叫 upload-client.ts 的 syncFileToDestination()，
+// 讓 dev server 把該檔案目前的 url 讀出來，再寫入目標目的地
+// （見 server/file-sync.ts）。同步成功後，該檔案在這個目的地的
+// url 會記錄在 syncMap 對應紀錄的 syncedUrl 欄位。
 // ------------------------------------------------------------
 
 export function FileSyncRefreshButton({ onRefresh }: { onRefresh: () => void }) {
@@ -36,7 +42,10 @@ export function FileSyncRefreshButton({ onRefresh }: { onRefresh: () => void }) 
   );
 }
 
-export function useFileSync(sources: Record<string, DataSource>) {
+export function useFileSync(
+  sources: Record<string, DataSource>,
+  appName: string = DEFAULT_APP_NAME,
+) {
   const files = useMemo(
     () =>
       Object.values(sources).filter(
@@ -77,7 +86,12 @@ export function useFileSync(sources: Record<string, DataSource>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, destinations]);
 
-  const updateRecord = (fileId: string, destId: string, state: SyncState, errorMessage?: string) => {
+  const updateRecord = (
+    fileId: string,
+    destId: string,
+    state: SyncState,
+    extra?: { errorMessage?: string; syncedUrl?: string },
+  ) => {
     setSyncMap((prev) => {
       const k = syncKey(fileId, destId);
       const next: FileSyncMap = {
@@ -87,7 +101,10 @@ export function useFileSync(sources: Record<string, DataSource>) {
           destId,
           state,
           updatedAt: new Date().toISOString(),
-          errorMessage,
+          errorMessage: extra?.errorMessage,
+          // 還沒有新的同步結果時，沿用前一次成功同步過的 url，
+          // 避免一次「同步中」的中繼狀態把之前的紀錄洗掉。
+          syncedUrl: extra?.syncedUrl ?? prev[k]?.syncedUrl,
         },
       };
       writeFileSyncMap(next);
@@ -95,22 +112,40 @@ export function useFileSync(sources: Record<string, DataSource>) {
     });
   };
 
-  const simulateSync = (fileId: string, destId: string) => {
+  /**
+   * 真正的同步：呼叫 dev server 的 /api/upload/:appName/sync，
+   * 把 file.url 目前指向的內容讀出來，寫一份到 destId 對應的目的地。
+   */
+  const performSync = async (fileId: string, destId: string) => {
+    const file = files.find((f) => f.id === fileId);
+    if (!file) return;
+    if (!file.url) {
+      updateRecord(fileId, destId, "failed", {
+        errorMessage: "此檔案尚未設定 url，請先上傳或填入來源網址",
+      });
+      return;
+    }
+
     updateRecord(fileId, destId, "syncing");
-    window.setTimeout(() => {
-      const ok = Math.random() > 0.2;
-      updateRecord(
-        fileId,
+    try {
+      const result = await syncFileToDestination({
+        sourceUrl: file.url,
         destId,
-        ok ? "synced" : "failed",
-        ok ? undefined : "模擬失敗（尚未串接實際上傳）",
-      );
-    }, 700);
+        fileName: file.label || file.id,
+        mimeType: file.mimeType,
+        appName,
+      });
+      updateRecord(fileId, destId, "synced", { syncedUrl: result.url });
+    } catch (err) {
+      updateRecord(fileId, destId, "failed", {
+        errorMessage: err instanceof Error ? err.message : "同步失敗",
+      });
+    }
   };
 
   const refresh = () => setRefreshTick((n) => n + 1);
 
-  return { files, destinations, syncMap, simulateSync, refresh };
+  return { files, destinations, syncMap, performSync, refresh };
 }
 
 const SHORT_LABEL: Record<SyncState, string> = {
@@ -120,25 +155,25 @@ const SHORT_LABEL: Record<SyncState, string> = {
   failed: "✗",
 };
 
-// 單筆檔案列內的同步狀態叢集：每個已啟用目的地一個小藥丸（點擊模擬同步），
+// 單筆檔案列內的同步狀態叢集：每個已啟用目的地一個小藥丸（點擊觸發真正的同步），
 // 加一個「全部同步」鈕。放在資料列刪除鈕的左側。
 export function FileRowSyncCluster({
   file,
   destinations,
   syncMap,
-  simulateSync,
+  performSync,
 }: {
   file: FileDataSource;
   destinations: ReturnType<typeof readUploadDestinations>;
   syncMap: FileSyncMap;
-  simulateSync: (fileId: string, destId: string) => void;
+  performSync: (fileId: string, destId: string) => void;
 }) {
   if (destinations.length === 0) {
     return <span style={noDestStyle}>未啟用目的地</span>;
   }
 
   const syncAll = () => {
-    for (const d of destinations) simulateSync(file.id, d.id);
+    for (const d of destinations) performSync(file.id, d.id);
   };
 
   return (
@@ -146,12 +181,18 @@ export function FileRowSyncCluster({
       {destinations.map((d) => {
         const record = syncMap[syncKey(file.id, d.id)];
         const state: SyncState = record?.state ?? "unsynced";
-        const tip = `${d.label || d.id}：${SYNC_STATE_LABELS[state]}`;
+        const tip = [
+          `${d.label || d.id}：${SYNC_STATE_LABELS[state]}`,
+          state === "failed" && record?.errorMessage ? `（${record.errorMessage}）` : "",
+          state === "synced" && record?.syncedUrl ? `\n${record.syncedUrl}` : "",
+        ]
+          .filter(Boolean)
+          .join("");
         return (
           <button
             key={d.id}
             style={{ ...pillStyle, ...stateStyleMap[state] }}
-            onClick={() => simulateSync(file.id, d.id)}
+            onClick={() => performSync(file.id, d.id)}
             disabled={state === "syncing"}
             title={tip}
             aria-label={tip}

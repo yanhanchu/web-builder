@@ -30,6 +30,13 @@
 //     依 destId 找到對應（kind: "s3"）的目的地設定，計算 SigV4
 //     presigned PUT URL，回傳給前端後由「前端直接」對該 URL 發
 //     PUT 上傳檔案本體 —— 檔案完全不經過這個 dev server。
+//
+//   POST /api/upload/:appName/sync
+//     body: { sourceUrl, destId, fileName, mimeType? }
+//     把 sourceUrl 目前指向的檔案內容，同步一份到 destId 對應的目的地
+//     （必須是目前已啟用的目的地之一）。整個讀取＋寫入流程都在這個
+//     dev server 端完成，不透過瀏覽器轉手，因此來源是私有 S3 bucket
+//     時也能正確讀取（用 presigned GET），細節見 ./file-sync.ts。
 // ============================================================
 
 import type { Plugin, ViteDevServer, Connect } from "vite";
@@ -44,9 +51,10 @@ import {
   DEFAULT_APP_NAME,
 } from "./settings-store";
 import { parseMultipart } from "./multipart";
-import { saveLocalUpload } from "./local-upload";
+import { saveLocalUpload, resolveStoragePath } from "./local-upload";
 import { presignPutObject, resolvePublicUrl } from "./s3-presign";
 import { makeStoredFileName, isSafePathSegment } from "./filename";
+import { syncFileToDestination, SyncError } from "./file-sync";
 
 function json(res: ServerResponse, status: number, body: unknown) {
   const payload = JSON.stringify(body);
@@ -153,7 +161,7 @@ export function uploadDevPlugin(): Plugin {
                 return json(res, 404, { error: "找不到本機上傳目的地設定" });
               }
               const filePath = path.join(
-                localDest.storagePath,
+                resolveStoragePath(localDest.storagePath),
                 appName,
                 fileName,
               );
@@ -273,6 +281,40 @@ export function uploadDevPlugin(): Plugin {
               } catch (err) {
                 return json(res, 500, {
                   error: err instanceof Error ? err.message : "簽名失敗",
+                });
+              }
+            }
+
+            // POST /api/upload/:appName/sync
+            if (sub === "sync" && req.method === "POST") {
+              const body = await readJsonBody<{
+                sourceUrl?: string;
+                destId?: string;
+                fileName?: string;
+                mimeType?: string;
+              }>(req);
+
+              if (!body.sourceUrl || !body.destId || !body.fileName) {
+                return json(res, 400, {
+                  error: "缺少 sourceUrl / destId / fileName",
+                });
+              }
+
+              try {
+                const result = await syncFileToDestination({
+                  appName,
+                  sourceUrl: body.sourceUrl,
+                  destId: body.destId,
+                  fileName: body.fileName,
+                  mimeType: body.mimeType,
+                });
+                return json(res, 200, { appName, ...result });
+              } catch (err) {
+                if (err instanceof SyncError) {
+                  return json(res, err.status, { error: err.message });
+                }
+                return json(res, 500, {
+                  error: err instanceof Error ? err.message : "同步失敗",
                 });
               }
             }

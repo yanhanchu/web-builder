@@ -5,9 +5,11 @@
 // file DataSource，同時記錄它與目前每個「已啟用」上傳目的地
 // （/admin/settings 設定）之間的同步狀態。
 //
-// 這裡先不做實際上傳，只先把資料模型與狀態切換 UI 建起來，
-// 之後要接真正的上傳流程時，只需要把 `markSyncing` 之後的模擬
-// 換成真正呼叫上傳 API、依結果呼叫 markSynced / markFailed 即可。
+// 實際同步流程：呼叫 upload-client.ts 的 syncFileToDestination()，
+// 由 dev server 端把來源檔案內容讀出來，再寫入目標目的地（見
+// server/file-sync.ts）。這裡只負責記錄「結果」——同步中 / 已同步 /
+// 失敗，以及成功時該檔案在這個目的地實際落地的 url，方便之後追蹤
+// 同一筆檔案在不同儲存後端各自對應到哪個網址。
 // ============================================================
 
 export type SyncState = "unsynced" | "syncing" | "synced" | "failed";
@@ -20,8 +22,10 @@ export interface FileSyncRecord {
   state: SyncState;
   /** 最近一次狀態更新時間（ISO 字串），方便顯示「上次同步時間」 */
   updatedAt: string;
-  /** 失敗時的錯誤訊息（先保留欄位，尚未有實際上傳邏輯） */
+  /** 失敗時的錯誤訊息 */
   errorMessage?: string;
+  /** 同步成功後，這個檔案在該目的地實際落地的 url */
+  syncedUrl?: string;
 }
 
 export const FILE_SYNC_KEY = "wb.settings.fileSyncStatus";

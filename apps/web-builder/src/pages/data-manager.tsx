@@ -32,7 +32,7 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
-  const fileSync = useFileSync(sources);
+  const fileSync = useFileSync(sources, DEFAULT_APP_NAME);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(
@@ -89,7 +89,7 @@ export default function DataManagerPage() {
                 file={file}
                 destinations={fileSync.destinations}
                 syncMap={fileSync.syncMap}
-                simulateSync={fileSync.simulateSync}
+                performSync={fileSync.performSync}
               />
             )}
             onUploadFile={async (file) => {

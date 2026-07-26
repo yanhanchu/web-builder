@@ -7,6 +7,11 @@
 //   - S3 相容目的地：uploadFileToS3()      -> 先跟 dev server 要
 //     presigned URL，再由「瀏覽器直接」PUT 給 S3 / MinIO / R2 / B2，
 //     檔案本體完全不經過 dev server（純前端上傳）。
+//   - 跨目的地同步：syncFileToDestination() -> 請 dev server 把某個
+//     「目前已存在」的檔案（sourceUrl）讀出來，再寫一份到另一個已啟用
+//     的目的地。整個讀取＋寫入都在 server 端完成（見
+//     server/file-sync.ts），瀏覽器只需要送出這一個請求，不需要自己
+//     先把檔案下載下來再上傳一次，來源是私有 S3 bucket 時也一樣能同步。
 //
 // appName 是這一整套前端（web-builder）之後要接多 app / namespace
 // 時的區隔依據；目前前端還沒有 app 的概念，一律用 "default"。
@@ -158,4 +163,40 @@ export async function uploadFile(
   return dest.kind === "local"
     ? uploadFileToLocal(file, { destId: dest.id, appName })
     : uploadFileToS3(file, { destId: dest.id, appName });
+}
+
+export interface SyncFileResult {
+  url: string;
+  size?: number;
+  mimeType?: string;
+}
+
+/**
+ * 把「目前已經存在」的檔案（sourceUrl，可能來自本機目的地、S3 目的地、
+ * 或使用者手動填的外部網址）同步一份到另一個已啟用的目的地，例如把一份
+ * 原本只存在本機的檔案，補一份到 S3，讓兩邊都拿得到同一份內容。
+ *
+ * 整個讀取＋寫入都在 dev server 端完成（server/upload-dev-plugin.ts 的
+ * /sync 路由 -> server/file-sync.ts），瀏覽器只需要送出這一個請求：
+ * - 不需要自己先把來源檔案下載下來再上傳一次
+ * - 來源是私有 S3 bucket、沒有開 CORS 時，也一樣能正確同步（server 端
+ *   會改用 presigned GET URL 讀取）
+ */
+export async function syncFileToDestination(params: {
+  sourceUrl: string;
+  destId: string;
+  fileName: string;
+  mimeType?: string;
+  appName?: string;
+}): Promise<SyncFileResult> {
+  const { sourceUrl, destId, fileName, mimeType, appName = DEFAULT_APP_NAME } =
+    params;
+
+  const res = await fetch(`/api/upload/${encodeURIComponent(appName)}/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceUrl, destId, fileName, mimeType }),
+  });
+  const body = await parseJsonOrThrow(res);
+  return { url: body.url, size: body.size, mimeType: body.mimeType };
 }

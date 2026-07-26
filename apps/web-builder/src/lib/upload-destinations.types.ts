@@ -49,7 +49,10 @@ export function makeLocalDest(): LocalUploadDest {
     kind: "local",
     enabled: true,
     label: "本機儲存",
-    storagePath: "/var/www/uploads",
+    // 相對路徑：會自動對應到 apps/web-builder/public/uploads，Vite dev
+    // server 原生就會把 public/** 服務到網站根目錄，上傳完不用額外設定
+    // 就能直接用瀏覽器打開；也會自動建立目錄，不需要手動 mkdir。
+    storagePath: "public/uploads",
     publicBaseUrl: "",
   };
 }

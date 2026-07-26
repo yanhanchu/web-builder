@@ -499,10 +499,16 @@ function LocalDestCard({
         <input
           style={inputStyle}
           value={dest.storagePath}
-          placeholder="/var/www/uploads"
+          placeholder="public/uploads"
           onChange={(e) => onUpdate({ storagePath: e.target.value })}
         />
       </Field>
+      <p style={{ fontSize: 11, color: "#777", margin: "-2px 0 8px" }}>
+        相對路徑（例如 <code>public/uploads</code>）會自動對應到
+        <code> apps/web-builder/public/uploads</code>
+        並自動建立目錄，Vite dev server 會直接把它服務到網站根目錄；
+        也可以填絕對路徑（例如 <code>/var/www/uploads</code>），但該路徑須確保目前使用者有寫入權限。
+      </p>
       <Field label="對外網址前綴（publicBaseUrl，選填）">
         <input
           style={inputStyle}
