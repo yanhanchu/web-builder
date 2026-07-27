@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
-import { RefreshCw, Cloud, HardDrive, UploadCloud } from "lucide-react";
+import { RefreshCw, Cloud, HardDrive, UploadCloud, RotateCw } from "lucide-react";
 import type { DataSource, FileDataSource } from "@workspace/ui/lib/data-model";
-import { ghostBtnStyle } from "./admin-ui";
 import { readUploadDestinations } from "../../lib/upload-destinations";
 import {
   syncFileToDestination,
@@ -44,12 +43,12 @@ import {
 export function FileSyncRefreshButton({ onRefresh }: { onRefresh: () => void }) {
   return (
     <button
-      style={ghostBtnStyle}
+      style={iconBtnStyle}
       onClick={onRefresh}
-      title="重新讀取上傳目的地設定"
+      title="重新整理目的地：重新讀取上傳目的地設定"
+      aria-label="重新整理目的地"
     >
       <RefreshCw size={13} />
-      重新整理目的地
     </button>
   );
 }
@@ -338,11 +337,12 @@ export function FileRowSyncCluster({
         );
       })}
       <button
-        style={ghostBtnStyle}
+        style={syncAllBtnStyle}
         onClick={syncAll}
-        title="同步到所有已啟用的目的地（備援：一般上傳當下已自動同步過一次）"
+        title="全部同步：同步到所有已啟用的目的地（備援：一般上傳當下已自動同步過一次）"
+        aria-label="全部同步"
       >
-        全部同步
+        <RotateCw size={11} />
       </button>
     </div>
   );
@@ -513,6 +513,38 @@ const clusterStyle: CSSProperties = {
   alignItems: "center",
   gap: 4,
   flexShrink: 0,
+};
+
+/**
+ * 統一跟 DataSourceManager 自己的工具列按鈕（ioBtnStyle / addBtnStyle）同一套
+ * 尺寸（padding 4px 10px、fontSize 12），避免這裡的按鈕看起來明顯比較大。
+ * 純 icon、無文字，配合 title 提供完整說明。
+ */
+const iconBtnStyle: CSSProperties = {
+  background: "#2d2d2d",
+  color: "#ccc",
+  border: "1px solid #444",
+  borderRadius: 4,
+  padding: "4px 8px",
+  fontSize: 12,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+/** 「全部同步」：跟其他目的地小藥丸（pillStyle）同高，放在同一列不會忽大忽小。 */
+const syncAllBtnStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid #444",
+  borderRadius: 999,
+  padding: "2px 7px",
+  background: "#222",
+  color: "#7fdbca",
+  cursor: "pointer",
+  lineHeight: 1,
 };
 
 const noDestStyle: CSSProperties = {

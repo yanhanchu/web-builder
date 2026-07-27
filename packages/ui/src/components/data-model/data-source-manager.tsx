@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Download, Plus, Upload } from 'lucide-react';
+import { Download, LayoutGrid, List, Plus, Upload } from 'lucide-react';
 import type {
   DataSource,
   DataSourceKind,
@@ -19,6 +19,7 @@ import type { FileDetailSyncSlot, FileRowSyncSlot, FilePreviewUrlResolver, PageO
 import { ImportModal } from './import-modal';
 import { LocaleBar } from './locale-bar';
 import { SourceCard } from './source-card';
+import { SourceGrid, FileGridPreview, fileGridMeta } from './source-grid';
 import { addBtnStyle, emptyStyle, inputStyle } from './shared';
 
 export type { PageOption } from './types';
@@ -75,6 +76,12 @@ const KIND_ORDER: DataSourceKind[] = ['i18n', 'route', 'file', 'typedData'];
 
 type SortKey = 'id' | 'label';
 type SortDir = 'asc' | 'desc';
+type ViewMode = 'list' | 'grid';
+
+// 目前只有 file tab 提供格子狀顯示的切換入口（其他 kind 沒有縮圖可看，格狀
+// 檢視意義不大）。SourceGrid 本身跟 kind 無關，未來要幫別的分頁開放，只要
+// 把該 kind 加進這個清單、並在下面 renderPreview 補上對應的預覽邏輯即可。
+const GRID_CAPABLE_KINDS: DataSourceKind[] = ['file'];
 
 export function DataSourceManager({
   sources,
@@ -103,6 +110,15 @@ export function DataSourceManager({
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  // 顯示方式：list（收合式卡片，原本的行為）或 grid（格子狀，目前 file tab 用來
+  // 顯示圖片縮圖）。用 kind 分開記，切分頁時各自保留使用者上次選的顯示方式。
+  const [viewModeByKind, setViewModeByKind] = useState<Record<DataSourceKind, ViewMode>>(
+    () => ({ i18n: 'list', route: 'list', file: 'grid', typedData: 'list' }),
+  );
+  // 非 grid-capable 的 kind 一律強制用 list，不管使用者之前在別的 kind 選過什麼。
+  const viewMode: ViewMode = GRID_CAPABLE_KINDS.includes(activeKind)
+    ? viewModeByKind[activeKind]
+    : 'list';
   // 展開中的來源 id 集合（預設全部收合）
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // 新增後、尚未通過驗證正式「離開草稿狀態」的來源 id：一律釘在清單最上方
@@ -366,6 +382,34 @@ export function DataSourceManager({
         >
           {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
         </button>
+        {GRID_CAPABLE_KINDS.includes(activeKind) && (
+          <div style={viewToggleGroupStyle} role="group" aria-label="顯示方式">
+            <button
+              onClick={() => setViewModeByKind((prev) => ({ ...prev, [activeKind]: 'list' }))}
+              style={{
+                ...viewToggleBtnStyle,
+                ...(viewMode === 'list' ? viewToggleBtnActiveStyle : undefined),
+              }}
+              title="清單顯示"
+              aria-label="清單顯示"
+              aria-pressed={viewMode === 'list'}
+            >
+              <List size={13} />
+            </button>
+            <button
+              onClick={() => setViewModeByKind((prev) => ({ ...prev, [activeKind]: 'grid' }))}
+              style={{
+                ...viewToggleBtnStyle,
+                ...(viewMode === 'grid' ? viewToggleBtnActiveStyle : undefined),
+              }}
+              title="格子狀顯示"
+              aria-label="格子狀顯示"
+              aria-pressed={viewMode === 'grid'}
+            >
+              <LayoutGrid size={13} />
+            </button>
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         {activeKind === 'file' && fileToolbarExtra}
         <button
@@ -396,11 +440,26 @@ export function DataSourceManager({
         </button>
       </div>
 
-      {/* 清單（收合式卡片） */}
+      {/* 清單：list 顯示收合式卡片，grid 顯示格子縮圖（目前只有 file tab 提供切換） */}
       {grouped[activeKind].length === 0 ? (
         <div style={emptyStyle}>尚無資料，點右上「＋ 新增」建立第一筆。</div>
       ) : visible.length === 0 ? (
         <div style={emptyStyle}>沒有符合「{query}」的來源。</div>
+      ) : viewMode === 'grid' ? (
+        <SourceGrid
+          items={visible as FileDataSource[]}
+          renderPreview={(source) => (
+            <FileGridPreview source={source} resolvePreviewUrl={resolvePreviewUrl} />
+          )}
+          renderTitle={(source) => source.label || source.id}
+          renderMeta={(source) => fileGridMeta(source)}
+          onItemClick={(source) => {
+            // 格子狀顯示沒有內嵌編輯欄位的空間，點擊卡片直接切回清單顯示並展開
+            // 該筆，讓使用者能立刻接著編輯／設定焦點，不用先手動切換再找一次。
+            setExpanded((prev) => new Set(prev).add(source.id));
+            setViewModeByKind((prev) => ({ ...prev, [activeKind]: 'list' }));
+          }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {visible.map((source) => (
@@ -526,6 +585,29 @@ const countStyle: React.CSSProperties = {
 const countActiveStyle: React.CSSProperties = {
   color: '#7fdbca',
   background: '#22332c',
+};
+
+const viewToggleGroupStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  border: '1px solid #444',
+  borderRadius: 4,
+  overflow: 'hidden',
+};
+
+const viewToggleBtnStyle: React.CSSProperties = {
+  background: '#2d2d2d',
+  color: '#999',
+  border: 'none',
+  padding: '4px 8px',
+  fontSize: 12,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+};
+
+const viewToggleBtnActiveStyle: React.CSSProperties = {
+  background: '#22332c',
+  color: '#7fdbca',
 };
 
 const ioBtnStyle: React.CSSProperties = {
