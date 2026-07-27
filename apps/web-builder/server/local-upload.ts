@@ -17,6 +17,15 @@
 // 目錄一律用 fs.mkdir(..., { recursive: true }) 自動建立；若因為路徑本身
 // 沒有寫入權限（例如硬填一個系統保留路徑 /uploads）而失敗，會把原始
 // ENOENT / EACCES 錯誤訊息包裝成更好懂的提示。
+//
+// 前端呼叫流程（見 src/lib/upload-client.ts 的 uploadFileToLocal()）：
+// 檔案一律先存進瀏覽器的 OPFS，再把 OPFS 裡的內容 multipart POST 給
+// 這個 server 的 /api/upload/:appName/local，由這裡負責寫進 storagePath。
+//
+// 原本這裡還有一個 resolveLocalFileForRead()，是給「跨目的地同步」
+// （server/file-sync.ts）反查本機檔案磁碟路徑用的；同步流程已整個搬到
+// 前端執行（upload-client.ts 的 syncFileToDestination()），該函式與
+// file-sync.ts 一併移除，這個檔案現在只負責「寫入」這一半。
 // ============================================================
 
 import { promises as fs } from "node:fs";
@@ -110,57 +119,4 @@ export async function saveLocalUpload(params: {
     size: data.length,
     mimeType,
   };
-}
-
-/**
- * 反向解析：給一個先前由 saveLocalUpload() 產生的 url，判斷它是否指向
- * 這個本機目的地（同一個 appName 底下），是的話回傳磁碟上的絕對路徑。
- *
- * saveLocalUpload() 依設定不同會產生三種 url 形式，這裡對稱地反推：
- *   1. 有 publicBaseUrl                      -> "<publicBaseUrl>/<appName>/<fileName>"
- *   2. 落在 public/ 底下（無 publicBaseUrl）   -> "/<相對 public 的路徑>"
- *   3. 其餘情況（開發用途 fallback）           -> "/api/upload/<appName>/local/file/<fileName>"
- *
- * 用途：「跨目的地同步」時，若同步來源本身就是本機檔案，直接讀磁碟即可，
- * 不需要多繞一層 HTTP 請求。
- */
-export function resolveLocalFileForRead(
-  dest: LocalUploadDest,
-  appName: string,
-  url: string,
-): string | null {
-  const app = sanitizeAppName(appName);
-
-  const publicBase = dest.publicBaseUrl?.trim();
-  if (publicBase) {
-    const prefix = `${publicBase.replace(/\/+$/, "")}/${app}/`;
-    if (url.startsWith(prefix)) {
-      const fileName = decodeURIComponent(url.slice(prefix.length));
-      if (fileName) {
-        return path.join(resolveStoragePath(dest.storagePath), app, fileName);
-      }
-    }
-  }
-
-  const apiPrefix = `/api/upload/${app}/local/file/`;
-  if (url.startsWith(apiPrefix)) {
-    const fileName = decodeURIComponent(url.slice(apiPrefix.length));
-    if (fileName) {
-      return path.join(resolveStoragePath(dest.storagePath), app, fileName);
-    }
-  }
-
-  // 落在 public/ 底下、以相對網址提供的情況：url 形如 "/uploads/<app>/<fileName>"，
-  // 對應到 PUBLIC_DIR + url。只有當它確實落在這個 dest 的 storagePath 底下才算相符，
-  // 避免誤把其他本機目的地、甚至其他非上傳的 public 靜態檔當成同步來源。
-  if (url.startsWith("/")) {
-    const candidate = path.join(PUBLIC_DIR, url);
-    const resolvedRoot = path.join(resolveStoragePath(dest.storagePath), app);
-    const rel = path.relative(resolvedRoot, candidate);
-    if (!rel.startsWith("..") && !path.isAbsolute(rel)) {
-      return candidate;
-    }
-  }
-
-  return null;
 }

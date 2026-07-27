@@ -35,7 +35,7 @@ import type {
   FieldType,
   ValueNode,
 } from './schema';
-import type { FileRowSyncSlot } from './DataSourceManager.types';
+import type { FileRowSyncSlot, FilePreviewUrlResolver } from './DataSourceManager.types';
 import {
   InMemoryDataStore,
   createDefaultValueNode,
@@ -73,7 +73,14 @@ interface DataSourceManagerProps {
    * 按鈕，選好本機檔案後呼叫這個函式，回傳的 url / mimeType 直接填回草稿。
    * 不提供則只保留原本手動輸入 url 的欄位（維持向下相容）。
    */
-  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string; size?: number }>;
+  /**
+   * 把 FileDataSource.url 轉成瀏覽器可以直接當 <img src> 用的網址，供
+   * mimeType 以 "image" 開頭的檔案顯示縮圖 / 預覽用（見
+   * DataSourceManager.types.ts 的 FilePreviewUrlResolver 說明）。
+   * 不提供的話會直接把 url 原樣當 <img src>。
+   */
+  resolvePreviewUrl?: FilePreviewUrlResolver;
 }
 
 const KIND_LABELS: Record<DataSourceKind, string> = {
@@ -124,6 +131,7 @@ export function DataSourceManager({
   fileSyncContent,
   fileRowSyncSlot,
   onUploadFile,
+  resolvePreviewUrl,
 }: DataSourceManagerProps) {
   // 目前所在的 tab（類型）
   const [activeKind, setActiveKind] = useState<DataSourceKind>('i18n');
@@ -453,6 +461,7 @@ export function DataSourceManager({
               onRemove={() => removeSource(source.id)}
               onSaved={markSaved}
               onUploadFile={onUploadFile}
+              resolvePreviewUrl={resolvePreviewUrl}
               rowSyncSlot={
                 activeKind === 'file' && fileRowSyncSlot
                   ? fileRowSyncSlot(source as FileDataSource)
@@ -728,6 +737,7 @@ function SourceCard({
   onRemove,
   onSaved,
   onUploadFile,
+  resolvePreviewUrl,
   rowSyncSlot,
 }: {
   source: DataSource;
@@ -742,7 +752,8 @@ function SourceCard({
   onChange: (next: DataSource, originalId?: string) => void;
   onRemove: () => void;
   onSaved: (id: string) => void;
-  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string; size?: number }>;
+  resolvePreviewUrl?: FilePreviewUrlResolver;
   rowSyncSlot?: React.ReactNode;
 }) {
   // 所有種類（i18n / route / file / typedData）都用同一套本地草稿：
@@ -789,6 +800,13 @@ function SourceCard({
           <code style={idStyle}>{source.id}</code>
           {source.label ? <span style={cardLabelStyle}>{source.label}</span> : null}
           {isNew && <span style={draftBadgeStyle}>草稿</span>}
+          {source.kind === 'file' && isImageMime(source.mimeType) && source.url && (
+            <ImageThumb
+              url={source.url}
+              resolvePreviewUrl={resolvePreviewUrl}
+              size={22}
+            />
+          )}
           {!expanded && (
             <span style={summaryStyle} title={summarize(source)}>
               {summarize(source)}
@@ -817,42 +835,58 @@ function SourceCard({
 
       {expanded && (
         <div style={cardBodyStyle}>
-          {/* key（id）輸入框固定在最上面，新增或重新命名都在這裡處理 */}
-          <Labeled label="key（id）">
-            <input
-              value={draftId}
-              onChange={(e) => {
-                setTouched(true);
-                setDraftId(e.target.value);
-              }}
-              style={inputStyle}
-              placeholder="例如 home.hero.title"
-            />
-          </Labeled>
-          <Labeled label="label（顯示名稱）">
-            <input
-              value={draft.label ?? ''}
-              onChange={(e) => updateDraft({ ...draft, label: e.target.value })}
-              style={inputStyle}
-            />
-          </Labeled>
-
-          {draft.kind === 'i18n' && (
-            <I18nFields source={draft} locales={locales} onChange={updateDraft} />
-          )}
-          {draft.kind === 'route' && (
-            <RouteFields source={draft} pages={pages} onChange={updateDraft} />
-          )}
-          {draft.kind === 'file' && (
-            <FileFields source={draft} onChange={updateDraft} onUploadFile={onUploadFile} />
-          )}
-          {draft.kind === 'typedData' && (
-            <TypedDataFields
+          {draft.kind === 'file' ? (
+            // file 種類：key / label 併入 FileFields 的左欄，跟 url / caption /
+            // description 放在同一個 container 裡，這樣左欄內容量才會跟右邊
+            // 的預覽框接近，避免兩欄各自對齊自己那一側、中間留一大塊空白。
+            <FileFields
               source={draft}
-              store={store}
-              types={types}
               onChange={updateDraft}
+              onUploadFile={onUploadFile}
+              resolvePreviewUrl={resolvePreviewUrl}
+              draftId={draftId}
+              onChangeDraftId={(next) => {
+                setTouched(true);
+                setDraftId(next);
+              }}
             />
+          ) : (
+            <>
+              {/* key（id）輸入框固定在最上面，新增或重新命名都在這裡處理 */}
+              <Labeled label="key（id）">
+                <input
+                  value={draftId}
+                  onChange={(e) => {
+                    setTouched(true);
+                    setDraftId(e.target.value);
+                  }}
+                  style={inputStyle}
+                  placeholder="例如 home.hero.title"
+                />
+              </Labeled>
+              <Labeled label="label（顯示名稱）">
+                <input
+                  value={draft.label ?? ''}
+                  onChange={(e) => updateDraft({ ...draft, label: e.target.value })}
+                  style={inputStyle}
+                />
+              </Labeled>
+
+              {draft.kind === 'i18n' && (
+                <I18nFields source={draft} locales={locales} onChange={updateDraft} />
+              )}
+              {draft.kind === 'route' && (
+                <RouteFields source={draft} pages={pages} onChange={updateDraft} />
+              )}
+              {draft.kind === 'typedData' && (
+                <TypedDataFields
+                  source={draft}
+                  store={store}
+                  types={types}
+                  onChange={updateDraft}
+                />
+              )}
+            </>
           )}
 
           {touched && hasErrors && (
@@ -882,11 +916,143 @@ function summarize(source: DataSource): string {
       const pageLabel = source.pageId ? ` → ${source.pageId}` : '';
       return `${source.noindex ? '🚫index · ' : ''}${source.value || '（空路徑）'}${pageLabel}`;
     }
-    case 'file':
-      return source.url || '（未設定 url）';
+    case 'file': {
+      const parts = [
+        source.caption || undefined,
+        source.url || '（未設定 url）',
+        source.size != null ? formatBytes(source.size) : undefined,
+      ].filter(Boolean);
+      return parts.join(' · ');
+    }
     case 'typedData':
       return source.typeId;
   }
+}
+
+/** mimeType 是不是圖片（以 "image" 開頭），用來決定要不要顯示縮圖 / 預覽。 */
+function isImageMime(mimeType?: string): boolean {
+  return !!mimeType && mimeType.startsWith('image');
+}
+
+/** 把 bytes 轉成人類可讀的大小字串，例如 1536 -> "1.5 KB"。 */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+/**
+ * 圖片預覽／縮圖元件。
+ *
+ * url 若不是一般 http(s) 網址（例如 `opfs://...`），需要靠 resolvePreviewUrl
+ * 轉成瀏覽器能直接顯示的網址；一般 http(s) 網址則直接用 fetch() 把圖片內容
+ * 抓下來轉成 blob url 再顯示 —— 比起單純把 url 丟給 <img src>（瀏覽器內部
+ * 自己處理載入、錯誤資訊不透明），fetch 失敗會丟出明確的錯誤／HTTP 狀態，
+ * 能更準確地判斷「載入失敗」並顯示提示，而不是讓瀏覽器悄悄顯示破圖示。
+ *
+ * fill=true 時改成撐滿容器、用 object-fit: contain（給右側大預覽框用，
+ * 避免裁切構圖）；預設（fill=false）維持小縮圖的 cover 裁切正方形。
+ */
+function ImageThumb({
+  url,
+  resolvePreviewUrl,
+  size = 22,
+  fill = false,
+}: {
+  url: string;
+  resolvePreviewUrl?: FilePreviewUrlResolver;
+  size?: number;
+  fill?: boolean;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdObjectUrl: string | null = null;
+    setFailed(false);
+    setResolvedSrc(null);
+
+    (async () => {
+      try {
+        if (resolvePreviewUrl) {
+          // 特殊 scheme（例如 opfs://）交給呼叫端提供的 resolver 處理，
+          // 通常本身就會回傳一個 blob: url。
+          const resolved = await resolvePreviewUrl(url);
+          if (cancelled) return;
+          if (resolved.startsWith('blob:')) createdObjectUrl = resolved;
+          setResolvedSrc(resolved);
+          return;
+        }
+        // 一般網址：明確用 fetch 抓取圖片內容，才能拿到清楚的失敗原因
+        // （網路錯誤 / 404 / CORS 等），而不是單純交給 <img> 標籤悄悄失敗。
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`圖片載入失敗（${res.status}）`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        createdObjectUrl = objectUrl;
+        setResolvedSrc(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      // 只回收「這次 effect 自己產生」的 blob url，避免不小心把仍在使用
+      // 中、由呼叫端自己快取管理的 blob url 提早釋放掉。
+      if (createdObjectUrl) URL.revokeObjectURL(createdObjectUrl);
+    };
+  }, [url, resolvePreviewUrl]);
+
+  if (failed || !resolvedSrc) {
+    if (fill) return null; // 撐滿模式交由外層容器顯示自己的「無法預覽」提示
+    return (
+      <span
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 4,
+          background: '#222',
+          flexShrink: 0,
+          display: 'inline-block',
+        }}
+        title={failed ? '預覽載入失敗' : undefined}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={resolvedSrc}
+      alt=""
+      style={
+        fill
+          ? {
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+            }
+          : {
+              width: size,
+              height: size,
+              objectFit: 'cover',
+              borderRadius: 4,
+              border: '1px solid #333',
+              flexShrink: 0,
+            }
+      }
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 // ---------- i18n ----------
@@ -1050,23 +1216,117 @@ function FileFields({
   source,
   onChange,
   onUploadFile,
+  resolvePreviewUrl,
+  draftId,
+  onChangeDraftId,
 }: {
   source: FileDataSource;
   onChange: (next: DataSource) => void;
-  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string }>;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string; size?: number }>;
+  resolvePreviewUrl?: FilePreviewUrlResolver;
+  /** key（id）欄位的草稿值，跟其他 kind 共用同一個 draftId state，這裡只是換了渲染位置。 */
+  draftId: string;
+  onChangeDraftId: (next: string) => void;
+}) {
+  return (
+    <div style={fileFieldsLayoutStyle}>
+      <div style={fileFieldsLeftStyle}>
+        <Labeled label="key（id）">
+          <input
+            value={draftId}
+            onChange={(e) => onChangeDraftId(e.target.value)}
+            style={inputStyle}
+            placeholder="例如 home.hero.title"
+          />
+        </Labeled>
+
+        <Labeled label="label（顯示名稱）">
+          <input
+            value={source.label ?? ''}
+            onChange={(e) => onChange({ ...source, label: e.target.value })}
+            style={inputStyle}
+          />
+        </Labeled>
+
+        <Labeled label="url">
+          <input
+            value={source.url}
+            placeholder="https://…/logo.svg，或用右側區塊拖放上傳"
+            onChange={(e) => onChange({ ...source, url: e.target.value })}
+            style={inputStyle}
+          />
+        </Labeled>
+
+        <Labeled label="caption（標題／圖說，可選）">
+          <input
+            value={source.caption ?? ''}
+            placeholder="例如「首頁主視覺」"
+            onChange={(e) => onChange({ ...source, caption: e.target.value })}
+            style={inputStyle}
+          />
+        </Labeled>
+
+        <Labeled label="description（描述，可選）">
+          <textarea
+            value={source.description ?? ''}
+            placeholder="檔案用途、內容說明…"
+            onChange={(e) => onChange({ ...source, description: e.target.value })}
+            style={textareaStyle}
+            rows={4}
+          />
+        </Labeled>
+      </div>
+
+      <div style={fileFieldsRightStyle}>
+        <FilePreviewDropZone
+          source={source}
+          onChange={onChange}
+          onUploadFile={onUploadFile}
+          resolvePreviewUrl={resolvePreviewUrl}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 右側區塊：預覽 + 點擊／拖拉上傳，下方接唯讀資訊（mimeType / size / 上傳日期）。
+ *
+ * - 有 onUploadFile：整個預覽框可以點擊開檔案選擇窗，或直接把檔案拖進來，
+ *   兩者都走 onUploadFile（多目的地自動上傳），成功後把 url / mimeType /
+ *   size / uploadedAt 一併寫回 source。
+ * - 無法預覽時（沒有 url、mimeType 不是圖片、或圖片載入失敗）顯示提示文字，
+ *   而不是空白一片，讓使用者知道「這裡可以做什麼」或「為什麼看不到預覽」。
+ */
+function FilePreviewDropZone({
+  source,
+  onChange,
+  onUploadFile,
+  resolvePreviewUrl,
+}: {
+  source: FileDataSource;
+  onChange: (next: DataSource) => void;
+  onUploadFile?: (file: File) => Promise<{ url: string; mimeType?: string; size?: number }>;
+  resolvePreviewUrl?: FilePreviewUrlResolver;
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  // 只用來判斷「真的離開整個拖放區」而不是滑到子節點上觸發的 dragenter/dragleave
+  // 抖動（瀏覽器對巢狀元素會重複觸發，需要用計數器而不是布林值）。
+  const dragCounterRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handlePickFile = () => inputRef.current?.click();
+  const canPreview = isImageMime(source.mimeType) && !!source.url;
+  const canUpload = !!onUploadFile;
 
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    // 立刻清空 input value，允許使用者連續選同一個檔案也能觸發 onChange
-    e.target.value = '';
-    if (!file || !onUploadFile) return;
+  const handlePickFile = () => {
+    if (canUpload) inputRef.current?.click();
+  };
 
+  const runUpload = async (file: File) => {
+    if (!onUploadFile) return;
     setUploading(true);
     setUploadError(null);
     try {
@@ -1074,7 +1334,9 @@ function FileFields({
       onChange({
         ...source,
         url: result.url,
-        mimeType: result.mimeType ?? source.mimeType,
+        mimeType: result.mimeType ?? source.mimeType ?? file.type,
+        size: result.size ?? file.size,
+        uploadedAt: new Date().toISOString(),
       });
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '上傳失敗');
@@ -1083,69 +1345,248 @@ function FileFields({
     }
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // 立刻清空 input value，允許使用者連續選同一個檔案也能觸發 onChange
+    e.target.value = '';
+    if (!file) return;
+    await runUpload(file);
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!canUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // 只有真的在拖檔案（而不是拖選文字之類）才顯示高亮
+    if (!e.dataTransfer.types.includes('Files')) return;
+    dragCounterRef.current += 1;
+    setDragActive(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!canUpload) return;
+    // 一定要 preventDefault，瀏覽器預設行為是「開啟檔案」，擋掉才能收到 drop
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!canUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setDragActive(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!canUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await runUpload(file);
+  };
+
+  const showOverlay = canUpload && (dragActive || hovering);
+
   return (
-    <>
-      <Labeled label="url">
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={source.url}
-            placeholder="https://…/logo.svg"
-            onChange={(e) => onChange({ ...source, url: e.target.value })}
-            style={{ ...inputStyle, flex: 1 }}
+    <div>
+      <div
+        role={canUpload ? 'button' : undefined}
+        tabIndex={canUpload ? 0 : undefined}
+        onClick={handlePickFile}
+        onKeyDown={(e) => {
+          if (canUpload && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            handlePickFile();
+          }
+        }}
+        onMouseEnter={() => canUpload && setHovering(true)}
+        onMouseLeave={() => canUpload && setHovering(false)}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          ...previewBoxStyle,
+          ...(dragActive ? previewBoxDragActiveStyle : undefined),
+          cursor: canUpload ? 'pointer' : 'default',
+        }}
+        title={
+          canUpload
+            ? '點擊選擇檔案，或直接把檔案拖拉到這裡上傳'
+            : undefined
+        }
+      >
+        {canPreview ? (
+          <ImageThumb
+            url={source.url}
+            resolvePreviewUrl={resolvePreviewUrl}
+            size={PREVIEW_BOX_SIZE}
+            fill
           />
-          {onUploadFile && (
-            <>
-              <input
-                ref={inputRef}
-                type="file"
-                style={{ display: 'none' }}
-                onChange={handleFileSelected}
-              />
-              <button
-                type="button"
-                onClick={handlePickFile}
-                disabled={uploading}
-                style={uploadBtnStyle}
-                title="上傳檔案，成功後自動填入 url"
-              >
-                <Upload size={12} />
-                {uploading ? '上傳中…' : '上傳檔案'}
-              </button>
-            </>
-          )}
-        </div>
-        {uploadError && <div style={uploadErrorStyle}>⚠ {uploadError}</div>}
-      </Labeled>
-      <Labeled label="mimeType（可選）">
-        <input
-          value={source.mimeType ?? ''}
-          placeholder="image/svg+xml"
-          onChange={(e) => onChange({ ...source, mimeType: e.target.value })}
-          style={inputStyle}
+        ) : (
+          <div style={previewEmptyHintStyle}>
+            {!source.url
+              ? '尚未設定檔案網址'
+              : isImageMime(source.mimeType)
+                ? '圖片載入失敗或尚未載入'
+                : '此檔案類型無法預覽'}
+          </div>
+        )}
+
+        {canUpload && (
+          <input
+            ref={inputRef}
+            type="file"
+            style={{ display: 'none' }}
+            onChange={handleFileSelected}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
+
+        {showOverlay && (
+          <div style={previewOverlayStyle}>
+            {uploading ? '上傳中…' : dragActive ? '放開以上傳檔案' : '點擊或拖拉檔案到此處上傳'}
+          </div>
+        )}
+      </div>
+
+      {uploadError && <div style={uploadErrorStyle}>⚠ {uploadError}</div>}
+
+      <div style={fileInfoBoxStyle}>
+        <FileInfoRow label="mimeType" value={source.mimeType || '（未設定）'} />
+        <FileInfoRow
+          label="檔案大小"
+          value={source.size != null ? `${formatBytes(source.size)}（${source.size} bytes）` : '（未設定）'}
         />
-      </Labeled>
-    </>
+        <FileInfoRow
+          label="上傳日期"
+          value={source.uploadedAt ? formatDateTime(source.uploadedAt) : '（未設定）'}
+        />
+      </div>
+    </div>
   );
 }
 
-const uploadBtnStyle: React.CSSProperties = {
+/** 唯讀的單行資訊列（mimeType / size / uploadedAt），只顯示、不可編輯——這些欄位一律由上傳流程自動填入。 */
+function FileInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={fileInfoRowStyle}>
+      <span style={fileInfoLabelStyle}>{label}</span>
+      <span style={fileInfoValueStyle}>{value}</span>
+    </div>
+  );
+}
+
+/** 把 ISO 字串轉成人類可讀的日期時間，格式解析失敗時原樣顯示。 */
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}
+
+const PREVIEW_BOX_SIZE = 220;
+
+const fileFieldsLayoutStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 16,
+  alignItems: 'flex-start',
+  flexWrap: 'wrap',
+};
+
+const fileFieldsLeftStyle: React.CSSProperties = {
+  flex: '1 1 320px',
+  minWidth: 240,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+};
+
+const fileFieldsRightStyle: React.CSSProperties = {
+  flex: '1 1 320px',
+  minWidth: 240,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const previewBoxStyle: React.CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  // 用 aspect-ratio 撐開高度（正方形），比固定 px 更能吃滿右欄實際寬度；
+  // 太窄（手機寬度）時設個下限，避免預覽框被壓得太扁。
+  aspectRatio: '1 / 1',
+  minHeight: 200,
+  borderRadius: 8,
+  border: '1px solid #383838',
+  background: '#181818',
+  overflow: 'hidden',
   display: 'flex',
   alignItems: 'center',
-  gap: 4,
+  justifyContent: 'center',
+};
+
+const previewBoxDragActiveStyle: React.CSSProperties = {
+  outline: '2px dashed #7fdbca',
+  outlineOffset: -2,
+  borderColor: '#7fdbca',
+};
+
+const previewEmptyHintStyle: React.CSSProperties = {
+  padding: 16,
+  textAlign: 'center',
   fontSize: 12,
-  color: '#eee',
-  background: '#2d2d2d',
-  border: '1px solid #444',
-  borderRadius: 4,
-  padding: '0 10px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
+  lineHeight: 1.6,
+  color: '#777',
+};
+
+const previewOverlayStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  padding: 12,
+  background: 'rgba(0, 0, 0, 0.62)',
+  color: '#7fdbca',
+  fontSize: 12.5,
+  fontWeight: 500,
+  lineHeight: 1.5,
+  pointerEvents: 'none',
+};
+
+const fileInfoBoxStyle: React.CSSProperties = {
+  marginTop: 10,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+};
+
+const fileInfoRowStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 8,
+  fontSize: 12,
+};
+
+const fileInfoLabelStyle: React.CSSProperties = {
+  color: '#888',
+  flexShrink: 0,
+};
+
+const fileInfoValueStyle: React.CSSProperties = {
+  color: '#ccc',
+  textAlign: 'right',
+  overflowWrap: 'anywhere',
 };
 
 const uploadErrorStyle: React.CSSProperties = {
   fontSize: 11,
   color: '#e77',
-  marginTop: 4,
+  marginTop: 6,
 };
 
 // ---------- typedData ----------
@@ -1571,6 +2012,12 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 320,
   boxSizing: 'border-box',
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...inputStyle,
+  fontFamily: 'inherit',
+  resize: 'vertical',
 };
 
 const addBtnStyle: React.CSSProperties = {

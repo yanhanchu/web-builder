@@ -87,6 +87,14 @@ export interface FileDataSource extends DataSourceMetaBase {
   kind: "file";
   url: string;
   mimeType?: string;
+  /** 顯示用標題（例如圖片說明的第一行），跟 label 分開：label 是「管理介面」用的識別名稱，caption 是「內容」本身的一部分，之後可能被實際渲染到頁面上（例如圖片 alt / 圖說）。 */
+  caption?: string;
+  /** 較長的說明文字，例如圖片的詳細描述、檔案用途備註。 */
+  description?: string;
+  /** 檔案大小（bytes）。上傳成功時由 upload-client 自動填入；手動輸入 url 的情況允許留空。 */
+  size?: number;
+  /** 上傳日期時間（ISO 8601 字串）。上傳成功時自動填入；手動輸入 url 的情況允許留空，純資訊顯示、不可手動編輯。 */
+  uploadedAt?: string;
 }
 
 /**

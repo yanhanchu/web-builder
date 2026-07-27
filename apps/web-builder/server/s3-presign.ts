@@ -5,6 +5,13 @@
 // PUT URL」，之後直接拿這個 URL 對 S3 / MinIO / R2 / B2 等節點
 // 發 PUT 請求上傳檔案本體，檔案內容完全不會經過這個 server。
 //
+// Content-Length 檢查：presign 時若帶了 contentLength，會把
+// "content-length" 這個標頭一併鎖進 SignedHeaders（見
+// presignQueryString 的 extraSignedHeaders），瀏覽器發 PUT 時
+// body 大小必須跟簽名時宣告的完全一致，S3 端才會驗簽通過 ——
+// 這是「S3 端強制檢查」，不只是 upload-dev-plugin.ts 那層在
+// presign 當下對宣告值做的數字上限驗證。
+//
 // 這裡刻意不依賴 @aws-sdk/client-s3，直接用 Node 內建的
 // node:crypto 手刻 SigV4（query-string 簽名 / "presigned URL"
 // 那一種，規格見 AWS 文件 "Authenticating Requests: Using Query
@@ -46,15 +53,35 @@ function encodeS3Key(key: string): string {
   return key.split("/").map(rfc3986Encode).join("/");
 }
 
+/** 判斷一個 host 字串是不是裸 IP（IPv4 或 IPv6，含中括號寫法），例如 "192.168.123.11" 或 "[::1]"。 */
+function isIpHost(host: string): boolean {
+  const bare = host.replace(/^\[|\]$/g, "");
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const ipv6 = /^[0-9a-fA-F:]+$/;
+  return ipv4.test(bare) || (bare.includes(":") && ipv6.test(bare));
+}
+
 function resolveHost(dest: S3UploadDest): {
   protocol: string;
   host: string;
   pathPrefix: string;
 } {
   if (dest.endpoint) {
-    const url = new URL(dest.endpoint);
+    let url: URL;
+    try {
+      url = new URL(dest.endpoint);
+    } catch {
+      throw new Error(
+        `此 S3 目的地的 endpoint 不是合法網址：「${dest.endpoint}」，請填完整網址（需含 http:// 或 https:// 開頭，例如 https://s3.example.com）`,
+      );
+    }
     const protocol = url.protocol.replace(":", "");
-    if (dest.forcePathStyle) {
+    // IP 位址（常見於自架 MinIO）無法當 virtual-hosted-style 的父網域
+    // （"bucket.192.168.x.x" 不是合法網域），一律強制用 path-style，
+    // 跟 AWS SDK 對 IP-style endpoint 的行為一致，不管 forcePathStyle
+    // 有沒有勾選。
+    const usePathStyle = dest.forcePathStyle || isIpHost(url.hostname);
+    if (usePathStyle) {
       return { protocol, host: url.host, pathPrefix: `/${dest.bucket}` };
     }
     // virtual-hosted-style：把 bucket 疊到 endpoint 的 host 前面
@@ -79,29 +106,40 @@ export interface PresignPutParams {
   key: string;
   /** 選填：預先鎖定 Content-Type，之後瀏覽器 PUT 時必須帶完全相同的 header。 */
   contentType?: string;
+  /**
+   * 選填：預先鎖定 Content-Length（bytes）。有帶的話會一併簽進
+   * SignedHeaders（跟 host 同層），瀏覽器實際 PUT 時，body 大小必須
+   * 跟這裡宣告的完全一致，S3 端才會驗簽通過 —— 等於讓 S3 相容節點
+   * 強制檢查上傳內容的位元組數，不只是這個 dev server 自己驗證。
+   */
+  contentLength?: number;
   expiresSeconds?: number;
 }
 
 export interface PresignPutResult {
   /** 前端直接對這個 URL 發 PUT（body 是檔案本體）即可完成上傳。 */
   uploadUrl: string;
-  /** 若有指定 contentType，前端發 PUT 時必須帶上這個 header，簽名才會驗證通過。 */
+  /** 前端發 PUT 時必須帶上這些 header（簽了 Content-Type 和／或 Content-Length 就會出現在這裡），值不對簽名就會驗證失敗。 */
   requiredHeaders: Record<string, string>;
   method: "PUT";
   expiresAt: string;
 }
 
 /**
- * 手刻 SigV4 query-string 簽名，PUT / GET 共用同一套流程，
- * 差別只在 HTTP method（其餘 canonical request 組成規則完全相同）。
+ * 手刻 SigV4 query-string 簽名。目前只有 PUT（presignPutObject）會用到；
+ * 原本 GET 版本（presignGetObject）是給 server 端「跨目的地同步」讀取
+ * 私有 bucket 用的，同步流程已整個搬到前端執行，這個 server 現在只做
+ * presign 和列出，所以 GET 簽名連同同步邏輯一併移除，這裡只保留 PUT。
  */
 function presignQueryString(params: {
   dest: S3UploadDest;
-  method: "PUT" | "GET";
+  method: "PUT";
   key: string;
   expiresSeconds: number;
+  /** 要一併簽進 SignedHeaders 的額外標頭（目前只會用來放 content-length）。key 一律小寫。 */
+  extraSignedHeaders?: Record<string, string>;
 }): { url: string; expiresAt: string } {
-  const { dest, method, key, expiresSeconds } = params;
+  const { dest, method, key, expiresSeconds, extraSignedHeaders = {} } = params;
   const region = dest.region || "auto";
   const now = new Date();
   const { amzDate, dateStamp } = toAmzDate(now);
@@ -116,7 +154,7 @@ function presignQueryString(params: {
     "X-Amz-Credential": credential,
     "X-Amz-Date": amzDate,
     "X-Amz-Expires": String(expiresSeconds),
-    "X-Amz-SignedHeaders": "host",
+    "X-Amz-SignedHeaders": ["host", ...Object.keys(extraSignedHeaders)].join(";"),
   };
 
   const sortedKeys = Object.keys(queryParams).sort();
@@ -124,10 +162,15 @@ function presignQueryString(params: {
     .map((k) => `${rfc3986Encode(k)}=${rfc3986Encode(queryParams[k])}`)
     .join("&");
 
-  const canonicalHeaders = `host:${host}\n`;
-  const signedHeaders = "host";
-  // presigned URL 事先不知道內容（PUT 是瀏覽器待上傳的檔案；GET 則本來就沒有
-  // request body），payload hash 固定用 AWS 官方支援的 UNSIGNED-PAYLOAD。
+  // canonical headers 必須依「標頭名稱」字母序排列，"content-length" < "host"
+  const allHeaders: Record<string, string> = { host, ...extraSignedHeaders };
+  const signedHeaderNames = Object.keys(allHeaders).sort();
+  const canonicalHeaders = signedHeaderNames
+    .map((name) => `${name}:${allHeaders[name]}\n`)
+    .join("");
+  const signedHeaders = signedHeaderNames.join(";");
+  // presigned URL 事先不知道內容（PUT 是瀏覽器待上傳的檔案），
+  // payload hash 固定用 AWS 官方支援的 UNSIGNED-PAYLOAD。
   const payloadHash = "UNSIGNED-PAYLOAD";
 
   const canonicalRequest = [
@@ -166,19 +209,40 @@ function presignQueryString(params: {
 /**
  * 產生 S3 PutObject 的 presigned URL（query-string 簽名版本）。
  * 相容 AWS S3、MinIO、Cloudflare R2、Backblaze B2 等任何走 SigV4 的節點。
+ *
+ * 有帶 contentLength 的話，會把 "content-length" 這個標頭鎖進
+ * SignedHeaders，前端 PUT 時瀏覽器會依 body 大小自動帶上對應的
+ * Content-Length header；只要跟這裡簽的值不同，S3 端驗簽就會失敗，
+ * 等於讓 S3 相容節點強制檢查上傳內容的位元組數是否符合預期
+ * （不只是這個 dev server 自己在 presign 當下做的數字上限檢查）。
  */
 export function presignPutObject(params: PresignPutParams): PresignPutResult {
-  const { dest, key, contentType, expiresSeconds = DEFAULT_EXPIRES_SECONDS } =
-    params;
+  const {
+    dest,
+    key,
+    contentType,
+    contentLength,
+    expiresSeconds = DEFAULT_EXPIRES_SECONDS,
+  } = params;
+
+  const extraSignedHeaders: Record<string, string> = {};
+  if (contentLength != null) {
+    extraSignedHeaders["content-length"] = String(contentLength);
+  }
+
   const { url, expiresAt } = presignQueryString({
     dest,
     method: "PUT",
     key,
     expiresSeconds,
+    extraSignedHeaders,
   });
 
   const requiredHeaders: Record<string, string> = {};
   if (contentType) requiredHeaders["Content-Type"] = contentType;
+  if (contentLength != null) {
+    requiredHeaders["Content-Length"] = String(contentLength);
+  }
 
   return {
     uploadUrl: url,
@@ -188,37 +252,6 @@ export function presignPutObject(params: PresignPutParams): PresignPutResult {
   };
 }
 
-export interface PresignGetParams {
-  dest: S3UploadDest;
-  key: string;
-  expiresSeconds?: number;
-}
-
-export interface PresignGetResult {
-  downloadUrl: string;
-  method: "GET";
-  expiresAt: string;
-}
-
-/**
- * 產生 S3 GetObject 的 presigned URL。
- *
- * 用途：「跨目的地同步」時，若檔案的來源就存放在某個 S3 相容節點（而非本機
- * 磁碟），這個 dev server 需要先把檔案內容讀出來，才能再寫到另一個同步
- * 目的地。私有 bucket 沒有公開讀取權限，所以用這個簽名 URL 讓 server 端
- * 用 fetch() 讀取物件內容，而不需要額外的憑證交換流程。
- */
-export function presignGetObject(params: PresignGetParams): PresignGetResult {
-  const { dest, key, expiresSeconds = DEFAULT_EXPIRES_SECONDS } = params;
-  const { url, expiresAt } = presignQueryString({
-    dest,
-    method: "GET",
-    key,
-    expiresSeconds,
-  });
-  return { downloadUrl: url, method: "GET", expiresAt };
-}
-
 /** 簽好的 URL 上傳成功後，物件的「公開網址」（若有設定 publicBaseUrl 就用它，否則退回節點本身網址）。 */
 export function resolvePublicUrl(dest: S3UploadDest, key: string): string {
   if (dest.publicBaseUrl) {
@@ -226,42 +259,4 @@ export function resolvePublicUrl(dest: S3UploadDest, key: string): string {
   }
   const { protocol, host, pathPrefix } = resolveHost(dest);
   return `${protocol}://${host}${pathPrefix}/${encodeS3Key(key)}`;
-}
-
-/**
- * 反向解析：給一個 URL，判斷它是否指向這個 S3 目的地（不論當初是用
- * publicBaseUrl 或節點本身網址產生的），是的話回傳解碼後的物件 key。
- *
- * 用途：「跨目的地同步」時，前端只知道來源檔案目前的 url，不知道它對應
- * 哪個 key；這個函式讓 server 端能反推回 key，才能對來源目的地產生
- * presigned GET URL 讀取內容。
- */
-export function extractKeyIfMatches(
-  dest: S3UploadDest,
-  url: string,
-): string | null {
-  const tryStrip = (prefix: string): string | null => {
-    if (!url.startsWith(prefix)) return null;
-    const rest = url.slice(prefix.length).replace(/^\/+/, "");
-    if (!rest) return null;
-    try {
-      return rest
-        .split("/")
-        .map((seg) => decodeURIComponent(seg))
-        .join("/");
-    } catch {
-      return null;
-    }
-  };
-
-  if (dest.publicBaseUrl) {
-    const viaPublicBase = tryStrip(`${dest.publicBaseUrl.replace(/\/+$/, "")}/`);
-    if (viaPublicBase) return viaPublicBase;
-  }
-
-  const { protocol, host, pathPrefix } = resolveHost(dest);
-  const viaHost = tryStrip(`${protocol}://${host}${pathPrefix}/`);
-  if (viaHost) return viaHost;
-
-  return null;
 }

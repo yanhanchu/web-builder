@@ -14,9 +14,10 @@ import {
   initialFooterProps,
 } from "@workspace/ui/lib/data-model/sample-data";
 import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
-import { FileSyncRefreshButton, FileRowSyncCluster, useFileSync } from "./admin/file-sync-panel";
+import { FileSyncRefreshButton, FileRowSyncCluster, FileDropZone, useFileSync } from "./admin/file-sync-panel";
 import { usePagesState } from "../lib/pages-store";
 import { uploadFileToFirstEnabledDest, DEFAULT_APP_NAME } from "../lib/upload-client";
+import { resolveOpfsUrlToObjectUrl, isOpfsUrl } from "../lib/opfs";
 
 export default function DataManagerPage() {
   // DataSource 全部收在 localStorage（key: wb.dataSources），DataSourceManager
@@ -32,7 +33,7 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
-  const fileSync = useFileSync(sources, DEFAULT_APP_NAME);
+  const fileSync = useFileSync(sources, setSources, DEFAULT_APP_NAME);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(
@@ -82,7 +83,13 @@ export default function DataManagerPage() {
             onChangeSources={setSources}
             onChangeLocales={setLocales}
             fileToolbarExtra={
-              <FileSyncRefreshButton onRefresh={fileSync.refresh} />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <FileDropZone
+                  uploadFiles={fileSync.uploadFiles}
+                  destinationCount={fileSync.destinations.length}
+                />
+                <FileSyncRefreshButton onRefresh={fileSync.refresh} />
+              </div>
             }
             fileRowSyncSlot={(file) => (
               <FileRowSyncCluster
@@ -92,9 +99,10 @@ export default function DataManagerPage() {
                 performSync={fileSync.performSync}
               />
             )}
+            resolvePreviewUrl={(url) => (isOpfsUrl(url) ? resolveOpfsUrlToObjectUrl(url) : url)}
             onUploadFile={async (file) => {
               const result = await uploadFileToFirstEnabledDest(file, DEFAULT_APP_NAME);
-              return { url: result.url, mimeType: result.mimeType };
+              return { url: result.url, mimeType: result.mimeType, size: result.size };
             }}
           />
         </section>

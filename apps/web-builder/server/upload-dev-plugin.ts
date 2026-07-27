@@ -20,23 +20,31 @@
 //     multipart/form-data，欄位名稱固定用 "file"。
 //     依 destId 找到對應（kind: "local"）的目的地設定，把檔案寫到
 //     <storagePath>/<appName>/<隨機檔名>，保留原始副檔名。
+//     前端呼叫這條路由前，會先把檔案存進瀏覽器的 OPFS（見
+//     src/lib/opfs.ts），這裡收到的是 OPFS 內容的 multipart 副本，
+//     不是「檔案唯一的落地點」——OPFS 那份才是。
 //
 //   GET  /api/upload/:appName/local/file/:fileName
 //     若該本機目的地沒填 publicBaseUrl，上傳完回傳的 url 會指到這條路由，
 //     直接把檔案讀出來當靜態檔回應（開發用途）。
 //
 //   POST /api/upload/:appName/s3/presign
-//     body: { destId, fileName, contentType? }
+//     body: { destId, fileName, contentType?, contentLength? }
 //     依 destId 找到對應（kind: "s3"）的目的地設定，計算 SigV4
 //     presigned PUT URL，回傳給前端後由「前端直接」對該 URL 發
 //     PUT 上傳檔案本體 —— 檔案完全不經過這個 dev server。
+//     contentLength（bytes）建議一定要帶：這裡會先檢查是否為正整數、
+//     是否超過上限（MAX_UPLOAD_BYTES），通過後把它一併鎖進 SigV4
+//     的 SignedHeaders（見 s3-presign.ts），讓 S3 相容節點在收到
+//     PUT 時，強制比對 body 大小是否與簽名時宣告的一致，兩層防護：
+//     這個 server 擋明顯超過上限的宣告值、S3 端擋「宣告跟實際不符」。
 //
-//   POST /api/upload/:appName/sync
-//     body: { sourceUrl, destId, fileName, mimeType? }
-//     把 sourceUrl 目前指向的檔案內容，同步一份到 destId 對應的目的地
-//     （必須是目前已啟用的目的地之一）。整個讀取＋寫入流程都在這個
-//     dev server 端完成，不透過瀏覽器轉手，因此來源是私有 S3 bucket
-//     時也能正確讀取（用 presigned GET），細節見 ./file-sync.ts。
+// 這個 dev server 不再提供「跨目的地同步」的路由（原本的
+// POST /api/upload/:appName/sync，背後邏輯在已移除的
+// server/file-sync.ts）：同步整個搬到前端執行，見
+// src/lib/upload-client.ts 的 syncFileToDestination()，瀏覽器直接讀
+// OPFS / fetch 來源網址，寫入目標時本機走這裡的 /local，S3 走
+// presigned PUT，不透過 server 轉手同步流程本身，也不處理 CORS。
 // ============================================================
 
 import type { Plugin, ViteDevServer, Connect } from "vite";
@@ -54,7 +62,6 @@ import { parseMultipart } from "./multipart";
 import { saveLocalUpload, resolveStoragePath } from "./local-upload";
 import { presignPutObject, resolvePublicUrl } from "./s3-presign";
 import { makeStoredFileName, isSafePathSegment } from "./filename";
-import { syncFileToDestination, SyncError } from "./file-sync";
 
 function json(res: ServerResponse, status: number, body: unknown) {
   const payload = JSON.stringify(body);
@@ -62,6 +69,9 @@ function json(res: ServerResponse, status: number, body: unknown) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(payload);
 }
+
+/** presign 階段允許的檔案大小上限（bytes）。目前先寫死，之後要開放每個目的地各自設定也容易加。 */
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024; // 200MB
 
 function readRequestBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -209,6 +219,11 @@ export function uploadDevPlugin(): Plugin {
                   error: '找不到檔案欄位，multipart 欄位名稱需為 "file"',
                 });
               }
+              if (filePart.data.length > MAX_UPLOAD_BYTES) {
+                return json(res, 400, {
+                  error: `檔案大小 ${filePart.data.length} bytes 超過上限 ${MAX_UPLOAD_BYTES} bytes`,
+                });
+              }
 
               try {
                 const result = await saveLocalUpload({
@@ -232,10 +247,31 @@ export function uploadDevPlugin(): Plugin {
                 destId?: string;
                 fileName?: string;
                 contentType?: string;
+                contentLength?: number;
               }>(req);
 
               if (!body.fileName) {
                 return json(res, 400, { error: "缺少 fileName" });
+              }
+
+              let contentLength: number | undefined;
+              if (body.contentLength != null) {
+                if (
+                  typeof body.contentLength !== "number" ||
+                  !Number.isFinite(body.contentLength) ||
+                  !Number.isInteger(body.contentLength) ||
+                  body.contentLength <= 0
+                ) {
+                  return json(res, 400, {
+                    error: "contentLength 必須是大於 0 的整數（bytes）",
+                  });
+                }
+                if (body.contentLength > MAX_UPLOAD_BYTES) {
+                  return json(res, 400, {
+                    error: `檔案大小 ${body.contentLength} bytes 超過上限 ${MAX_UPLOAD_BYTES} bytes`,
+                  });
+                }
+                contentLength = body.contentLength;
               }
 
               const settings = await readAppSettings(appName);
@@ -267,6 +303,7 @@ export function uploadDevPlugin(): Plugin {
                   dest,
                   key,
                   contentType: body.contentType,
+                  contentLength,
                 });
                 const publicUrl = resolvePublicUrl(dest, key);
                 return json(res, 200, {
@@ -281,40 +318,6 @@ export function uploadDevPlugin(): Plugin {
               } catch (err) {
                 return json(res, 500, {
                   error: err instanceof Error ? err.message : "簽名失敗",
-                });
-              }
-            }
-
-            // POST /api/upload/:appName/sync
-            if (sub === "sync" && req.method === "POST") {
-              const body = await readJsonBody<{
-                sourceUrl?: string;
-                destId?: string;
-                fileName?: string;
-                mimeType?: string;
-              }>(req);
-
-              if (!body.sourceUrl || !body.destId || !body.fileName) {
-                return json(res, 400, {
-                  error: "缺少 sourceUrl / destId / fileName",
-                });
-              }
-
-              try {
-                const result = await syncFileToDestination({
-                  appName,
-                  sourceUrl: body.sourceUrl,
-                  destId: body.destId,
-                  fileName: body.fileName,
-                  mimeType: body.mimeType,
-                });
-                return json(res, 200, { appName, ...result });
-              } catch (err) {
-                if (err instanceof SyncError) {
-                  return json(res, err.status, { error: err.message });
-                }
-                return json(res, 500, {
-                  error: err instanceof Error ? err.message : "同步失敗",
                 });
               }
             }
