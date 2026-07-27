@@ -30,16 +30,34 @@ export function getAllComponentIds(): string[] {
 }
 
 /**
- * 動態載入某個組件的實際模組（給 Live Preview 用）。
+ * 動態載入某個組件的實際模組（給 Live Preview / 畫布即時渲染用）。
  * componentMap 是由 scripts/generate-docs.mjs 產生的靜態 import 表，
  * 每一條路徑在編譯期就已經是 import() 字面量，因此 Vite 能正確做 code-splitting。
+ *
+ * 同一個 importPath 的載入結果（Promise）會被快取，避免同一個組件在畫布上
+ * 出現多次（例如巢狀重複使用同一個 Button）時，每個實例各自重新 import 一次；
+ * import() 本身雖然對同路徑也有模組快取，但這裡額外快取 Promise 可以讓多個
+ * 呼叫端共用同一個 in-flight request，不用各自等一輪 microtask。
  */
-export async function loadComponentModule(
+const moduleCache = new Map<string, Promise<Record<string, unknown>>>();
+
+export function loadComponentModule(
   importPath: string
 ): Promise<Record<string, unknown>> {
+  const cached = moduleCache.get(importPath);
+  if (cached) return cached;
+
   const loader = componentMap[importPath];
   if (!loader) {
-    throw new Error(`找不到 "${importPath}" 對應的動態載入設定，請確認已執行 npm run docs:generate`);
+    return Promise.reject(
+      new Error(`找不到 "${importPath}" 對應的動態載入設定，請確認已執行 npm run docs:generate`)
+    );
   }
-  return loader();
+  const promise = loader().catch((err) => {
+    // 載入失敗不快取，讓下次呼叫可以重試（例如暫時性的 chunk 載入失敗）。
+    moduleCache.delete(importPath);
+    throw err;
+  });
+  moduleCache.set(importPath, promise);
+  return promise;
 }

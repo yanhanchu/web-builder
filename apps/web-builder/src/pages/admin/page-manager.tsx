@@ -10,6 +10,7 @@ import {
   removeBlockDeep,
   insertIntoSlotDeep,
   insertAtRoot,
+  patchBlockPropsDeep,
   type PageItem,
   type PageBlock,
 } from "../../lib/pages-store";
@@ -19,6 +20,7 @@ import { CanvasPanel } from "./page-manager/canvas-panel";
 import { PropertiesPanel } from "./page-manager/properties-panel";
 import { ComponentPropertiesPanel } from "./page-manager/component-properties-panel";
 import { ComponentTreeModal } from "./page-manager/component-tree-modal";
+import { loadDefaultBlockProps } from "./page-manager/component-grouping";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
 
 // 頁面管理：頁面的新增 / 刪除 / 編輯，以及每頁的 SEO 設定與內容組件組合。
@@ -36,7 +38,8 @@ import type { StatusFilter, ViewportMode } from "./page-manager/shared";
 //   components-panel.tsx     左側「現有組件」面板
 //   component-tree-modal.tsx 左側「組件樹狀結構」停靠面板，依巢狀關係遞迴顯示
 //                             並支援拖拉搬移組件到 ReactNode（插槽）prop
-//   canvas-panel.tsx          中間畫布 + block 卡片
+//   canvas-panel.tsx          中間畫布，即時渲染實際組件（含巢狀 slot），
+//                             支援從左側面板拖放新增，點擊畫面上的組件即選取
 //   properties-panel.tsx     右側「頁面屬性」+ SEO 欄位
 //   component-grouping.ts    組件分組 / 預覽資料的純函式
 //   shared.ts                跨模組共用的型別與樣式常數
@@ -132,10 +135,13 @@ export default function PageManagerPage() {
     });
   };
 
-  const updateDraft = (patch: Partial<PageItem>) => {
+  const updateDraft = (patch: Partial<PageItem> | ((base: PageItem) => Partial<PageItem>)) => {
     if (!selected) return;
-    const base = drafts[selected.id] ?? selected;
-    setDrafts({ ...drafts, [selected.id]: { ...base, ...patch } });
+    setDrafts((prev) => {
+      const base = prev[selected.id] ?? selected;
+      const resolved = typeof patch === "function" ? patch(base) : patch;
+      return { ...prev, [selected.id]: { ...base, ...resolved } };
+    });
   };
 
   const updateSeoDraft = (patch: Partial<SeoData>) => {
@@ -144,16 +150,42 @@ export default function PageManagerPage() {
     updateDraft({ seo: { ...base.seo, ...patch } });
   };
 
-  const addBlock = (component: ComponentDoc) => {
+  /** 新增 block 要放的位置：root 代表頁面頂層最後方；slot 代表放進某個 block 的 slot prop。 */
+  type AddBlockTarget =
+    | { kind: "root" }
+    | { kind: "slot"; parentId: string; slotKey: string; toIndex: number };
+
+  const addBlock = (component: ComponentDoc, target: AddBlockTarget = { kind: "root" }) => {
     if (!selected) return;
+    const instanceId = makeBlockId();
     const base = drafts[selected.id] ?? selected;
     const block: PageBlock = {
-      instanceId: makeBlockId(),
+      instanceId,
       componentId: component.id,
       componentName: component.componentName,
       props: {},
     };
-    updateDraft({ blocks: [...base.blocks, block] });
+
+    if (target.kind === "root") {
+      updateDraft({ blocks: [...base.blocks, block] });
+    } else {
+      updateDraft({
+        blocks: insertIntoSlotDeep(base.blocks, target.parentId, target.slotKey, target.toIndex, block),
+      });
+    }
+
+    // 沒有預設值的必填 prop（按鈕的 label、圖片的 src…）在畫布即時渲染下
+    // 會直接讓組件壞掉或整片空白，所以新增後緊接著非同步載入該組件目錄的
+    // default.ts 示範資料，補進這個新 block 的 props（slot 型別的 key 已在
+    // loadDefaultBlockProps 內濾掉，不會誤把 JSX 塞進只接受純值/SlotValue
+    // 的 block.props）。用 instanceId 精準定位、functional updateDraft 疊加，
+    // 避免載入期間使用者又新增了別的 block，導致用過期快照覆蓋掉。
+    loadDefaultBlockProps(component).then((defaultProps) => {
+      if (Object.keys(defaultProps).length === 0) return;
+      updateDraft((current) => ({
+        blocks: patchBlockPropsDeep(current.blocks, instanceId, defaultProps),
+      }));
+    });
   };
 
   const removeBlock = (instanceId: string) => {
@@ -165,19 +197,6 @@ export default function PageManagerPage() {
       setSelectedBlockId(null);
       setRightPanelView("page");
     }
-  };
-
-  // 頂層排序用（目前保留給畫布卡片的上移/下移按鈕，只在頂層 blocks 之間交換）。
-  const moveBlock = (instanceId: string, dir: -1 | 1) => {
-    if (!selected) return;
-    const base = drafts[selected.id] ?? selected;
-    const idx = base.blocks.findIndex((b) => b.instanceId === instanceId);
-    if (idx < 0) return;
-    const target = idx + dir;
-    if (target < 0 || target >= base.blocks.length) return;
-    const next = [...base.blocks];
-    [next[idx], next[target]] = [next[target], next[idx]];
-    updateDraft({ blocks: next });
   };
 
   // 組件樹狀結構的拖拉放置：先把 block（含其巢狀子組件）從原位置移除，
@@ -204,32 +223,7 @@ export default function PageManagerPage() {
   const updateBlockProp = (instanceId: string, key: string, value: unknown) => {
     if (!selected) return;
     const base = drafts[selected.id] ?? selected;
-    const setProp = (blocks: PageBlock[]): PageBlock[] =>
-      blocks.map((b) => {
-        if (b.instanceId === instanceId) {
-          return { ...b, props: { ...b.props, [key]: value } };
-        }
-        let changedProps: Record<string, unknown> | null = null;
-        for (const [propKey, propValue] of Object.entries(b.props)) {
-          if (
-            typeof propValue === "object" &&
-            propValue !== null &&
-            (propValue as { __slot?: unknown }).__slot === true &&
-            Array.isArray((propValue as { blocks?: unknown }).blocks)
-          ) {
-            const children = (propValue as { blocks: PageBlock[] }).blocks;
-            const nextChildren = setProp(children);
-            if (nextChildren !== children) {
-              changedProps = {
-                ...(changedProps ?? b.props),
-                [propKey]: { __slot: true, blocks: nextChildren },
-              };
-            }
-          }
-        }
-        return changedProps ? { ...b, props: changedProps } : b;
-      });
-    updateDraft({ blocks: setProp(base.blocks) });
+    updateDraft({ blocks: patchBlockPropsDeep(base.blocks, instanceId, { [key]: value }) });
   };
 
   const saveSelected = () => {
@@ -373,9 +367,9 @@ export default function PageManagerPage() {
                 setPropertiesOpen(true);
               }}
               onOpenPagePicker={() => setPagePickerOpen(true)}
+              onAddBlock={addBlock}
+              onMoveBlock={moveBlockToSlot}
               onRemoveBlock={removeBlock}
-              onMoveBlock={moveBlock}
-              onUpdateBlockProp={updateBlockProp}
               onSave={saveSelected}
               onDiscard={discardDraft}
             />

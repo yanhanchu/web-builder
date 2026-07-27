@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { ListTree, ChevronDown, ChevronRight, X, GripVertical, Search } from "lucide-react";
 import { panelTitleStyle, inputStyle } from "../admin-ui";
-import { allComponents } from "@workspace/ui/lib/generator/component-registry";
 import type { PageItem, PageBlock } from "@/lib/pages-store";
 import { isSlotValue } from "@/lib/pages-store";
+import { slotPropsOf } from "./component-grouping";
 import { iconBtnStyle } from "./shared";
 
 // 組件樹狀結構面板：依頁面實際組合方式遞迴顯示，頁面為根節點，每個組件實例為
@@ -12,38 +12,11 @@ import { iconBtnStyle } from "./shared";
 //
 // 停靠在畫面最左側，可與其他面板同時開啟。
 //
-// 拖拉放置：只有 ReactNode 型別的 prop（isSlotProp）是合法的放置目標。拖曳中移到
+// 拖拉放置：只有 ReactNode 型別的 prop（slotPropsOf，定義在 component-grouping.ts，
+// 跟 canvas-panel.tsx 共用同一份判斷）是合法的放置目標。拖曳中移到
 // 某個 slot prop 列會反白作為插入目標，放開後透過
 // onMoveBlock(instanceId, targetParentId, targetSlotKey, toIndex) 通知父層，
 // targetParentId 為 null 代表放到頁面最頂層。
-
-const REACT_NODE_TYPES = new Set(["ReactNode", "React.ReactNode", "JSX.Element", "React.JSX.Element"]);
-
-/** 判斷一個 prop 型別字串是不是可以放子組件的 slot，容許聯集與陣列型別寫法。 */
-function isSlotProp(type: string): boolean {
-  const normalized = type.trim();
-  if (REACT_NODE_TYPES.has(normalized)) return true;
-  const branches = normalized.split("|").map((s) => s.trim());
-  if (branches.some((b) => REACT_NODE_TYPES.has(b))) return true;
-  const withoutArraySuffix = normalized.replace(/\[\]$/, "").trim();
-  if (REACT_NODE_TYPES.has(withoutArraySuffix)) return true;
-  return false;
-}
-
-/** 這個組件定義裡，有哪些 prop 是可以放子組件的 slot（依宣告順序）。 */
-function slotPropsOf(componentId: string): string[] {
-  // 找不到時用路徑分隔符號與大小寫容錯的寬鬆比對再試一次。
-  const component =
-    allComponents.find((c) => c.id === componentId) ??
-    allComponents.find((c) => c.id.replace(/\\/g, "/").toLowerCase() === componentId.replace(/\\/g, "/").toLowerCase());
-  if (!component) {
-    if (typeof console !== "undefined") {
-      console.warn(`[component-tree] 找不到 componentId="${componentId}" 對應的組件定義。`);
-    }
-    return [];
-  }
-  return component.props.filter((p) => isSlotProp(p.type)).map((p) => p.name);
-}
 
 /** 判斷 block 自己或其任一巢狀子孫的組件名稱是否符合篩選字串。 */
 function matchesQuery(block: PageBlock, q: string): boolean {

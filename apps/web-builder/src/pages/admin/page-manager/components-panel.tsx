@@ -118,7 +118,7 @@ export function ComponentsPanel({
       </div>
 
       <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
-        點卡片可預覽組件。之後可拖拉卡片到中間視圖，目前先用{" "}
+        點卡片可預覽組件。拖拉卡片到中間視圖可直接加入畫面最後方，也可以用{" "}
         <Plus size={10} style={{ verticalAlign: -1 }} /> 加到目前選中的頁面。
       </p>
 
@@ -247,6 +247,12 @@ function ComponentCard({
   return (
     <div
       draggable
+      onDragStart={(e) => {
+        // 只帶 componentId，畫布那邊 drop 時用它反查 allComponents 建立新的 block，
+        // 跟「+」按鈕（onAddBlock）走同一份建立邏輯，行為保持一致。
+        e.dataTransfer.setData("application/x-wb-component-id", c.id);
+        e.dataTransfer.effectAllowed = "copy";
+      }}
       onClick={() => onPreview(c)}
       style={{
         display: "inline-flex",

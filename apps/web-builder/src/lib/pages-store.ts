@@ -18,8 +18,8 @@ export const PAGES_STORAGE_KEY = "wb.pages";
 /**
  * 放進某個 ReactNode（slot）prop 裡的值：一組子組件實例，順序即渲染順序。
  * 只有型別為 ReactNode / React.ReactNode / JSX.Element 的 prop 才可能放這種值
- * （見 component-tree-modal.tsx 的 isSlotProp），其餘 prop 一律是純值
- * （string / number / boolean...），不會是 SlotValue。
+ * （見 isSlotPropType），其餘 prop 一律是純值（string / number / boolean...），
+ * 不會是 SlotValue。
  */
 export interface SlotValue {
   __slot: true;
@@ -37,6 +37,28 @@ export function isSlotValue(v: unknown): v is SlotValue {
 
 export function makeSlotValue(blocks: PageBlock[] = []): SlotValue {
   return { __slot: true, blocks };
+}
+
+const SLOT_REACT_NODE_TYPES = new Set(["ReactNode", "React.ReactNode", "JSX.Element", "React.JSX.Element"]);
+
+/**
+ * 判斷一個 prop 型別字串是不是可以放子組件的 slot（即該 prop 的值應該是
+ * SlotValue，而不是純值），容許聯集與陣列型別寫法（例如 "ReactNode | string"、
+ * "ReactNode[]"）。
+ *
+ * 這是 component-tree-modal.tsx（判斷拖拉放置的合法目標）、
+ * component-grouping.ts（新增組件時決定要不要帶入 default.ts 的純值）共用
+ * 的唯一定義，避免同樣的「什麼型別算 slot」判斷在多個檔案各自維護一份、
+ * 之後改一處忘了改另一處而悄悄不一致。
+ */
+export function isSlotPropType(type: string): boolean {
+  const normalized = type.trim();
+  if (SLOT_REACT_NODE_TYPES.has(normalized)) return true;
+  const branches = normalized.split("|").map((s) => s.trim());
+  if (branches.some((b) => SLOT_REACT_NODE_TYPES.has(b))) return true;
+  const withoutArraySuffix = normalized.replace(/\[\]$/, "").trim();
+  if (SLOT_REACT_NODE_TYPES.has(withoutArraySuffix)) return true;
+  return false;
 }
 
 /** 一個被放進頁面內容區的組件實例（組合用）。 */
@@ -70,7 +92,7 @@ export interface PageItem {
    * 「這個頁面選用了哪幾份」的引用清單，不會、也不需要寫回 wb.styleSheets。
    * 預設為空陣列（不套用任何樣式表）。
    */
-  styleSheetIds: string[];
+  styleSheetIds?: string[];
 }
 
 export const INITIAL_PAGES: PageItem[] = [
@@ -223,4 +245,59 @@ export function insertAtRoot(blocks: PageBlock[], toIndex: number, block: PageBl
   const clamped = Math.max(0, Math.min(toIndex, next.length));
   next.splice(clamped, 0, block);
   return next;
+}
+
+/**
+ * 在整棵樹（含巢狀 slot）中找到 instanceId 對應的 block，把 patch 物件的
+ * 多個 key 一次疊加進它的 props（每個 key 各自覆寫，patch 裡沒提到的 key
+ * 維持原值）。找不到該 instanceId 時回傳原陣列（reference 不變）。
+ *
+ * 跟只改一個 key 的呼叫端（例如屬性面板逐欄位編輯）用同一個函式即可，
+ * 傳入單一 key 的 patch 物件就等效於原本「改一個 prop」的操作；這裡統一
+ * 成「可疊加多個 key」，主要是給 addBlock 一次寫入 default.ts 讀到的多個
+ * demo prop 使用，不需要為了「新增時一次帶入多個預設值」另外寫一套邏輯。
+ */
+export function patchBlockPropsDeep(
+  blocks: PageBlock[],
+  instanceId: string,
+  patch: Record<string, unknown>
+): PageBlock[] {
+  return blocks.map((b) => {
+    if (b.instanceId === instanceId) {
+      return { ...b, props: { ...b.props, ...patch } };
+    }
+    let changedProps: Record<string, unknown> | null = null;
+    for (const [key, children] of slotEntries(b)) {
+      const nextChildren = patchBlockPropsDeep(children, instanceId, patch);
+      if (nextChildren !== children) {
+        changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(nextChildren) };
+      }
+    }
+    return changedProps ? { ...b, props: changedProps } : b;
+  });
+}
+
+/**
+ * 把一個 block 的 props 拆成「一般值 props」與「slot props」兩份：
+ *   - plainProps：可以直接當成 React props 傳給實際組件的純值（string / number /
+ *     boolean / 一般 object・array...），slot 型別的 key 不會出現在這裡。
+ *   - slotProps：key -> 該 slot 底下的子 block 陣列，留給呼叫端（畫布渲染器）
+ *     自行遞迴 render 成 ReactNode 後再併回 props。
+ *
+ * 故意不在這裡直接產生 ReactNode，讓 pages-store.ts 維持純資料操作、不依賴
+ * React，實際渲染邏輯交給 canvas-panel.tsx 的遞迴元件處理。
+ */
+export function splitSlotProps(
+  block: PageBlock
+): { plainProps: Record<string, unknown>; slotProps: Record<string, PageBlock[]> } {
+  const plainProps: Record<string, unknown> = {};
+  const slotProps: Record<string, PageBlock[]> = {};
+  for (const [key, value] of Object.entries(block.props)) {
+    if (isSlotValue(value)) {
+      slotProps[key] = value.blocks;
+    } else {
+      plainProps[key] = value;
+    }
+  }
+  return { plainProps, slotProps };
 }
