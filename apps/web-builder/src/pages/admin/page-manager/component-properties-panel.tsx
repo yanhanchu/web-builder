@@ -327,13 +327,16 @@ function toValueNode(value: unknown, fieldType: FieldType, store: InMemoryDataSt
  * 也可以綁定「資料管理」頁面維護的 i18n / 路由 / 檔案來源。
  *
  * 直接沿用 packages/ui/src/components/data-model/fields/typed-data-fields.tsx
- * 綁定 value 時走的同一顆 FieldEditor：候選來源種類（string 開放 i18n/file/route，
- * number/boolean 目前 permissiveBindingPolicy 仍全部開放、之後要依型別細分
- * 只需要換 policy，這裡不用改）、bound 預覽、綁定/解除綁定的下拉選單，都跟
- * 型別資料頁面完全一致，不用另外刻一套。這裡只負責把 block.props 既有存放
- * 「裸值」的慣例，轉接成 FieldEditor 要求的 ValueNode（見 toValueNode），
- * 選擇綁定後寫回的 { mode: 'bound', sourceId } 一樣只是存在這個組件實例的
- * props 裡，不會、也不需要動到 wb.dataSources 本身。
+ * 綁定 value 時走的同一顆 FieldEditor：候選來源清單、bound 顯示、綁定/解除
+ * 綁定的操作，都跟型別資料頁面完全一致，不用另外刻一套。候選來源是否符合
+ * 這個 prop 的實際型別（例如 number 不該列出 valueType 是 string 的 i18n
+ * 詞條，route/file 只對 string 適用）由 permissiveBindingPolicy.matchesSource
+ * 判斷（見 schema.ts），這裡完全不寫死型別比對規則，之後要調整比對邏輯
+ * 只需要換一顆 policy 或覆寫 matchesSource，不用改這個檔案。
+ * 這裡只負責把 block.props 既有存放「裸值」的慣例，轉接成 FieldEditor
+ * 要求的 ValueNode（見 toValueNode），選擇綁定後寫回的
+ * { mode: 'bound', sourceId } 一樣只是存在這個組件實例的 props 裡，
+ * 不會、也不需要動到 wb.dataSources 本身。
  */
 function BindableField({
   fieldType,
@@ -352,7 +355,7 @@ function BindableField({
 
   return (
     <div>
-      <FieldEditor type={fieldType} node={node} store={store} onChange={onChange} />
+      <FieldEditor type={fieldType} node={node} store={store} onChange={onChange} showTypeBadge={false} />
       {node.mode === "literal" && defaultValue != null && (node.value === "" || node.value == null) && (
         <p style={{ fontSize: 11, color: "#8a8a8a", margin: "4px 0 0" }}>預設: {defaultValue}</p>
       )}

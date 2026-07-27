@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DataSource, FileDataSource } from '@workspace/ui/lib/data-model/schema';
+import type { FileDataSource } from '@workspace/ui/lib/data-model/schema';
 import type { FilePreviewUrlResolver } from './types';
 import { ImageThumb, VideoThumb, isImageMime, isVideoMime, formatBytes } from './shared';
 

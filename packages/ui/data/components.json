@@ -263,13 +263,6 @@
         "type": "ThemeOption[]",
         "defaultValue": null,
         "description": "Theme toggle options, forwarded to <ThemeToggle />"
-      },
-      {
-        "name": "testNumber",
-        "required": false,
-        "type": "number",
-        "defaultValue": null,
-        "description": "aria-label for the mobile menu button when the menu is open"
       }
     ],
     "relatedTypeNames": [
@@ -762,6 +755,34 @@
         "name": "title",
         "required": true,
         "type": "{ lead: string; accent: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultBooleans",
+        "required": false,
+        "type": "boolean[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultItems",
+        "required": false,
+        "type": "string[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultNavs",
+        "required": false,
+        "type": "{ label: string; to: string; }[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultNumbers",
+        "required": false,
+        "type": "number[]",
         "defaultValue": null,
         "description": ""
       }

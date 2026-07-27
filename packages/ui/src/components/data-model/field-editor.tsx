@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link2, Unlink, Search, Plus, X } from 'lucide-react';
 import type {
   DataStore,
   FieldType,
@@ -9,6 +9,7 @@ import type {
   LiteralNode,
   BoundNode,
   BindingPolicy,
+  DataSource,
 } from '@workspace/ui/lib/data-model/schema';
 import {
   getCandidateSources,
@@ -23,6 +24,14 @@ interface FieldEditorProps {
   onChange: (next: ValueNode) => void;
   depth?: number;
   policy?: BindingPolicy;
+  /**
+   * 是否顯示型別徽章（例如 "string" / "object"）。預設 true。
+   * 有些呼叫端（例如組件屬性面板）已經在欄位名稱旁邊顯示過原始型別字串，
+   * 這裡就沒必要重複顯示，可以傳 false 關掉；巢狀的 object/array 欄位
+   * （ObjectFields/ArrayItems 內部遞迴呼叫）沒有其他地方顯示型別，
+   * 所以維持預設值不受外層傳入值影響，一律照舊顯示。
+   */
+  showTypeBadge?: boolean;
 }
 
 // resolve type.kind === 'ref' 到實際型別
@@ -41,8 +50,10 @@ export function FieldEditor({
   onChange,
   depth = 0,
   policy = permissiveBindingPolicy,
+  showTypeBadge = true,
 }: FieldEditorProps) {
   const resolvedType = resolveType(type, store);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // slot（ReactNode / children / icon）不參與 DataSource 綁定
   if (resolvedType.kind === 'slot') {
@@ -56,13 +67,19 @@ export function FieldEditor({
   const switchToBound = (sourceId: string) => {
     const bound: BoundNode = { mode: 'bound', sourceId };
     onChange(bound);
+    setPickerOpen(false);
   };
 
   const switchToLiteralOrContainer = () => {
     onChange(createDefaultValueNode(resolvedType, store));
+    setPickerOpen(false);
   };
 
   const candidateSources = getCandidateSources(resolvedType, store, policy);
+  // 沒有任何候選來源可綁（例如目前「資料管理」還沒建立任何 i18n/route/file/typedData，
+  // 或型別完全不相容，見 permissiveBindingPolicy.matchesSource）時，綁定完全沒有
+  // 意義，圖示按鈕就不需要顯示，避免使用者點開一個永遠是空的面板。
+  const canBind = candidateSources.length > 0;
 
   return (
     <div
@@ -72,39 +89,47 @@ export function FieldEditor({
         marginTop: 6,
       }}
     >
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-        <TypeBadge type={resolvedType} />
-        <select
-          value={node.mode === 'bound' ? node.sourceId : '__literal__'}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === '__literal__') switchToLiteralOrContainer();
-            else switchToBound(v);
-          }}
-          style={selectStyle}
-        >
-          <option value="__literal__">
-            {resolvedType.kind === 'object'
-              ? '（純資料，展開編輯）'
-              : resolvedType.kind === 'array'
-              ? '（純陣列，展開編輯）'
-              : '（純值輸入）'}
-          </option>
-          {candidateSources.map((s) => (
-            <option key={s.id} value={s.id}>
-              🔗 [{s.kind}] {s.label ?? s.id}
-            </option>
-          ))}
-        </select>
-      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 4 }}>
+        {showTypeBadge && <TypeBadge type={resolvedType} />}
 
-      {node.mode === 'bound' && <BoundPreview node={node} store={store} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {node.mode === 'bound' ? (
+            <BoundChip node={node} store={store} onUnbind={switchToLiteralOrContainer} />
+          ) : (
+            node.mode === 'literal' &&
+            resolvedType.kind !== 'object' &&
+            resolvedType.kind !== 'array' && (
+              <LiteralInput type={resolvedType} node={node} onChange={onChange} />
+            )
+          )}
+        </div>
 
-      {node.mode === 'literal' &&
-        resolvedType.kind !== 'object' &&
-        resolvedType.kind !== 'array' && (
-          <LiteralInput type={resolvedType} node={node} onChange={onChange} />
+        {/* 綁定不是每個欄位都會用到的操作，預設不佔版面 —— 用一顆小圖示按鈕收起來，
+            點了才展開篩選用的來源選單，而不是一開始就攤開一整條下拉選單。 */}
+        {canBind && (
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              title={node.mode === 'bound' ? '更換綁定的資料來源' : '綁定資料來源（i18n / 路由 / 檔案…）'}
+              style={{
+                ...linkBtnStyle,
+                ...(node.mode === 'bound' ? linkBtnActiveStyle : null),
+              }}
+            >
+              <Link2 size={12} />
+            </button>
+            {pickerOpen && (
+              <BindingPicker
+                candidates={candidateSources}
+                currentSourceId={node.mode === 'bound' ? node.sourceId : null}
+                onPick={switchToBound}
+                onClose={() => setPickerOpen(false)}
+              />
+            )}
+          </div>
         )}
+      </div>
 
       {node.mode === 'object' && resolvedType.kind === 'object' && (
         <ObjectFields
@@ -156,14 +181,104 @@ function TypeBadge({ type }: { type: FieldType }) {
   );
 }
 
-function BoundPreview({ node, store }: { node: BoundNode; store: DataStore }) {
+function BoundChip({
+  node,
+  store,
+  onUnbind,
+}: {
+  node: BoundNode;
+  store: DataStore;
+  onUnbind: () => void;
+}) {
   const source = store.getSource(node.sourceId);
   return (
-    <div style={{ fontSize: 12, color: '#7fdbca', marginLeft: 4 }}>
-      → 綁定至 <code>{node.sourceId}</code>
-      {source?.kind === 'typedData' && (
-        <span style={{ color: '#666' }}> （型別：{source.typeId}）</span>
-      )}
+    <div style={boundChipStyle}>
+      <Link2 size={11} style={{ color: '#7fdbca', flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ color: '#666' }}>[{source?.kind ?? '?'}]</span>{' '}
+        {source?.label ?? node.sourceId}
+        {source?.kind === 'typedData' && (
+          <span style={{ color: '#666' }}> （型別：{source.typeId}）</span>
+        )}
+      </span>
+      <button type="button" onClick={onUnbind} style={unbindBtnStyle} title="解除綁定，改回純值輸入">
+        <Unlink size={11} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 綁定用的可篩選小面板：點圖示按鈕才展開，展開時可用關鍵字篩選候選來源
+ * （依 kind 前綴或 label／id 比對），選擇後即關閉。清單較長時（i18n／檔案
+ * 累積多了）比原本攤平的 <select> 好找很多。
+ */
+function BindingPicker({
+  candidates,
+  currentSourceId,
+  onPick,
+  onClose,
+}: {
+  candidates: DataSource[];
+  currentSourceId: string | null;
+  onPick: (sourceId: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return candidates;
+    return candidates.filter((s) => {
+      const label = (s.label ?? s.id).toLowerCase();
+      return label.includes(q) || s.kind.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+    });
+  }, [candidates, query]);
+
+  return (
+    <div ref={ref} style={pickerPopoverStyle}>
+      <div style={{ position: 'relative', marginBottom: 6 }}>
+        <Search size={12} style={{ position: 'absolute', left: 8, top: 8, color: '#777' }} />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="篩選 i18n / 路由 / 檔案 / 型別資料…"
+          style={{ ...inputStyle, paddingLeft: 26, maxWidth: '100%' }}
+        />
+      </div>
+      <div style={pickerListStyle}>
+        {filtered.length === 0 ? (
+          <div style={{ fontSize: 12, color: '#777', padding: '6px 4px', fontStyle: 'italic' }}>
+            沒有符合「{query}」的來源
+          </div>
+        ) : (
+          filtered.map((s) => {
+            const active = s.id === currentSourceId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onPick(s.id)}
+                style={{ ...pickerOptionStyle, ...(active ? pickerOptionActiveStyle : null) }}
+                title={s.id}
+              >
+                <span style={{ color: '#666', fontFamily: 'monospace', fontSize: 10 }}>[{s.kind}]</span>{' '}
+                {s.label ?? s.id}
+              </button>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -323,9 +438,88 @@ const inputStyle: React.CSSProperties = {
   maxWidth: 280,
 };
 
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  maxWidth: 320,
+const linkBtnStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 24,
+  height: 24,
+  flexShrink: 0,
+  background: '#1e1e1e',
+  color: '#888',
+  border: '1px solid #444',
+  borderRadius: 4,
+  cursor: 'pointer',
+  padding: 0,
+};
+
+const linkBtnActiveStyle: React.CSSProperties = {
+  background: '#1f3b33',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
+};
+
+const boundChipStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  background: '#12211c',
+  border: '1px solid #2d6a4f',
+  borderRadius: 4,
+  padding: '4px 8px',
+  fontSize: 12,
+  color: '#cfe9e0',
+  minWidth: 0,
+};
+
+const unbindBtnStyle: React.CSSProperties = {
+  marginLeft: 'auto',
+  flexShrink: 0,
+  background: 'transparent',
+  color: '#e77',
+  border: 'none',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: 2,
+};
+
+const pickerPopoverStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 4px)',
+  right: 0,
+  zIndex: 30,
+  width: 260,
+  background: '#171717',
+  border: '1px solid #333',
+  borderRadius: 6,
+  padding: 8,
+  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+};
+
+const pickerListStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  maxHeight: 220,
+  overflowY: 'auto',
+};
+
+const pickerOptionStyle: React.CSSProperties = {
+  textAlign: 'left',
+  background: 'transparent',
+  color: '#ccc',
+  border: '1px solid transparent',
+  borderRadius: 4,
+  padding: '5px 8px',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+const pickerOptionActiveStyle: React.CSSProperties = {
+  background: '#22332c',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
 };
 
 const addBtnStyle: React.CSSProperties = {

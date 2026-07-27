@@ -157,12 +157,6 @@
           "required": true,
           "type": "string",
           "description": "aria-label for the mobile menu button when the menu is open"
-        },
-        {
-          "name": "testNumber",
-          "required": false,
-          "type": "number",
-          "description": "aria-label for the mobile menu button when the menu is open"
         }
       ]
     },
@@ -632,6 +626,30 @@
           "name": "secondaryCta",
           "required": true,
           "type": "{ label: string; to: string; }",
+          "description": ""
+        },
+        {
+          "name": "defaultItems",
+          "required": false,
+          "type": "string[]",
+          "description": ""
+        },
+        {
+          "name": "defaultNumbers",
+          "required": false,
+          "type": "number[]",
+          "description": ""
+        },
+        {
+          "name": "defaultBooleans",
+          "required": false,
+          "type": "boolean[]",
+          "description": ""
+        },
+        {
+          "name": "defaultNavs",
+          "required": false,
+          "type": "{ label: string; to: string; }[]",
           "description": ""
         }
       ]

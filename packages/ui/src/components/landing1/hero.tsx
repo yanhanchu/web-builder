@@ -1,35 +1,50 @@
-import { ArrowRight, Sparkles } from "lucide-react"
+import { ArrowRight, Sparkles } from "lucide-react";
 
 export interface HeroProps {
   /** Small pill of text above the headline */
-  eyebrow: string
+  eyebrow: string;
   title: {
     /** Non-highlighted lead-in of the headline */
-    lead: string
+    lead: string;
     /** Highlighted/gradient portion of the headline */
-    accent: string
-  }
+    accent: string;
+  };
   /** Supporting copy under the headline */
-  subtitle: string
+  subtitle: string;
   primaryCta: {
     /** Button label */
-    label: string
+    label: string;
     /** Destination href */
-    to: string
-  }
+    to: string;
+  };
   secondaryCta: {
     /** Button label */
-    label: string
+    label: string;
     /** Destination href */
-    to: string
-  }
+    to: string;
+  };
+  defaultItems?: string[];
+  defaultNumbers?: number[];
+  defaultBooleans?: boolean[];
+  defaultNavs?: {
+    /** Button label */
+    label: string;
+    /** Destination href */
+    to: string;
+  }[];
 }
 
 /**
  * Full-width hero banner: eyebrow, headline, subtitle and a pair of CTAs.
  * All copy and links are supplied by the caller.
  */
-export function Hero({ eyebrow, title, subtitle, primaryCta, secondaryCta }: HeroProps) {
+export function Hero({
+  eyebrow,
+  title,
+  subtitle,
+  primaryCta,
+  secondaryCta,
+}: HeroProps) {
   return (
     <section className="mx-auto mt-10 max-w-6xl sm:mt-16">
       <div className="glass relative overflow-hidden rounded-3xl p-6 sm:p-12">
@@ -58,7 +73,10 @@ export function Hero({ eyebrow, title, subtitle, primaryCta, secondaryCta }: Her
               style={{ backgroundImage: "var(--gradient-brand)" }}
             >
               {primaryCta.label}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              <ArrowRight
+                className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                aria-hidden
+              />
             </a>
             <a
               href={secondaryCta.to}
@@ -71,5 +89,5 @@ export function Hero({ eyebrow, title, subtitle, primaryCta, secondaryCta }: Her
         </div>
       </div>
     </section>
-  )
+  );
 }

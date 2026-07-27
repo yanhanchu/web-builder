@@ -265,12 +265,25 @@ function resolveSourceRoot(
 export type BindableKind = "literal" | "i18n" | "file" | "route" | "typedData";
 
 export interface BindingPolicy {
+  /** 這個 FieldType 整體開放哪些「種類」的資料來源（粗篩，決定要不要去撈某個 kind 的清單）。 */
   getBindableKinds(type: FieldType): BindableKind[];
+  /**
+   * 細篩：同一種 kind 底下，這一筆具體的 DataSource 是否真的符合這個 FieldType。
+   * 例如 i18n 來源各自有自己的 valueType（string/number/boolean/date），
+   * number 的 prop 不該被允許綁到 valueType 是 string 的 i18n 詞條；
+   * route / file 的值本質上一律是 string，不該出現在 number/boolean 的候選清單。
+   * 這個判斷特意做成 policy 的一部分（而不是寫死在 getCandidateSources 或
+   * FieldEditor 裡），之後要調整比對規則、或針對特定專案客製化，只要換一顆
+   * policy 或覆寫這個方法即可，不用動共用元件本身。
+   * 省略時預設一律通過（等同舊行為，只做 kind 層級的粗篩)，讓沒有實作這個
+   * 方法的既有 policy 不會被這次擴充破壞。
+   */
+  matchesSource?(type: FieldType, source: DataSource): boolean;
 }
 
-// 預設策略：不做語意猜測，string/number/boolean 全部開放給 i18n/file/route 綁定。
-// 之後若要精細化（例如靠欄位名稱關鍵字、或人工標註判斷「這格是不是 i18n」），
-// 只要替換這個 policy，FieldType 定義、編輯器 UI、resolver 完全不用動。
+// 預設策略：string/number/boolean 都開放給 i18n/file/route 綁定，但實際候選
+// 清單會再依 matchesSource 依型別過濾（i18n 比對 valueType；route/file 只有
+// string 適用），不是「無腦全部開放」。
 export const permissiveBindingPolicy: BindingPolicy = {
   getBindableKinds(type) {
     if (type.kind === "slot") return [];
@@ -286,28 +299,47 @@ export const permissiveBindingPolicy: BindingPolicy = {
     }
     return ["literal"];
   },
+
+  matchesSource(type, source) {
+    if (source.kind === "typedData") return matchesRefType(type, source.typeId);
+
+    // 以下三種（i18n / file / route）都只對 primitive 欄位有意義（object/array/ref
+    // 走的是 typedData，上面已經先擋掉），這裡再依實際型別比對：
+    if (type.kind !== "primitive") return false;
+
+    if (source.kind === "i18n") {
+      // i18n 詞條本身宣告了 valueType，直接比對，避免 number 欄位被塞進一句
+      // 文案、或 boolean 欄位被綁到一個數字詞條。
+      return source.valueType === type.type;
+    }
+
+    // route.value 與 file.url 都固定是 string，只有 string 欄位適用。
+    if (source.kind === "route" || source.kind === "file") {
+      return type.type === "string";
+    }
+
+    return false;
+  },
 };
 
-// 依 FieldType 找出符合的候選 DataSource 清單，供編輯器的 binding picker 使用
+// 依 FieldType 找出符合的候選 DataSource 清單，供編輯器的 binding picker 使用。
+// 先用 getBindableKinds 決定要撈哪幾種 kind（粗篩），再用 matchesSource 逐筆
+// 過濾（細篩，型別是否真的相容）—— 型別判斷完全交給傳入的 policy，這裡
+// 本身不寫死任何比對規則。
 export function getCandidateSources(
   type: FieldType,
   store: DataStore,
   policy: BindingPolicy = permissiveBindingPolicy,
 ): DataSource[] {
   const kinds = policy.getBindableKinds(type);
-  const result: DataSource[] = [];
+  const matches = (source: DataSource) => policy.matchesSource?.(type, source) ?? true;
 
-  if (kinds.includes("i18n")) result.push(...store.listSourcesByKind("i18n"));
-  if (kinds.includes("file")) result.push(...store.listSourcesByKind("file"));
-  if (kinds.includes("route")) result.push(...store.listSourcesByKind("route"));
+  const result: DataSource[] = [];
+  if (kinds.includes("i18n")) result.push(...store.listSourcesByKind("i18n").filter(matches));
+  if (kinds.includes("file")) result.push(...store.listSourcesByKind("file").filter(matches));
+  if (kinds.includes("route")) result.push(...store.listSourcesByKind("route").filter(matches));
   if (kinds.includes("typedData")) {
-    result.push(
-      ...store
-        .listSourcesByKind("typedData")
-        .filter(
-          (s) => s.kind === "typedData" && matchesRefType(type, s.typeId),
-        ),
-    );
+    result.push(...store.listSourcesByKind("typedData").filter(matches));
   }
   return result;
 }

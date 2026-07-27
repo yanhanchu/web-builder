@@ -18,8 +18,6 @@ export interface HeaderProps {
   openMenuLabel: string
   /** aria-label for the mobile menu button when the menu is open */
   closeMenuLabel: string,
-  /** aria-label for the mobile menu button when the menu is open */
-  testNumber?: number
 }
 
 /**
@@ -32,8 +30,7 @@ export function Header({
   primaryNav,
   themeLabel,
   openMenuLabel,
-  closeMenuLabel,
-  testNumber
+  closeMenuLabel
 }: HeaderProps) {
   const [open, setOpen] = useState(false)
 
@@ -41,7 +38,6 @@ export function Header({
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="glass mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-3 py-2 sm:px-5 sm:py-3">
         <Brand data={brand} />
-        {testNumber}
         <nav className="hidden items-center gap-1 md:flex">
           {primaryNav.map((item) => (
             <a
