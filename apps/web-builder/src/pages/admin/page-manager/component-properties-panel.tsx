@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Trash2, ChevronDown, Plus, X, Search } from "lucide-react";
 import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, usePersistentState } from "../admin-ui";
 import { allComponents, allComponentTypes } from "@workspace/ui/lib/generator/component-registry";
@@ -29,6 +29,51 @@ import { groupComponents } from "./component-grouping";
 // 下方讀取 allComponents / allComponentTypes / dataSources 都只是「唯讀查找」，
 // 用來決定要渲染哪一種欄位控制項、以及下拉選單有哪些候選項目，
 // 選擇的結果一律透過 onUpdateProp 寫進當前組件實例的 props。
+//
+// 面板本身寬度可由使用者在左邊界拖動調整（做法比照 components-panel.tsx 的
+// 「現有組件」面板，預設 320px，可在 MIN/MAX 之間拖動；因為這個面板在畫面
+// 右側，拖拉手把放在左邊界，往左拖動時寬度增加，方向與左側面板相反但邏輯
+// 對稱）。寬度只存在 component state，不持久化，跟左側面板行為一致。
+
+const PANEL_DEFAULT_WIDTH = 320;
+const PANEL_MIN_WIDTH = 280;
+const PANEL_MAX_WIDTH = 640;
+
+/**
+ * 右側面板共用的「左邊界拖拉調整寬度」hook：往左拖動（clientX 變小）寬度增加。
+ * export 出去給 properties-panel.tsx（頁面屬性面板）共用，兩個右側面板
+ * 用同一套拖拉邏輯，行為一致，不用各自複製一份。
+ */
+export function useLeftEdgeResizable(defaultWidth: number, minWidth: number, maxWidth: number) {
+  const [width, setWidth] = useState(defaultWidth);
+  const draggingRef = useRef(false);
+
+  const onDragHandleDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      const startX = e.clientX;
+      const startWidth = width;
+
+      const onMove = (ev: MouseEvent) => {
+        if (!draggingRef.current) return;
+        // 面板在右側，往左拖（clientX 變小）要增加寬度，方向跟右側面板（往右拖增加）相反。
+        const next = startWidth + (startX - ev.clientX);
+        setWidth(Math.min(maxWidth, Math.max(minWidth, next)));
+      };
+      const onUp = () => {
+        draggingRef.current = false;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [width]
+  );
+
+  return { width, onDragHandleDown };
+}
 
 /**
  * 依 prop 型別字串分類出的欄位種類，決定要渲染哪一種輸入控制項。
@@ -197,12 +242,20 @@ export function ComponentPropertiesPanel({
   const [dataSources] = usePersistentState<Record<string, DataSource>>("wb.dataSources", {});
   const store = useMemo(() => new InMemoryDataStore(dataSources, typeRegistry), [dataSources]);
 
+  const { width, onDragHandleDown } = useLeftEdgeResizable(
+    PANEL_DEFAULT_WIDTH,
+    PANEL_MIN_WIDTH,
+    PANEL_MAX_WIDTH
+  );
+
   return (
     <section
       style={{
-        width: 320,
-        minWidth: 320,
+        width,
+        minWidth: PANEL_MIN_WIDTH,
+        maxWidth: PANEL_MAX_WIDTH,
         flexShrink: 0,
+        position: "relative",
         borderLeft: "1px solid #2a2a2a",
         background: "#171717",
         overflowY: "auto",
@@ -210,6 +263,23 @@ export function ComponentPropertiesPanel({
         boxSizing: "border-box",
       }}
     >
+      {/* 左邊界拖拉手把：不佔版位（絕對定位疊在邊界上），拖曳調整面板寬度。
+          做法比照 components-panel.tsx 的右邊界手把，這裡因為面板在畫面
+          右側，手把貼在左邊界上。 */}
+      <div
+        onMouseDown={onDragHandleDown}
+        title="拖動調整面板寬度"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: -3,
+          width: 6,
+          height: "100%",
+          cursor: "col-resize",
+          zIndex: 10,
+        }}
+      />
+
       <div
         style={{
           display: "flex",

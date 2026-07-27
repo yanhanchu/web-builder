@@ -63,6 +63,14 @@ export interface PageItem {
   seo: SeoData;
   /** 頁面內容區的組件組合（由「現有組件」區塊拖入或新增）。預設為空陣列。 */
   blocks: PageBlock[];
+  /**
+   * 這個頁面套用的樣式表 id 清單（對應「樣式管理」頁面 wb.styleSheets 裡
+   * StyleSheet.id，可複選、可調整順序）。這裡只存 id 引用，不複製樣式表
+   * 內容本身 —— 樣式表本體仍然只由「樣式管理」頁面維護，這份清單只是
+   * 「這個頁面選用了哪幾份」的引用清單，不會、也不需要寫回 wb.styleSheets。
+   * 預設為空陣列（不套用任何樣式表）。
+   */
+  styleSheetIds: string[];
 }
 
 export const INITIAL_PAGES: PageItem[] = [
