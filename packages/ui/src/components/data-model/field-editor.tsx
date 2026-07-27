@@ -9,12 +9,12 @@ import type {
   LiteralNode,
   BoundNode,
   BindingPolicy,
-} from './schema';
+} from '@workspace/ui/lib/data-model/schema';
 import {
   getCandidateSources,
   permissiveBindingPolicy,
   createDefaultValueNode,
-} from './schema';
+} from '@workspace/ui/lib/data-model/schema';
 
 interface FieldEditorProps {
   type: FieldType;
@@ -25,7 +25,7 @@ interface FieldEditorProps {
   policy?: BindingPolicy;
 }
 
-// resolve type.kind === 'ref' 到實際型別，方便渲染時不用到處判斷
+// resolve type.kind === 'ref' 到實際型別
 function resolveType(type: FieldType, store: DataStore): FieldType {
   if (type.kind === 'ref') {
     const real = store.getTypeDef(type.typeId);
@@ -44,8 +44,7 @@ export function FieldEditor({
 }: FieldEditorProps) {
   const resolvedType = resolveType(type, store);
 
-  // slot（ReactNode / children / icon）不參與 DataSource 綁定，
-  // 交給「插入子組件」的機制處理，這裡只顯示提示
+  // slot（ReactNode / children / icon）不參與 DataSource 綁定
   if (resolvedType.kind === 'slot') {
     return (
       <div style={{ fontSize: 12, color: '#8a8a8a', fontStyle: 'italic', marginTop: 4 }}>
@@ -63,7 +62,6 @@ export function FieldEditor({
     onChange(createDefaultValueNode(resolvedType, store));
   };
 
-  // 候選來源清單：透過 BindingPolicy 決定這個欄位可以開放哪些綁定種類
   const candidateSources = getCandidateSources(resolvedType, store, policy);
 
   return (
@@ -267,7 +265,6 @@ function ArrayItems({
   policy: BindingPolicy;
 }) {
   const addItem = () => {
-    // 用 store 解析 ref（例如 NavItem），確保新項目是結構完整的 object，而非空字串
     const fresh = createDefaultValueNode(type.item, store);
     onChange({ ...node, items: [...node.items, fresh] });
   };

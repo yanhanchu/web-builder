@@ -178,7 +178,7 @@ export interface OpfsFileEntry {
 export async function listOpfsFiles(appName: string): Promise<OpfsFileEntry[]> {
   const appDir = await getAppDir(appName, { create: true });
   const entries: OpfsFileEntry[] = [];
-  // @ts-expect-error -- FileSystemDirectoryHandle 的 async iterator 型別尚未進 lib.dom
+  // FileSystemDirectoryHandle 的 async iterator 型別尚未進 lib.dom
   for await (const [name, handle] of appDir.entries()) {
     if (handle.kind === "file") {
       entries.push({ appName, fileName: name, url: makeOpfsUrl(appName, name) });

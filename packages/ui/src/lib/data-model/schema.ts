@@ -95,6 +95,13 @@ export interface FileDataSource extends DataSourceMetaBase {
   size?: number;
   /** 上傳日期時間（ISO 8601 字串）。上傳成功時自動填入；手動輸入 url 的情況允許留空，純資訊顯示、不可手動編輯。 */
   uploadedAt?: string;
+  /**
+   * 原始檔名（含副檔名），上傳成功時自動填入。之後每次重新同步到其他
+   * 節點（例如補上新啟用的目的地、或手動點「全部同步」）都會沿用這個
+   * 檔名，確保 S3 相容節點產生的 key 一律保留副檔名，不會因為改用
+   * label／id 當檔名而遺失副檔名。手動輸入 url 的情況允許留空。
+   */
+  fileName?: string;
 }
 
 /**

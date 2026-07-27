@@ -180,7 +180,9 @@ export function useFileSync(
         sourceUrl: file.url,
         destId,
         destKind: dest.kind,
-        fileName: file.label || file.id,
+        // 優先用上傳當下記錄的原始檔名（含副檔名）；只有很舊、上傳時還沒
+        // 存 fileName 的資料才會退回 label／id（此時本來就沒有副檔名可保留）。
+        fileName: file.fileName || file.label || file.id,
         mimeType: file.mimeType,
         appName,
       });
@@ -220,6 +222,7 @@ export function useFileSync(
           url: uploadResult.primary.url,
           mimeType: uploadResult.primary.mimeType || file.type || undefined,
           size: uploadResult.primary.size ?? file.size,
+          fileName: uploadResult.primary.fileName || file.name,
         };
         workingSources = { ...workingSources, [id]: newSource };
         onChangeSources(workingSources);
@@ -236,9 +239,48 @@ export function useFileSync(
     return results;
   };
 
+  /**
+   * 「更新既有檔案」的入口：用在單筆 file 卡片展開後的預覽框，使用者點擊或
+   * 拖放新檔案取代目前的內容。跟 uploadFiles（新增）走同一條
+   * uploadFileToAllEnabledDests，一樣會自動送到「每一個」已啟用目的地、
+   * 一樣把逐一結果直接寫進 syncMap；差別只在於這裡是覆蓋既有的
+   * FileDataSource（保留原本的 id / label / caption / description），
+   * 而不是新增一筆。
+   *
+   * fileName 一律用這次上傳的原始檔名（含副檔名），並寫回
+   * FileDataSource.fileName，讓之後任何「備援同步」（performSync /
+   * 全部同步）都能沿用同一個保留副檔名的檔名，不會因為改用 label／id
+   * 當檔名而在 S3 相容節點上遺失副檔名。
+   */
+  const updateExistingFile = async (
+    fileId: string,
+    file: File,
+  ): Promise<{ url: string; mimeType?: string; size?: number; fileName?: string }> => {
+    const uploadResult = await uploadFileToAllEnabledDests(file, appName);
+    const existing = sources[fileId];
+    const updatedSource: FileDataSource = {
+      ...(existing as FileDataSource),
+      id: fileId,
+      kind: "file",
+      url: uploadResult.primary.url,
+      mimeType: uploadResult.primary.mimeType || file.type || undefined,
+      size: uploadResult.primary.size ?? file.size,
+      uploadedAt: new Date().toISOString(),
+      fileName: uploadResult.primary.fileName || file.name,
+    };
+    onChangeSources({ ...sources, [fileId]: updatedSource });
+    seedSyncMapFromUploadOutcomes(fileId, uploadResult.perDestination);
+    return {
+      url: updatedSource.url,
+      mimeType: updatedSource.mimeType,
+      size: updatedSource.size,
+      fileName: updatedSource.fileName,
+    };
+  };
+
   const refresh = () => setRefreshTick((n) => n + 1);
 
-  return { files, destinations, syncMap, performSync, uploadFiles, refresh };
+  return { files, destinations, syncMap, performSync, uploadFiles, updateExistingFile, refresh };
 }
 
 const SHORT_LABEL: Record<SyncState, string> = {
@@ -409,6 +451,63 @@ export function FileDropZone({
   );
 }
 
+/**
+ * 展開的 file 卡片詳細資訊區塊使用：列出這個檔案在每一個「已啟用」目的地
+ * 的完整同步狀態與 url（已同步才顯示 url，其餘狀態顯示對應說明文字）。
+ * 跟標題列的 FileRowSyncCluster 不同，這裡不是精簡的小藥丸，而是完整的
+ * 一行一個節點，方便直接複製 url。
+ */
+export function FileDetailSyncList({
+  file,
+  destinations,
+  syncMap,
+}: {
+  file: FileDataSource;
+  destinations: ReturnType<typeof readUploadDestinations>;
+  syncMap: FileSyncMap;
+}) {
+  if (destinations.length === 0) {
+    return <span style={noDestStyle}>未啟用任何上傳目的地</span>;
+  }
+
+  return (
+    <div style={detailListStyle}>
+      {destinations.map((d) => {
+        const record = syncMap[syncKey(file.id, d.id)];
+        const state: SyncState = record?.state ?? "unsynced";
+        return (
+          <div key={d.id} style={detailRowStyle}>
+            <span style={detailDestLabelStyle}>
+              {d.kind === "s3" ? <Cloud size={11} /> : <HardDrive size={11} />}
+              {d.label || d.id}
+            </span>
+            <span style={{ ...detailStateStyle, ...detailStateColorMap[state] }}>
+              {SYNC_STATE_LABELS[state]}
+            </span>
+            {state === "synced" && record?.syncedUrl ? (
+              <a
+                href={record.syncedUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={detailUrlStyle}
+                title={record.syncedUrl}
+              >
+                {record.syncedUrl}
+              </a>
+            ) : state === "failed" && record?.errorMessage ? (
+              <span style={detailErrorStyle} title={record.errorMessage}>
+                {record.errorMessage}
+              </span>
+            ) : (
+              <span style={detailEmptyStyle}>—</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const clusterStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -466,4 +565,56 @@ const dropZoneActiveStyle: CSSProperties = {
 const dropErrorStyle: CSSProperties = {
   fontSize: 11,
   color: "#e77",
+};
+
+const detailListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const detailRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 12,
+  flexWrap: "wrap",
+};
+
+const detailDestLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  color: "#ccc",
+  flexShrink: 0,
+};
+
+const detailStateStyle: CSSProperties = {
+  fontSize: 11,
+  padding: "1px 6px",
+  borderRadius: 999,
+  border: "1px solid #444",
+  flexShrink: 0,
+};
+
+const detailStateColorMap: Record<SyncState, CSSProperties> = {
+  unsynced: { background: "#222", color: "#999", borderColor: "#444" },
+  syncing: { background: "#2a2a12", color: "#e8c64c", borderColor: "#5a4a1f" },
+  synced: { background: "#18271f", color: "#7fdbca", borderColor: "#2d6a4f" },
+  failed: { background: "#2a1414", color: "#e77", borderColor: "#5a2b2b" },
+};
+
+const detailUrlStyle: CSSProperties = {
+  color: "#7aa2f7",
+  overflowWrap: "anywhere",
+  textDecoration: "none",
+};
+
+const detailErrorStyle: CSSProperties = {
+  color: "#e77",
+  overflowWrap: "anywhere",
+};
+
+const detailEmptyStyle: CSSProperties = {
+  color: "#666",
 };

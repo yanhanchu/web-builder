@@ -1,0 +1,543 @@
+import React, { useMemo, useState } from 'react';
+import { Download, Plus, Upload } from 'lucide-react';
+import type {
+  DataSource,
+  DataSourceKind,
+  FieldType,
+  FileDataSource,
+  I18nDataSource,
+  I18nPrimitiveValue,
+  RouteDataSource,
+  TypedDataSource,
+} from '@workspace/ui/lib/data-model/schema';
+import {
+  InMemoryDataStore,
+  createDefaultValueNode,
+  fieldTypeForTypedDataTypeId,
+} from '@workspace/ui/lib/data-model/schema';
+import type { FileDetailSyncSlot, FileRowSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
+import { ImportModal } from './import-modal';
+import { LocaleBar } from './locale-bar';
+import { SourceCard } from './source-card';
+import { addBtnStyle, emptyStyle, inputStyle } from './shared';
+
+export type { PageOption } from './types';
+
+interface DataSourceManagerProps {
+  /** 目前所有 DataSource，key 為 source id */
+  sources: Record<string, DataSource>;
+  /** 型別 registry（複合 id -> FieldType），供 typedData 選型別 / 綁定用 */
+  types: Record<string, FieldType>;
+  /** 目前管理的 locale 清單（給 i18n 逐語系編輯用） */
+  locales: string[];
+  /** 目前所有頁面（給路由 target=page 選擇用；不提供則下拉選單為空） */
+  pages?: PageOption[];
+  /** sources 有任何變動時回傳完整新的 map */
+  onChangeSources: (next: Record<string, DataSource>) => void;
+  /** locale 清單變動時回傳（可選；沒有提供則隱藏 locale 管理列） */
+  onChangeLocales?: (next: string[]) => void;
+  /** file tab 工具列右側額外按鈕（例如「重新整理目的地」） */
+  fileToolbarExtra?: React.ReactNode;
+  /** file tab 卡片清單下方額外內容 */
+  fileSyncContent?: React.ReactNode;
+  /** 每筆 file 資料列標題列的同步狀態叢集（放在刪除鈕左側） */
+  fileRowSyncSlot?: FileRowSyncSlot;
+  /** 展開的 file 卡片中，詳細資訊區塊顯示的「所有已同步節點」url 清單 */
+  fileDetailSyncSlot?: FileDetailSyncSlot;
+  /**
+   * 檔案上傳（file tab 專用）：提供時，FileFields 會多顯示一顆「上傳檔案」
+   * 按鈕，選好本機檔案後呼叫這個函式，回傳的 url / mimeType 直接填回草稿。
+   */
+  onUploadFile?: (
+    file: File,
+    source: FileDataSource,
+  ) => Promise<{ url: string; mimeType?: string; size?: number; fileName?: string }>;
+  /** 把 FileDataSource.url 轉成瀏覽器可直接當 <img src> 用的網址，不提供則原樣使用 url。 */
+  resolvePreviewUrl?: FilePreviewUrlResolver;
+  /**
+   * 目前選中的分頁（i18n / route / file / typedData）。不提供時元件會自己管理
+   * 內部 state（預設 'i18n'）；提供時變成受控元件，方便 app 層把分頁狀態同步
+   * 到 URL（例如 #tab=file），重新整理頁面後可以還原到離開前的分頁。
+   */
+  activeKind?: DataSourceKind;
+  /** activeKind 受控時，使用者切換分頁會呼叫這個回呼；不提供 activeKind 則不會被呼叫。 */
+  onChangeActiveKind?: (next: DataSourceKind) => void;
+}
+
+const KIND_LABELS: Record<DataSourceKind, string> = {
+  i18n: 'i18n 多語系文案',
+  route: '路由 Route',
+  file: '檔案 File',
+  typedData: '型別資料 Typed Data',
+};
+
+const KIND_ORDER: DataSourceKind[] = ['i18n', 'route', 'file', 'typedData'];
+
+type SortKey = 'id' | 'label';
+type SortDir = 'asc' | 'desc';
+
+export function DataSourceManager({
+  sources,
+  types,
+  locales,
+  pages = [],
+  onChangeSources,
+  onChangeLocales,
+  fileToolbarExtra,
+  fileSyncContent,
+  fileRowSyncSlot,
+  fileDetailSyncSlot,
+  onUploadFile,
+  resolvePreviewUrl,
+  activeKind: controlledActiveKind,
+  onChangeActiveKind,
+}: DataSourceManagerProps) {
+  const [internalActiveKind, setInternalActiveKind] = useState<DataSourceKind>('i18n');
+  // 受控／非受控二擇一：外部有給 activeKind 時以它為準（例如 app 層把分頁同步進 URL），
+  // 沒有給則退回內部 state，行為跟原本一樣。
+  const activeKind = controlledActiveKind ?? internalActiveKind;
+  const setActiveKind = (next: DataSourceKind) => {
+    if (onChangeActiveKind) onChangeActiveKind(next);
+    if (controlledActiveKind === undefined) setInternalActiveKind(next);
+  };
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('id');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  // 展開中的來源 id 集合（預設全部收合）
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // 新增後、尚未通過驗證正式「離開草稿狀態」的來源 id：一律釘在清單最上方
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(() => new Set());
+
+  const [showImport, setShowImport] = useState(false);
+
+  // 用當前 sources + types 建一個 store，供 typedData 的 FieldEditor 綁定候選使用
+  const store = useMemo(
+    () => new InMemoryDataStore(sources, types),
+    [sources, types],
+  );
+
+  const grouped = useMemo(() => {
+    const g: Record<DataSourceKind, DataSource[]> = {
+      i18n: [],
+      route: [],
+      file: [],
+      typedData: [],
+    };
+    for (const s of Object.values(sources)) g[s.kind].push(s);
+    return g;
+  }, [sources]);
+
+  // 目前 tab 的清單，套用篩選 + 排序；新增中（尚未儲存過一次）的項目固定置頂
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = grouped[activeKind];
+    if (q) {
+      list = list.filter(
+        (s) =>
+          s.id.toLowerCase().includes(q) ||
+          (s.label ?? '').toLowerCase().includes(q),
+      );
+    }
+    const pinned = list.filter((s) => newlyAddedIds.has(s.id));
+    const rest = list.filter((s) => !newlyAddedIds.has(s.id));
+    const sorted = [...rest].sort((a, b) => {
+      const av = (sortKey === 'label' ? a.label ?? a.id : a.id).toLowerCase();
+      const bv = (sortKey === 'label' ? b.label ?? b.id : b.id).toLowerCase();
+      const cmp = av.localeCompare(bv);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return [...pinned, ...sorted];
+  }, [grouped, activeKind, query, sortKey, sortDir, newlyAddedIds]);
+
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // originalId 若與 next.id 不同，代表使用者重新命名：移除舊 key、寫入新 key，
+  // 並讓「展開中」狀態跟著新 key 走，避免存檔後卡片意外收合。
+  const updateSource = (next: DataSource, originalId?: string) => {
+    const rest = { ...sources };
+    if (originalId && originalId !== next.id) {
+      delete rest[originalId];
+      setExpanded((prev) => {
+        if (!prev.has(originalId)) return prev;
+        const n = new Set(prev);
+        n.delete(originalId);
+        n.add(next.id);
+        return n;
+      });
+    }
+    onChangeSources({ ...rest, [next.id]: next });
+  };
+
+  const removeSource = (id: string) => {
+    const rest = { ...sources };
+    delete rest[id];
+    onChangeSources(rest);
+    setExpanded((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setNewlyAddedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const makeId = (prefix: string) => {
+    let n = 1;
+    let id = `${prefix}:new-${n}`;
+    while (sources[id]) id = `${prefix}:new-${++n}`;
+    return id;
+  };
+
+  // 新增後自動展開該筆並釘在清單最上方，直到通過驗證正式「儲存」過一次
+  const addAndExpand = (src: DataSource) => {
+    updateSource(src);
+    setExpanded((prev) => new Set(prev).add(src.id));
+    setNewlyAddedIds((prev) => new Set(prev).add(src.id));
+  };
+
+  // i18n 卡片在草稿通過驗證、正式 commit 後呼叫：解除置頂標記
+  const markSaved = (id: string) => {
+    setNewlyAddedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const addI18n = () => {
+    const id = makeId('i18n');
+    const values: Record<string, I18nPrimitiveValue> = {};
+    for (const l of locales) values[l] = '';
+    addAndExpand({
+      id,
+      kind: 'i18n',
+      label: '新 i18n 文案',
+      valueType: 'string',
+      values,
+    } satisfies I18nDataSource);
+  };
+
+  const addRoute = () => {
+    const id = makeId('route');
+    addAndExpand({
+      id,
+      kind: 'route',
+      label: '新路由',
+      target: 'url',
+      value: '/',
+      noindex: false,
+    } satisfies RouteDataSource);
+  };
+
+  const addFile = () => {
+    const id = makeId('file');
+    addAndExpand({
+      id,
+      kind: 'file',
+      label: '新檔案',
+      url: '',
+      mimeType: '',
+    } satisfies FileDataSource);
+  };
+
+  const addTypedData = () => {
+    const firstTypeId = Object.keys(types)[0];
+    if (!firstTypeId) return;
+    const id = makeId('typedData');
+    const fieldType = fieldTypeForTypedDataTypeId(firstTypeId);
+    addAndExpand({
+      id,
+      kind: 'typedData',
+      label: '新型別資料',
+      typeId: firstTypeId,
+      value: createDefaultValueNode(fieldType, store),
+    } satisfies TypedDataSource);
+  };
+
+  const addHandlers: Record<DataSourceKind, () => void> = {
+    i18n: addI18n,
+    route: addRoute,
+    file: addFile,
+    typedData: addTypedData,
+  };
+
+  // 匯出：把當前全部 sources 序列化成 JSON 並觸發下載
+  const handleExport = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sources,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `data-sources-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // 匯入：把解析後的來源套用（合併 or 覆蓋）
+  const handleImport = (
+    incoming: Record<string, DataSource>,
+    mode: 'merge' | 'replace',
+  ) => {
+    if (mode === 'replace') {
+      onChangeSources(incoming);
+    } else {
+      onChangeSources({ ...sources, ...incoming });
+    }
+    setShowImport(false);
+  };
+
+  return (
+    <div style={rootStyle}>
+      {/* Tabs：依類型切換 */}
+      <div style={tabsStyle} role="tablist" aria-label="DataSource 類型">
+        {KIND_ORDER.map((kind) => {
+          const active = kind === activeKind;
+          return (
+            <button
+              key={kind}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveKind(kind)}
+              style={{
+                ...tabStyle,
+                ...(active ? tabActiveStyle : null),
+              }}
+            >
+              {KIND_LABELS[kind]}
+              <span style={{ ...countStyle, ...(active ? countActiveStyle : null) }}>
+                {grouped[kind].length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* i18n tab 才顯示 locale 管理列 */}
+      {activeKind === 'i18n' && onChangeLocales && (
+        <LocaleBar locales={locales} onChange={onChangeLocales} />
+      )}
+
+      {/* 工具列：快速篩選 + 排序 + 新增 */}
+      <div style={toolbarStyle}>
+        <input
+          value={query}
+          placeholder="篩選 id 或 label…"
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ ...inputStyle, maxWidth: 240, flex: 1 }}
+          aria-label="快速篩選"
+        />
+        <label style={toolbarLabelStyle}>
+          排序
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            style={selectSmallStyle}
+            aria-label="排序欄位"
+          >
+            <option value="id">id</option>
+            <option value="label">label</option>
+          </select>
+        </label>
+        <button
+          onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+          style={sortDirBtnStyle}
+          title={sortDir === 'asc' ? '升冪（A→Z）' : '降冪（Z→A）'}
+          aria-label="切換排序方向"
+        >
+          {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
+        </button>
+        <div style={{ flex: 1 }} />
+        {activeKind === 'file' && fileToolbarExtra}
+        <button
+          style={ioBtnStyle}
+          onClick={() => setShowImport(true)}
+          title="貼上 JSON 匯入來源"
+        >
+          <Upload size={12} />
+          匯入
+        </button>
+        <button
+          style={{
+            ...ioBtnStyle,
+            ...(Object.keys(sources).length === 0
+              ? { opacity: 0.45, cursor: 'not-allowed' }
+              : null),
+          }}
+          onClick={handleExport}
+          title="匯出全部來源為 JSON"
+          disabled={Object.keys(sources).length === 0}
+        >
+          <Download size={12} />
+          匯出
+        </button>
+        <button style={addBtnStyle} onClick={addHandlers[activeKind]} title={`新增${KIND_LABELS[activeKind]}`}>
+          <Plus size={12} />
+          新增{KIND_LABELS[activeKind]}
+        </button>
+      </div>
+
+      {/* 清單（收合式卡片） */}
+      {grouped[activeKind].length === 0 ? (
+        <div style={emptyStyle}>尚無資料，點右上「＋ 新增」建立第一筆。</div>
+      ) : visible.length === 0 ? (
+        <div style={emptyStyle}>沒有符合「{query}」的來源。</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {visible.map((source) => (
+            <SourceCard
+              key={source.id}
+              source={source}
+              sources={sources}
+              store={store}
+              types={types}
+              locales={locales}
+              pages={pages}
+              expanded={expanded.has(source.id)}
+              isNew={newlyAddedIds.has(source.id)}
+              onToggle={() => toggleExpand(source.id)}
+              onChange={updateSource}
+              onRemove={() => removeSource(source.id)}
+              onSaved={markSaved}
+              onUploadFile={onUploadFile}
+              resolvePreviewUrl={resolvePreviewUrl}
+              rowSyncSlot={
+                activeKind === 'file' && fileRowSyncSlot
+                  ? fileRowSyncSlot(source as FileDataSource)
+                  : undefined
+              }
+              detailSyncSlot={activeKind === 'file' ? fileDetailSyncSlot : undefined}
+            />
+          ))}
+        </div>
+      )}
+
+      {activeKind === 'file' && fileSyncContent}
+
+      {showImport && (
+        <ImportModal
+          existingCount={Object.keys(sources).length}
+          onClose={() => setShowImport(false)}
+          onApply={handleImport}
+        />
+      )}
+    </div>
+  );
+}
+
+const rootStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+};
+
+const tabsStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 4,
+  borderBottom: '1px solid #333',
+  paddingBottom: 2,
+};
+
+const tabStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  background: 'transparent',
+  color: '#999',
+  border: '1px solid transparent',
+  borderBottom: 'none',
+  borderTopLeftRadius: 6,
+  borderTopRightRadius: 6,
+  padding: '6px 12px',
+  fontSize: 13,
+  cursor: 'pointer',
+};
+
+const tabActiveStyle: React.CSSProperties = {
+  background: '#1a1a1a',
+  color: '#eee',
+  border: '1px solid #333',
+  borderBottom: '1px solid #1a1a1a',
+  marginBottom: -3,
+};
+
+const toolbarStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: 8,
+};
+
+const toolbarLabelStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 12,
+  color: '#aaa',
+};
+
+const selectSmallStyle: React.CSSProperties = {
+  background: '#1e1e1e',
+  color: '#eee',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: '4px 8px',
+  fontSize: 12,
+};
+
+const sortDirBtnStyle: React.CSSProperties = {
+  background: '#2d2d2d',
+  color: '#ddd',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: '4px 10px',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+const countStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: '#888',
+  background: '#262626',
+  borderRadius: 999,
+  padding: '1px 8px',
+};
+
+const countActiveStyle: React.CSSProperties = {
+  color: '#7fdbca',
+  background: '#22332c',
+};
+
+const ioBtnStyle: React.CSSProperties = {
+  background: '#2d2d2d',
+  color: '#ccc',
+  border: '1px solid #444',
+  borderRadius: 4,
+  padding: '4px 10px',
+  fontSize: 12,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  whiteSpace: 'nowrap',
+};
