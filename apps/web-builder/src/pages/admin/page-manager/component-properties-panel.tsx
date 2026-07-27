@@ -6,7 +6,12 @@ import type { ComponentDoc } from "@workspace/ui/types/generator/component-types
 import {
   InMemoryDataStore,
   typeRegistry,
+  componentPropsRegistry,
+  FieldEditor,
+  createDefaultValueNode,
   type DataSource,
+  type FieldType,
+  type ValueNode,
 } from "@workspace/ui/lib/data-model";
 import type { PageBlock, SlotValue } from "@/lib/pages-store";
 import { isSlotValue, makeSlotValue, makeBlockId } from "@/lib/pages-store";
@@ -23,13 +28,23 @@ import { groupComponents } from "./component-grouping";
 // 用來決定要渲染哪一種欄位控制項、以及下拉選單有哪些候選項目，
 // 選擇的結果一律透過 onUpdateProp 寫進當前組件實例的 props。
 
-/** 依 prop 型別字串分類出的欄位種類，決定要渲染哪一種輸入控制項。 */
+/**
+ * 依 prop 型別字串分類出的欄位種類，決定要渲染哪一種輸入控制項。
+ *
+ * "bindable" 是新增的分類：string / number / boolean 這類一般值，除了直接輸入
+ * 純值以外，還可以綁定「資料管理」頁面維護的 i18n / 路由 / 檔案來源 —— 沿用
+ * packages/ui/src/components/data-model/fields/typed-data-fields.tsx 同一套
+ * FieldEditor + ValueNode 機制，而不是另外刻一套綁定 UI。fieldType 是這個 prop
+ * 對應的 FieldType（來自 componentPropsRegistry，跟 typed data 用的是同一份
+ * 由生成資料轉換出來的定義），用來驅動 FieldEditor 判斷可綁定哪些種類。
+ */
 type FieldKind =
   | { kind: "reactNode" }
   | { kind: "boolean" }
   | { kind: "number" }
   | { kind: "enum"; options: string[] }
   | { kind: "complex"; typeId: string; isArray: boolean }
+  | { kind: "bindable"; fieldType: FieldType }
   | { kind: "string" };
 
 const REACT_NODE_TYPES = new Set(["ReactNode", "React.ReactNode", "JSX.Element", "React.JSX.Element"]);
@@ -63,18 +78,43 @@ function resolveTypeId(componentId: string, bareTypeName: string): string | null
 }
 
 /**
+ * 從 componentPropsRegistry（packages/ui/src/lib/data-model/from-generated.ts
+ * 由生成資料轉出的 FieldType 對照表，跟「型別資料管理」的 typed-data-fields.tsx
+ * 用的是同一份）反查某個 prop 對應的 FieldType，供一般值欄位交給 FieldEditor
+ * 判斷可綁定哪些種類的資料來源。找不到就回傳 null，呼叫端會退回純字串輸入。
+ */
+function lookupPropFieldType(componentId: string, propName: string): FieldType | null {
+  const entry = componentPropsRegistry[componentId];
+  if (!entry) return null;
+  return entry.propsType.kind === "object" ? entry.propsType.fields[propName] ?? null : null;
+}
+
+/**
  * 依 prop 的型別字串（可能是裸型別名稱、聯集字面量、陣列、或 ReactNode）分類，
  * 決定屬性面板該渲染哪一種控制項。componentId 用來在型別名稱是具名別名
  * （例如 "FlexAlign"）時，透過 relatedTypeNames 反查它在 allComponentTypes
  * 裡的完整定義（union 字面量 / object 欄位），藉此判斷是 enum 還是複雜物件型別。
+ * propName 則用來查 componentPropsRegistry，取得這個 prop 對應的 FieldType，
+ * 讓一般值（string/number/boolean）可以額外開放綁定 i18n / 路由 / 檔案。
  */
-function classifyField(propType: string, componentId: string): FieldKind {
+function classifyField(propType: string, componentId: string, propName: string): FieldKind {
   const trimmed = propType.trim();
 
   if (REACT_NODE_TYPES.has(trimmed)) return { kind: "reactNode" };
-  if (trimmed === "boolean") return { kind: "boolean" };
-  if (trimmed === "number") return { kind: "number" };
-  if (trimmed === "string") return { kind: "string" };
+
+  // 純值（string/number/boolean）：optionally 開放綁定資料來源。查得到對應的
+  // FieldType 就走 "bindable"（交給 FieldEditor 處理純值輸入 + 綁定下拉選單）；
+  // 查不到（理論上不會發生，因為 componentPropsRegistry 用同一份生成資料轉換）
+  // 就退回原本單純的輸入控制項，行為跟修改前一致，不會讓使用者卡住。
+  if (trimmed === "boolean" || trimmed === "number" || trimmed === "string") {
+    const fieldType = lookupPropFieldType(componentId, propName);
+    if (fieldType && fieldType.kind === "primitive") {
+      return { kind: "bindable", fieldType };
+    }
+    if (trimmed === "boolean") return { kind: "boolean" };
+    if (trimmed === "number") return { kind: "number" };
+    return { kind: "string" };
+  }
 
   // 內嵌的 union literal，例如 '"sm" | "md" | "lg"'
   const inlineUnion = parseUnionLiterals(trimmed);
@@ -171,7 +211,7 @@ export function ComponentPropertiesPanel({
         <p style={{ color: "#777", fontSize: 13 }}>此組件無可設定 props。</p>
       ) : (
         component.props.map((prop) => {
-          const fieldKind = classifyField(prop.type, component.id);
+          const fieldKind = classifyField(prop.type, component.id, prop.name);
           return (
             <div key={prop.name} style={fieldRowStyle}>
               <label
@@ -239,10 +279,85 @@ function PropFieldControl({
           onChange={onChange}
         />
       );
+    case "bindable":
+      return (
+        <BindableField
+          fieldType={fieldKind.fieldType}
+          value={value}
+          defaultValue={defaultValue}
+          store={store}
+          onChange={onChange}
+        />
+      );
     case "string":
     default:
       return <StringField value={value} defaultValue={defaultValue} onChange={onChange} />;
   }
+}
+
+/**
+ * 把 block.props[prop.name] 目前存的任意值，轉成 FieldEditor 看得懂的 ValueNode。
+ *
+ * 這個面板存的一般 prop 值，過去一直是「裸值」（string/number/boolean，或
+ * undefined 代表沿用元件預設值），不是 ValueNode —— 這裡開始才第一次讓一般值
+ * 也能綁定資料來源，因此需要相容既有頁面資料，不能要求使用者的舊資料重存一次：
+ *   - 已經是 ValueNode（有合法的 mode 欄位）：直接沿用。
+ *   - 其餘（裸值 / undefined）：包成 literal ValueNode，未設定時用型別預設值。
+ * 寫回一律是 ValueNode（見 BindableField 的 onChange），所以只有「還沒被這個
+ * 新版面板碰過」的舊資料才會進到裸值分支，屬於一次性的相容轉換，不影響
+ * pages-store.ts 的 PageBlock 型別本身。
+ */
+function toValueNode(value: unknown, fieldType: FieldType, store: InMemoryDataStore): ValueNode {
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as { mode?: unknown }).mode === "string" &&
+    ["literal", "bound", "array", "object"].includes((value as { mode: string }).mode)
+  ) {
+    return value as ValueNode;
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return { mode: "literal", value };
+  }
+  return createDefaultValueNode(fieldType, store);
+}
+
+/**
+ * bindable => 一般值（string/number/boolean）欄位，除了直接輸入純值以外，
+ * 也可以綁定「資料管理」頁面維護的 i18n / 路由 / 檔案來源。
+ *
+ * 直接沿用 packages/ui/src/components/data-model/fields/typed-data-fields.tsx
+ * 綁定 value 時走的同一顆 FieldEditor：候選來源種類（string 開放 i18n/file/route，
+ * number/boolean 目前 permissiveBindingPolicy 仍全部開放、之後要依型別細分
+ * 只需要換 policy，這裡不用改）、bound 預覽、綁定/解除綁定的下拉選單，都跟
+ * 型別資料頁面完全一致，不用另外刻一套。這裡只負責把 block.props 既有存放
+ * 「裸值」的慣例，轉接成 FieldEditor 要求的 ValueNode（見 toValueNode），
+ * 選擇綁定後寫回的 { mode: 'bound', sourceId } 一樣只是存在這個組件實例的
+ * props 裡，不會、也不需要動到 wb.dataSources 本身。
+ */
+function BindableField({
+  fieldType,
+  value,
+  defaultValue,
+  store,
+  onChange,
+}: {
+  fieldType: FieldType;
+  value: unknown;
+  defaultValue: string | null;
+  store: InMemoryDataStore;
+  onChange: (value: unknown) => void;
+}) {
+  const node = useMemo(() => toValueNode(value, fieldType, store), [value, fieldType, store]);
+
+  return (
+    <div>
+      <FieldEditor type={fieldType} node={node} store={store} onChange={onChange} />
+      {node.mode === "literal" && defaultValue != null && (node.value === "" || node.value == null) && (
+        <p style={{ fontSize: 11, color: "#8a8a8a", margin: "4px 0 0" }}>預設: {defaultValue}</p>
+      )}
+    </div>
+  );
 }
 
 /** string => 預設的單行文字輸入。 */
