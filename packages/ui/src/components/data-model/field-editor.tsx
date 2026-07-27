@@ -25,11 +25,17 @@ interface FieldEditorProps {
   depth?: number;
   policy?: BindingPolicy;
   /**
-   * 是否顯示型別徽章（例如 "string" / "object"）。預設 true。
-   * 有些呼叫端（例如組件屬性面板）已經在欄位名稱旁邊顯示過原始型別字串，
-   * 這裡就沒必要重複顯示，可以傳 false 關掉；巢狀的 object/array 欄位
-   * （ObjectFields/ArrayItems 內部遞迴呼叫）沒有其他地方顯示型別，
-   * 所以維持預設值不受外層傳入值影響，一律照舊顯示。
+   * 是否由 FieldEditor 自己顯示型別徽章（例如 "string" / "object"）。預設 true。
+   *
+   * 型別徽章一律顯示在「上一列」（獨立一行、靠右對齊），不會跟 input 擠在
+   * 同一行 —— 但這一列只在沒有其他地方可以放型別字串時才需要由 FieldEditor
+   * 自己生：
+   *   - 最外層呼叫（例如「型別資料管理」頁面的 typed-data-fields.tsx）沒有
+   *     額外的欄位名稱/索引那一行，維持預設 true，讓 FieldEditor 自己顯示。
+   *   - ObjectFields / ArrayItems 遞迴呼叫子欄位時，key 名稱／#idx 那一行
+   *     本身就會顯示型別（見下方兩個元件），子欄位一律傳 false 避免顯示兩次。
+   *   - 呼叫端已經在別的地方（例如組件屬性面板的 prop 列表）顯示過型別字串，
+   *     一樣傳 false 關掉。
    */
   showTypeBadge?: boolean;
 }
@@ -89,9 +95,15 @@ export function FieldEditor({
         marginTop: 6,
       }}
     >
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 4 }}>
-        {showTypeBadge && <TypeBadge type={resolvedType} />}
+      {/* 型別徽章獨立成上一列，靠右對齊，不佔 input 那一行的版面 —— 下面
+          那一行只留 input（或 bound chip）+ 綁定按鈕，比較不擁擠。 */}
+      {showTypeBadge && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
+          <TypeBadge type={resolvedType} />
+        </div>
+      )}
 
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {node.mode === 'bound' ? (
             <BoundChip node={node} store={store} onUnbind={switchToLiteralOrContainer} />
@@ -343,13 +355,19 @@ function ObjectFields({
         const fieldNode = node.fields[key] ?? createDefaultValueNode(fieldType, store);
         return (
           <div key={key} style={{ marginTop: 4 }}>
-            <div style={{ fontSize: 12, color: '#aaa', fontWeight: 600 }}>{key}</div>
+            {/* key 名稱這一列就是這個子欄位的「上一列」，型別放右側，
+                下面 FieldEditor 就不需要自己再生一列型別（見 showTypeBadge={false}）。 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 12, color: '#aaa', fontWeight: 600 }}>{key}</span>
+              <TypeBadge type={resolveType(fieldType, store)} />
+            </div>
             <FieldEditor
               type={fieldType}
               node={fieldNode}
               store={store}
               depth={depth + 1}
               policy={policy}
+              showTypeBadge={false}
               onChange={(nextChild) =>
                 onChange({
                   ...node,
@@ -404,13 +422,28 @@ function ArrayItems({
           <button onClick={() => removeItem(idx)} style={removeBtnStyle} title="刪除">
             <X size={12} />
           </button>
-          <div style={{ fontSize: 11, color: '#666' }}>#{idx}</div>
+          {/* #idx 這一列是這個項目的「上一列」，型別放右側（跟 ObjectFields 一致），
+              下面 FieldEditor 就不需要自己再生一列型別（見 showTypeBadge={false}）。
+              留一點右邊距，避免跟右上角的刪除按鈕重疊。 */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              gap: 6,
+              paddingRight: 20,
+            }}
+          >
+            <span style={{ fontSize: 11, color: '#666' }}>#{idx}</span>
+            <TypeBadge type={resolveType(type.item, store)} />
+          </div>
           <FieldEditor
             type={type.item}
             node={item}
             store={store}
             depth={depth + 1}
             policy={policy}
+            showTypeBadge={false}
             onChange={(next) => {
               const items = [...node.items];
               items[idx] = next;
