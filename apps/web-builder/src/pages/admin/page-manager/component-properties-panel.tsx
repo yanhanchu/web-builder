@@ -9,9 +9,11 @@ import {
   componentPropsRegistry,
   FieldEditor,
   createDefaultValueNode,
+  permissiveBindingPolicy,
   type DataSource,
   type FieldType,
   type ValueNode,
+  type BindingPolicy,
 } from "@workspace/ui/lib/data-model";
 import type { PageBlock, SlotValue } from "@/lib/pages-store";
 import { isSlotValue, makeSlotValue, makeBlockId } from "@/lib/pages-store";
@@ -31,12 +33,22 @@ import { groupComponents } from "./component-grouping";
 /**
  * 依 prop 型別字串分類出的欄位種類，決定要渲染哪一種輸入控制項。
  *
- * "bindable" 是新增的分類：string / number / boolean 這類一般值，除了直接輸入
- * 純值以外，還可以綁定「資料管理」頁面維護的 i18n / 路由 / 檔案來源 —— 沿用
- * packages/ui/src/components/data-model/fields/typed-data-fields.tsx 同一套
- * FieldEditor + ValueNode 機制，而不是另外刻一套綁定 UI。fieldType 是這個 prop
- * 對應的 FieldType（來自 componentPropsRegistry，跟 typed data 用的是同一份
- * 由生成資料轉換出來的定義），用來驅動 FieldEditor 判斷可綁定哪些種類。
+ * "bindable" 涵蓋兩種情況，判斷邏輯是同一套（見 classifyField 最後的 catch-all）：
+ *   1. string / number / boolean 這類一般值 —— 除了直接輸入純值，還能綁定
+ *      「資料管理」頁面維護的 i18n / 路由 / 檔案來源。
+ *   2. recursive 的巢狀型別（陣列 / 內嵌匿名 object，例如 hero.tsx 的
+ *      primaryCta: { label; to } 或 defaultNavs: { label; to }[]）—— 這種
+ *      型別沒有具名 id 可以整包綁 typedData（見下方 "complex"），但底層
+ *      FieldType（object/array）本身就是遞迴定義，FieldEditor 也早就支援
+ *      遞迴渲染巢狀 object/array（見 field-editor.tsx 的 ObjectFields /
+ *      ArrayItems），只要餵給它正確的 FieldType 就能逐層展開、逐一 leaf
+ *      欄位個別綁定，不需要為 hero.tsx 這類組件另外刻 UI，也不需要把這些
+ *      巢狀值硬塞進 typedData 當成具名資料來源（那是給「使用者想整包複用」
+ *      的具名型別準備的，跟這裡「組件實例內建的巢狀結構」是不同情境）。
+ *
+ * fieldType 一律來自 componentPropsRegistry（packages/ui/src/lib/data-model/
+ * from-generated.ts 由生成資料轉出的定義，跟「型別資料管理」用的是同一份），
+ * 因此 array/object 這兩種 kind 一樣是遞迴結構，不需要另外處理。
  */
 type FieldKind =
   | { kind: "reactNode" }
@@ -90,66 +102,81 @@ function lookupPropFieldType(componentId: string, propName: string): FieldType |
 }
 
 /**
- * 依 prop 的型別字串（可能是裸型別名稱、聯集字面量、陣列、或 ReactNode）分類，
- * 決定屬性面板該渲染哪一種控制項。componentId 用來在型別名稱是具名別名
- * （例如 "FlexAlign"）時，透過 relatedTypeNames 反查它在 allComponentTypes
- * 裡的完整定義（union 字面量 / object 欄位），藉此判斷是 enum 還是複雜物件型別。
- * propName 則用來查 componentPropsRegistry，取得這個 prop 對應的 FieldType，
- * 讓一般值（string/number/boolean）可以額外開放綁定 i18n / 路由 / 檔案。
+ * 依 prop 的型別字串（可能是裸型別名稱、聯集字面量、陣列、內嵌匿名 object、
+ * 或 ReactNode）分類，決定屬性面板該渲染哪一種控制項。componentId 用來在
+ * 型別名稱是具名別名（例如 "FlexAlign"）時，透過 relatedTypeNames 反查它在
+ * allComponentTypes 裡的完整定義（union 字面量 / object 欄位），藉此判斷是
+ * enum 還是「具名」複雜物件型別（走 typedData 整包綁定，見 "complex"）。
+ * propName 則用來查 componentPropsRegistry，取得這個 prop 對應的 FieldType。
+ *
+ * 判斷順序：
+ *   1. ReactNode → 插槽
+ *   2. 內嵌 union literal（'"a"|"b"'）→ enum 下拉選單
+ *   3. 陣列型別（"T[]"）先檢查 item 是不是「具名型別」：
+ *      - item 是具名型別（NavItem[] / ThemeOption[] / Section[] …）→ 沿用
+ *        原本的 complex + isArray: true，這種「一組具名資料」的情境使用者
+ *        原本就能整包換成「資料管理」裡別的同型別 typedData，保留這個彈性。
+ *      - item 不是具名型別（string[] / number[] / boolean[] / 內嵌匿名
+ *        object 的陣列，例如 defaultNavs: { label; to }[]）→ falls through
+ *        到第 5 步的 "bindable"，交給 FieldEditor 遞迴渲染陣列 + 巢狀欄位。
+ *   4. 非陣列的具名型別參照（BrandData / FlexAlign / HeaderProps…）→
+ *      沿用原本邏輯，union 別名走 enum，object 型別走 complex。
+ *   5. 其餘所有查得到 FieldType 的 prop（primitive、上面 falls through 下來
+ *      的陣列、內嵌匿名 object）一律歸類為 "bindable"，交給 FieldEditor
+ *      依 FieldType 遞迴渲染 —— FieldType 的 object/array 本身就是遞迴定義，
+ *      ObjectFields/ArrayItems 也已經支援任意深度巢狀。
+ *   6. 查不到 FieldType（理論上不會發生，componentPropsRegistry 用同一份
+ *      生成資料轉換）才退回原本簡單控制項，行為跟修改前一致，不會卡住。
  */
 function classifyField(propType: string, componentId: string, propName: string): FieldKind {
   const trimmed = propType.trim();
 
   if (REACT_NODE_TYPES.has(trimmed)) return { kind: "reactNode" };
 
-  // 純值（string/number/boolean）：optionally 開放綁定資料來源。查得到對應的
-  // FieldType 就走 "bindable"（交給 FieldEditor 處理純值輸入 + 綁定下拉選單）；
-  // 查不到（理論上不會發生，因為 componentPropsRegistry 用同一份生成資料轉換）
-  // 就退回原本單純的輸入控制項，行為跟修改前一致，不會讓使用者卡住。
-  if (trimmed === "boolean" || trimmed === "number" || trimmed === "string") {
-    const fieldType = lookupPropFieldType(componentId, propName);
-    if (fieldType && fieldType.kind === "primitive") {
-      return { kind: "bindable", fieldType };
-    }
-    if (trimmed === "boolean") return { kind: "boolean" };
-    if (trimmed === "number") return { kind: "number" };
-    return { kind: "string" };
-  }
-
-  // 內嵌的 union literal，例如 '"sm" | "md" | "lg"'
+  // 內嵌的 union literal，例如 '"sm" | "md" | "lg"'（直接寫在 prop 型別上，
+  // 不是具名別名）—— 這種形狀優先判斷，避免被底下的具名型別分支誤判。
   const inlineUnion = parseUnionLiterals(trimmed);
   if (inlineUnion) return { kind: "enum", options: inlineUnion };
 
-  // 陣列型別："NavItem[]" / "string[]"
+  // 陣列型別："NavItem[]" / "string[]" / "{ label; to }[]"。
+  // item 是具名型別（查得到 relatedTypeNames）才走 complex + isArray；
+  // 其餘（primitive / 內嵌匿名 object）falls through 到底下的 bindable。
   if (trimmed.endsWith("[]")) {
     const itemType = trimmed.slice(0, -2).trim();
-    if (itemType === "string" || itemType === "number" || itemType === "boolean") {
-      // 基本型別陣列，暫時當一般字串輸入（逗號分隔），不算複雜型別。
-      return { kind: "string" };
+    const itemTypeId = resolveTypeId(componentId, itemType);
+    if (itemTypeId) {
+      return { kind: "complex", typeId: itemTypeId, isArray: true };
     }
-    const typeId = resolveTypeId(componentId, itemType);
-    if (typeId) return { kind: "complex", typeId, isArray: true };
-    return { kind: "string" };
-  }
-
-  // 內嵌匿名 object，例如 "{ lead: string; accent: string; }" —— 沒有可查找的具名型別 id，
-  // 交給 typed data 篩選時退化不到特定型別，用純文字（JSON）輸入兜底。
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    return { kind: "string" };
-  }
-
-  // 具名型別參照，可能是 union 別名（FlexAlign）或 object 型別（BrandData / HeaderProps）
-  const typeId = resolveTypeId(componentId, trimmed);
-  if (typeId) {
-    const typeDoc = allComponentTypes.find((t) => t.id === typeId);
-    if (typeDoc?.aliasOf) {
-      const aliasUnion = parseUnionLiterals(typeDoc.aliasOf);
-      if (aliasUnion) return { kind: "enum", options: aliasUnion };
+  } else if (!trimmed.startsWith("{") && trimmed !== "boolean" && trimmed !== "number" && trimmed !== "string") {
+    // 非陣列的具名型別參照，可能是 union 別名（FlexAlign）或 object 型別
+    // （BrandData / HeaderProps）。只有「裸型別名稱」才會走到這裡，
+    // primitive / 陣列 / 內嵌 object 字面量都已經在上面處理過或明確排除。
+    const typeId = resolveTypeId(componentId, trimmed);
+    if (typeId) {
+      const typeDoc = allComponentTypes.find((t) => t.id === typeId);
+      if (typeDoc?.aliasOf) {
+        const aliasUnion = parseUnionLiterals(typeDoc.aliasOf);
+        if (aliasUnion) return { kind: "enum", options: aliasUnion };
+      }
+      return { kind: "complex", typeId, isArray: false };
     }
-    return { kind: "complex", typeId, isArray: false };
   }
 
-  // 無法辨識，預設當純字串處理
+  // 其餘情況（primitive、item 非具名型別的陣列、內嵌匿名 object）：查得到
+  // FieldType 就一律走 "bindable"，交給 FieldEditor 依型別遞迴渲染 ——
+  // 這一個分支同時涵蓋：
+  //   - string/number/boolean：純值輸入 + 綁定 i18n/路由/檔案
+  //   - string[]/number[]/boolean[]：陣列，每個 item 是可綁定的 primitive 欄位
+  //   - { lead; accent }：內嵌匿名 object，逐欄位展開
+  //   - { label; to }[]（defaultNavs）：陣列 + 巢狀 object 的組合，一樣遞迴展開
+  const fieldType = lookupPropFieldType(componentId, propName);
+  if (fieldType) {
+    return { kind: "bindable", fieldType };
+  }
+
+  // 查不到對應 FieldType 時的保底行為，維持修改前的簡單控制項。
+  if (trimmed === "boolean") return { kind: "boolean" };
+  if (trimmed === "number") return { kind: "number" };
   return { kind: "string" };
 }
 
@@ -214,18 +241,33 @@ export function ComponentPropertiesPanel({
           const fieldKind = classifyField(prop.type, component.id, prop.name);
           return (
             <div key={prop.name} style={fieldRowStyle}>
-              <label
+              <div
                 style={{
-                  ...labelStyle,
                   display: "flex",
-                  gap: 6,
+                  justifyContent: "space-between",
                   alignItems: "baseline",
+                  gap: 6,
                 }}
               >
-                <span>{prop.name}</span>
-                <span style={{ color: "#555", fontFamily: "monospace", fontSize: 10 }}>{prop.type}</span>
-                {prop.required && <span style={{ color: "#e77", fontSize: 10 }}>必填</span>}
-              </label>
+                <label style={{ ...labelStyle, display: "flex", gap: 6, alignItems: "baseline" }}>
+                  <span>{prop.name}</span>
+                  {prop.required && <span style={{ color: "#e77", fontSize: 10 }}>必填</span>}
+                </label>
+                <span
+                  style={{
+                    color: "#555",
+                    fontFamily: "monospace",
+                    fontSize: 10,
+                    whiteSpace: "nowrap",
+                    textAlign: "right",
+                    flexShrink: 0,
+                    marginLeft: 8,
+                  }}
+                  title={prop.type}
+                >
+                  {prop.type}
+                </span>
+              </div>
 
               <PropFieldControl
                 fieldKind={fieldKind}
@@ -295,14 +337,32 @@ function PropFieldControl({
   }
 }
 
+/** 判斷是否為舊版 ComplexField 寫回的綁定引用格式 { __bound: true, sourceId }，這種形狀不該被 toValueNode 當成裸物件遞迴拆解。 */
+function isLegacyComplexBinding(value: unknown): value is { __bound: true; sourceId?: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { __bound?: unknown }).__bound === true
+  );
+}
+
 /**
  * 把 block.props[prop.name] 目前存的任意值，轉成 FieldEditor 看得懂的 ValueNode。
  *
- * 這個面板存的一般 prop 值，過去一直是「裸值」（string/number/boolean，或
- * undefined 代表沿用元件預設值），不是 ValueNode —— 這裡開始才第一次讓一般值
- * 也能綁定資料來源，因此需要相容既有頁面資料，不能要求使用者的舊資料重存一次：
+ * 這個面板存的一般 prop 值，過去一直是「裸值」，不是 ValueNode，需要相容既有
+ * 頁面資料，不能要求使用者的舊資料重存一次：
  *   - 已經是 ValueNode（有合法的 mode 欄位）：直接沿用。
- *   - 其餘（裸值 / undefined）：包成 literal ValueNode，未設定時用型別預設值。
+ *   - 裸的 string/number/boolean：包成 literal ValueNode。
+ *   - 裸陣列（例如 defaultItems 過去存的 ["a","b"]、defaultNavs 過去存的
+ *     [{label,to}, ...]）：遞迴地把每個 item 轉成對應的 ValueNode，包成
+ *     ArrayNode —— 不能直接丟給 createDefaultValueNode，那樣會把舊資料裡
+ *     已經填的內容整個清空成空陣列。
+ *   - 裸物件（例如 primaryCta 過去存的 {label:"...", to:"..."}）：遞迴地
+ *     把每個欄位轉成對應的 ValueNode，包成 ObjectNode，理由同上。
+ *     但要先排除舊版 ComplexField 寫回的 { __bound: true, sourceId } 綁定
+ *     引用格式（那是「具名複雜型別」欄位的產物，跟這裡「巢狀值本身」的
+ *     裸物件是不同語意，不該被誤判並遞迴拆解成一堆不存在的欄位）。
+ *   - 其餘（undefined、上面排除掉的舊版綁定引用等）：用型別預設值。
  * 寫回一律是 ValueNode（見 BindableField 的 onChange），所以只有「還沒被這個
  * 新版面板碰過」的舊資料才會進到裸值分支，屬於一次性的相容轉換，不影響
  * pages-store.ts 的 PageBlock 型別本身。
@@ -316,15 +376,79 @@ function toValueNode(value: unknown, fieldType: FieldType, store: InMemoryDataSt
   ) {
     return value as ValueNode;
   }
+
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return { mode: "literal", value };
   }
+
+  // 型別若是 ref，先解析成實際型別再繼續判斷（跟 resolveValue/createDefaultValueNode 一致的做法）。
+  const resolvedType = fieldType.kind === "ref" ? store.getTypeDef(fieldType.typeId) ?? fieldType : fieldType;
+
+  if (Array.isArray(value) && resolvedType.kind === "array") {
+    return {
+      mode: "array",
+      items: value.map((item) => toValueNode(item, resolvedType.item, store)),
+    };
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    !isLegacyComplexBinding(value) &&
+    resolvedType.kind === "object"
+  ) {
+    const fields: Record<string, ValueNode> = {};
+    for (const key of Object.keys(resolvedType.fields)) {
+      fields[key] = toValueNode(
+        (value as Record<string, unknown>)[key],
+        resolvedType.fields[key],
+        store,
+      );
+    }
+    return { mode: "object", fields };
+  }
+
   return createDefaultValueNode(fieldType, store);
 }
 
 /**
- * bindable => 一般值（string/number/boolean）欄位，除了直接輸入純值以外，
- * 也可以綁定「資料管理」頁面維護的 i18n / 路由 / 檔案來源。
+ * bindable 分支專用的 BindingPolicy：在 permissiveBindingPolicy 之上加一條限制 ——
+ * 「裸型別」（object / array 這種沒有具名 typeId、無法整包對應到某一筆 typedData
+ * 的巢狀容器層，例如 hero.tsx 的 primaryCta、defaultNavs）不開放綁定 typedData。
+ *
+ * 背景：schema.ts 的 matchesRefType 對 `type.kind === 'object'` 目前是「暫不精準
+ * 過濾，一律允許」（見該檔案註解），這對「型別資料管理」頁面本來是合理的預設；
+ * 但在這個面板的 bindable 分支裡，物件/陣列容器層本身沒有具名 id，允許使用者
+ * 綁一筆 typedData 上去只會出現「型別根本對不上、選了也沒有意義」的候選清單。
+ * 這裡不去動共用的 schema.ts / field-editor.tsx（那會影響型別資料管理頁面的
+ * 既有行為），而是只在這個面板呼叫 FieldEditor 時換一顆限縮過的 policy：
+ *   - primitive（string/number/boolean）：完全沿用 permissiveBindingPolicy，
+ *     leaf 欄位依舊能綁 i18n / 路由 / 檔案。
+ *   - object / array：getBindableKinds 回傳空陣列，容器層本身不出現綁定按鈕；
+ *     裡面每個欄位各自遞迴下去，是 primitive 的一樣能綁。
+ * ref 型別理論上不會出現在這裡（會被 classifyField 分類成 "complex"），但為了
+ * 保險，ref 一律比照 permissiveBindingPolicy（畢竟它有 typeId，語意上等同具名）。
+ */
+const namedTypeOnlyBindingPolicy: BindingPolicy = {
+  getBindableKinds(type) {
+    if (type.kind === "object" || type.kind === "array") return [];
+    return permissiveBindingPolicy.getBindableKinds(type);
+  },
+  matchesSource(type, source) {
+    return permissiveBindingPolicy.matchesSource?.(type, source) ?? true;
+  },
+};
+
+/**
+ * bindable => 依 FieldType 交給 FieldEditor 渲染，現在涵蓋兩層意思：
+ *   1. 一般值（string/number/boolean）：除了直接輸入純值，也可以綁定
+ *      「資料管理」頁面維護的 i18n / 路由 / 檔案來源。
+ *   2. 巢狀的陣列 / 內嵌匿名 object（例如 hero.tsx 的 primaryCta、
+ *      defaultNavs）：FieldEditor 本身是遞迴元件（ObjectFields / ArrayItems
+ *      內部會再呼叫一次 <FieldEditor>），會依 FieldType 自動逐層展開成對應
+ *      的子欄位／可新增刪除的陣列項目，每個 leaf 一樣能各自選擇填純值或綁定
+ *      i18n / 路由 / 檔案 —— 這裡不需要因為型別是 object/array 就另外分派到
+ *      別的元件，同一顆 FieldEditor 就處理完整棵樹。
  *
  * 直接沿用 packages/ui/src/components/data-model/fields/typed-data-fields.tsx
  * 綁定 value 時走的同一顆 FieldEditor：候選來源清單、bound 顯示、綁定/解除
@@ -333,10 +457,12 @@ function toValueNode(value: unknown, fieldType: FieldType, store: InMemoryDataSt
  * 詞條，route/file 只對 string 適用）由 permissiveBindingPolicy.matchesSource
  * 判斷（見 schema.ts），這裡完全不寫死型別比對規則，之後要調整比對邏輯
  * 只需要換一顆 policy 或覆寫 matchesSource，不用改這個檔案。
- * 這裡只負責把 block.props 既有存放「裸值」的慣例，轉接成 FieldEditor
- * 要求的 ValueNode（見 toValueNode），選擇綁定後寫回的
- * { mode: 'bound', sourceId } 一樣只是存在這個組件實例的 props 裡，
- * 不會、也不需要動到 wb.dataSources 本身。
+ * 這裡只負責把 block.props 既有存放「裸值 / 裸陣列 / 裸物件」的慣例，轉接成
+ * FieldEditor 要求的 ValueNode（見 toValueNode，含遞迴轉換邏輯），選擇綁定
+ * 後寫回的 { mode: 'bound', sourceId }、以及巢狀 array/object 節點，一律只是
+ * 寫進 onUpdateProp → 這個組件實例（block.props）本身，不會、也不需要動到
+ * wb.dataSources（「資料管理」頁面維護的 DataSource 清單）——這裡讀 store
+ * 全程只是唯讀查找可綁定的候選來源，從未呼叫任何寫入 dataSources 的 setter。
  */
 function BindableField({
   fieldType,
@@ -355,7 +481,14 @@ function BindableField({
 
   return (
     <div>
-      <FieldEditor type={fieldType} node={node} store={store} onChange={onChange} showTypeBadge={false} />
+      <FieldEditor
+        type={fieldType}
+        node={node}
+        store={store}
+        onChange={onChange}
+        showTypeBadge={false}
+        policy={namedTypeOnlyBindingPolicy}
+      />
       {node.mode === "literal" && defaultValue != null && (node.value === "" || node.value == null) && (
         <p style={{ fontSize: 11, color: "#8a8a8a", margin: "4px 0 0" }}>預設: {defaultValue}</p>
       )}
