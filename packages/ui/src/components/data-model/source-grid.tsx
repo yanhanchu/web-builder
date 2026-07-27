@@ -1,7 +1,7 @@
 import React from 'react';
 import type { DataSource, FileDataSource } from '@workspace/ui/lib/data-model/schema';
 import type { FilePreviewUrlResolver } from './types';
-import { ImageThumb, isImageMime, formatBytes } from './shared';
+import { ImageThumb, VideoThumb, isImageMime, isVideoMime, formatBytes } from './shared';
 
 /**
  * 通用格子狀（grid）清單元件，設計成跟任何「一筆資料一張卡」的分頁共用：
@@ -71,9 +71,10 @@ export function SourceGrid<T extends { id: string }>({
 }
 
 /**
- * file tab 專用的預覽格：圖片有預覽時顯示縮圖（cover 裁切、套用 focus point），
- * 非圖片或載入失敗時顯示副檔名 / 通用檔案圖示樣式的佔位。抽成獨立元件，方便
- * 之後其他 kind 需要「圖片優先，否則退回檔名縮寫」的預覽格時直接重用。
+ * file tab 專用的預覽格：圖片有預覽時顯示縮圖（cover 裁切、套用 focus point）；
+ * 影片顯示第一格畫面當縮圖（疊一個播放圖示提示這是可播放的影片）；其餘或
+ * 載入失敗時顯示副檔名 / 通用檔案圖示樣式的佔位。抽成獨立元件，方便之後
+ * 其他 kind 需要「有預覽優先，否則退回檔名縮寫」的預覽格時直接重用。
  */
 export function FileGridPreview({
   source,
@@ -82,8 +83,10 @@ export function FileGridPreview({
   source: FileDataSource;
   resolvePreviewUrl?: FilePreviewUrlResolver;
 }) {
-  const canPreview = isImageMime(source.mimeType) && !!source.url;
-  if (canPreview) {
+  const canPreviewImage = isImageMime(source.mimeType) && !!source.url;
+  const canPreviewVideo = isVideoMime(source.mimeType) && !!source.url;
+
+  if (canPreviewImage) {
     return (
       <ImageThumb
         url={source.url}
@@ -95,6 +98,17 @@ export function FileGridPreview({
       />
     );
   }
+
+  if (canPreviewVideo) {
+    return (
+      <>
+        <VideoThumb url={source.url} resolvePreviewUrl={resolvePreviewUrl} fill fillFit="cover" />
+        {/* 純縮圖模式（controls=false）疊一個播放圖示，提示這是影片而非靜態圖片 */}
+        <div style={videoPlayBadgeStyle}>▶</div>
+      </>
+    );
+  }
+
   const ext = extFromFileName(source.fileName || source.url || source.label || '');
   return (
     <div style={filePlaceholderStyle}>
@@ -152,6 +166,18 @@ const gridPreviewStyle: React.CSSProperties = {
 const gridPreviewEmptyStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
+};
+
+const videoPlayBadgeStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 20,
+  color: 'rgba(255,255,255,0.88)',
+  textShadow: '0 0 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.6)',
+  pointerEvents: 'none',
 };
 
 const gridBodyStyle: React.CSSProperties = {

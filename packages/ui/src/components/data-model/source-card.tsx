@@ -11,7 +11,7 @@ import { I18nFields } from './fields/i18n-fields';
 import { RouteFields } from './fields/route-fields';
 import { FileFields } from './fields/file-fields';
 import { TypedDataFields } from './fields/typed-data-fields';
-import { ImageThumb, Labeled, formatBytes, inputStyle, isImageMime } from './shared';
+import { ImageThumb, VideoThumb, Labeled, formatBytes, inputStyle, isImageMime, isVideoMime } from './shared';
 
 /**
  * 驗證草稿的 key（id）是否可以儲存：不可為空，也不可與其他既有來源重複
@@ -122,6 +122,9 @@ export function SourceCard({
               focusX={source.focusX}
               focusY={source.focusY}
             />
+          )}
+          {source.kind === 'file' && isVideoMime(source.mimeType) && source.url && (
+            <VideoThumb url={source.url} resolvePreviewUrl={resolvePreviewUrl} size={22} />
           )}
           {!expanded && (
             <span style={summaryStyle} title={summarize(source)}>

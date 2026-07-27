@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import type { DataSource, FileDataSource } from '@workspace/ui/lib/data-model/schema';
 import type { FileDetailSyncSlot, FilePreviewUrlResolver } from '../types';
-import { ImageThumb, Labeled, formatBytes, inputStyle, isImageMime } from '../shared';
+import { ImageThumb, VideoThumb, Labeled, formatBytes, inputStyle, isImageMime, isVideoMime } from '../shared';
 
 const PREVIEW_BOX_SIZE = 220;
 
@@ -137,7 +137,8 @@ function FilePreviewDropZone({
   const dragCounterRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const canPreview = isImageMime(source.mimeType) && !!source.url;
+  const canPreviewImage = isImageMime(source.mimeType) && !!source.url;
+  const canPreviewVideo = isVideoMime(source.mimeType) && !!source.url;
   const canUpload = !!onUploadFile;
 
   const handlePickFile = () => {
@@ -256,7 +257,7 @@ function FilePreviewDropZone({
         }}
         title={canUpload ? '拖放檔案到這裡可直接取代上傳' : undefined}
       >
-        {canPreview ? (
+        {canPreviewImage ? (
           <div
             onClick={handleImageClick}
             role="button"
@@ -287,13 +288,27 @@ function FilePreviewDropZone({
               }}
             />
           </div>
+        ) : canPreviewVideo ? (
+          // 影片沒有「焦點」概念（object-position 不適用），直接顯示原生播放列，
+          // 讓使用者可以在這裡確認上傳／取代的內容正確，不用另外開新分頁播放。
+          <div style={{ width: '100%', height: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <VideoThumb
+              url={source.url}
+              resolvePreviewUrl={resolvePreviewUrl}
+              fill
+              fillFit="contain"
+              controls
+            />
+          </div>
         ) : (
           <div style={previewEmptyHintStyle}>
             {!source.url
               ? '尚未設定檔案網址'
               : isImageMime(source.mimeType)
                 ? '圖片載入失敗或尚未載入'
-                : '此檔案類型無法預覽'}
+                : isVideoMime(source.mimeType)
+                  ? '影片載入失敗或尚未載入'
+                  : '此檔案類型無法預覽'}
           </div>
         )}
 
@@ -302,7 +317,7 @@ function FilePreviewDropZone({
         )}
       </div>
 
-      {canPreview && (
+      {canPreviewImage && (
         <div style={focusInfoRowStyle}>
           <span style={focusInfoTextStyle}>
             焦點 (Focus Point)：{focusX.toFixed(2)}, {focusY.toFixed(2)}
@@ -314,7 +329,7 @@ function FilePreviewDropZone({
           )}
         </div>
       )}
-      {canPreview && (
+      {canPreviewImage && (
         <div style={focusHintStyle}>預覽 — 點擊圖片設定焦點，用於 object-position 裁切</div>
       )}
 

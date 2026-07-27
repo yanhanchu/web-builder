@@ -6,6 +6,11 @@ export function isImageMime(mimeType?: string): boolean {
   return !!mimeType && mimeType.startsWith('image');
 }
 
+/** mimeType 是不是影片（以 "video" 開頭）。 */
+export function isVideoMime(mimeType?: string): boolean {
+  return !!mimeType && mimeType.startsWith('video');
+}
+
 /** 把 bytes 轉成人類可讀的大小字串，例如 1536 -> "1.5 KB"。 */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '';
@@ -124,6 +129,122 @@ export function ImageThumb({
               borderRadius: 4,
               border: '1px solid #333',
               flexShrink: 0,
+            }
+      }
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/**
+ * 影片預覽元件，跟 ImageThumb 對應：同一套 url 解析邏輯（一般 http(s) 網址
+ * fetch 後轉 blob url；其他 scheme 交給 resolvePreviewUrl），同一套
+ * fill / fillFit / size 版面 API，方便在既有顯示圖片縮圖的地方直接並列使用
+ * 影片縮圖，不需要另外刻一套版面規則。
+ *
+ * 不使用任何額外套件：純粹用瀏覽器原生 <video>。預設 controls=false 只顯示
+ * 第一格畫面當靜態縮圖（例如卡片標題列、格狀清單）；controls=true 則顯示
+ * 原生播放列，可實際播放（例如檔案編輯頁的大預覽框）。
+ */
+export function VideoThumb({
+  url,
+  resolvePreviewUrl,
+  size = 22,
+  fill = false,
+  fillFit = 'contain',
+  controls = false,
+  videoRef,
+}: {
+  url: string;
+  resolvePreviewUrl?: FilePreviewUrlResolver;
+  size?: number;
+  fill?: boolean;
+  /** fill=true 時的 object-fit，預設 'contain'。 */
+  fillFit?: 'contain' | 'cover';
+  /** 顯示原生播放控制列並允許播放；預設 false，只當靜態縮圖（第一格畫面）用。 */
+  controls?: boolean;
+  videoRef?: React.Ref<HTMLVideoElement>;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdObjectUrl: string | null = null;
+    setFailed(false);
+    setResolvedSrc(null);
+
+    (async () => {
+      try {
+        if (resolvePreviewUrl) {
+          const resolved = await resolvePreviewUrl(url);
+          if (cancelled) return;
+          if (resolved.startsWith('blob:')) createdObjectUrl = resolved;
+          setResolvedSrc(resolved);
+          return;
+        }
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`影片載入失敗（${res.status}）`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        createdObjectUrl = objectUrl;
+        setResolvedSrc(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (createdObjectUrl) URL.revokeObjectURL(createdObjectUrl);
+    };
+  }, [url, resolvePreviewUrl]);
+
+  if (failed || !resolvedSrc) {
+    if (fill) return null; // 撐滿模式交由外層容器顯示自己的「無法預覽」提示
+    return (
+      <span
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 4,
+          background: '#222',
+          flexShrink: 0,
+          display: 'inline-block',
+        }}
+        title={failed ? '預覽載入失敗' : undefined}
+      />
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={resolvedSrc}
+      controls={controls}
+      muted
+      playsInline
+      // preload="metadata" 已經足夠瀏覽器畫出第一格當縮圖，不用整支下載完，
+      // 靜態縮圖模式（controls=false）額外禁用右鍵選單常見的下載選項。
+      preload="metadata"
+      controlsList={controls ? undefined : 'nodownload'}
+      style={
+        fill
+          ? {
+              width: '100%',
+              height: '100%',
+              objectFit: fillFit,
+              background: '#000',
+            }
+          : {
+              width: size,
+              height: size,
+              objectFit: 'cover',
+              borderRadius: 4,
+              border: '1px solid #333',
+              flexShrink: 0,
+              background: '#000',
             }
       }
       onError={() => setFailed(true)}
