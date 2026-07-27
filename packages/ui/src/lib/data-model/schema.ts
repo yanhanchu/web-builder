@@ -102,6 +102,14 @@ export interface FileDataSource extends DataSourceMetaBase {
    * label／id 當檔名而遺失副檔名。手動輸入 url 的情況允許留空。
    */
   fileName?: string;
+  /**
+   * 圖片焦點 X 座標，0~1（0 = 最左，1 = 最右）。只對可預覽的圖片有意義，
+   * 用來決定裁切／縮圖顯示時的 object-position，讓畫面重要主體不會在
+   * 裁切後被切掉。不設定時預設置中（0.5）。
+   */
+  focusX?: number;
+  /** 圖片焦點 Y 座標，0~1（0 = 最上，1 = 最下），意義同 focusX。 */
+  focusY?: number;
 }
 
 /**

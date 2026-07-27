@@ -108,8 +108,10 @@ export function FileFields({
 }
 
 /**
- * 右側區塊：預覽 + 點擊／拖拉上傳。
- * 有 onUploadFile 時，整個預覽框可點擊或拖放檔案，走上傳流程並把結果寫回 source；
+ * 右側區塊：預覽 + 拖放上傳 + （圖片可預覽時）設定焦點。
+ * 整個框仍然是拖放上傳區（拖曳檔案到任何地方都會觸發上傳），但「點擊開啟
+ * 檔案選擇視窗」的入口移到預覽框下方一個獨立的按鈕/提示列，避免跟「點擊
+ * 圖片設定焦點」的手勢互相衝突。
  * 無法預覽時顯示提示文字，說明原因或可做的操作。
  * mimeType / size / 上傳日期已搬移至左側區塊；已同步節點清單則顯示在這個
  * 元件下方（見 FileFields 的 detailSyncSlot）。
@@ -131,7 +133,6 @@ function FilePreviewDropZone({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [hovering, setHovering] = useState(false);
   // 用計數器判斷「真的離開整個拖放區」，避免巢狀元素的 dragenter/dragleave 抖動
   const dragCounterRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +159,10 @@ function FilePreviewDropZone({
         // 保留這次上傳的原始檔名（含副檔名），之後備援同步／全部同步都會沿用它，
         // 避免改用 label／id 當檔名而在 S3 相容節點上遺失副檔名。
         fileName: result.fileName ?? file.name,
+        // 換了一張新圖，舊的焦點座標不見得還適用，重設回置中，讓使用者
+        // 需要的話再重新點一次設定。
+        focusX: undefined,
+        focusY: undefined,
       });
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '上傳失敗');
@@ -208,22 +213,39 @@ function FilePreviewDropZone({
     await runUpload(file);
   };
 
-  const showOverlay = canUpload && (dragActive || hovering);
+  /**
+   * 點擊圖片本身：換算成相對於預覽容器（而非圖片原始內容）的 0~1 座標，寫回
+   * focusX / focusY。預覽固定用 object-fit: cover 撐滿整個框、不留白，所以
+   * 點擊位置直接對應容器座標即可，不需要再處理 letterbox 留白的偏移換算。
+   * 這裡的 focusX/focusY 同時也是最終顯示（object-position）用的座標，因此
+   * 「設定焦點」跟「正常顯示」用的是同一套 cover 邏輯，兩者不會互相干擾。
+   */
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const rect = container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    onChange({
+      ...source,
+      focusX: clamp01(x),
+      focusY: clamp01(y),
+    });
+  };
+
+  const handleResetFocus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange({ ...source, focusX: undefined, focusY: undefined });
+  };
+
+  const hasCustomFocus = source.focusX != null || source.focusY != null;
+  const focusX = source.focusX ?? 0.5;
+  const focusY = source.focusY ?? 0.5;
 
   return (
     <div>
       <div
-        role={canUpload ? 'button' : undefined}
-        tabIndex={canUpload ? 0 : undefined}
-        onClick={handlePickFile}
-        onKeyDown={(e) => {
-          if (canUpload && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            handlePickFile();
-          }
-        }}
-        onMouseEnter={() => canUpload && setHovering(true)}
-        onMouseLeave={() => canUpload && setHovering(false)}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -231,21 +253,40 @@ function FilePreviewDropZone({
         style={{
           ...previewBoxStyle,
           ...(dragActive ? previewBoxDragActiveStyle : undefined),
-          cursor: canUpload ? 'pointer' : 'default',
         }}
-        title={
-          canUpload
-            ? '點擊選擇檔案，或直接把檔案拖拉到這裡上傳'
-            : undefined
-        }
+        title={canUpload ? '拖放檔案到這裡可直接取代上傳' : undefined}
       >
         {canPreview ? (
-          <ImageThumb
-            url={source.url}
-            resolvePreviewUrl={resolvePreviewUrl}
-            size={PREVIEW_BOX_SIZE}
-            fill
-          />
+          <div
+            onClick={handleImageClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              // 圖片本身用點擊設定焦點，鍵盤操作沒有座標可用，Enter/Space 這裡不做事，
+              // 保留 tabIndex 純粹是讓可以 focus 到、之後如果加鍵盤微調焦點會用得到。
+              void e;
+            }}
+            title="點擊圖片設定焦點（object-position）"
+            style={{ width: '100%', height: '100%', cursor: 'crosshair', position: 'relative' }}
+          >
+            <ImageThumb
+              url={source.url}
+              resolvePreviewUrl={resolvePreviewUrl}
+              size={PREVIEW_BOX_SIZE}
+              fill
+              fillFit="cover"
+              focusX={source.focusX}
+              focusY={source.focusY}
+            />
+            {/* 焦點十字準心：用百分比定位疊在圖片上，跟著 focusX/focusY 移動 */}
+            <div
+              style={{
+                ...focusMarkerStyle,
+                left: `${focusX * 100}%`,
+                top: `${focusY * 100}%`,
+              }}
+            />
+          </div>
         ) : (
           <div style={previewEmptyHintStyle}>
             {!source.url
@@ -256,26 +297,55 @@ function FilePreviewDropZone({
           </div>
         )}
 
-        {canUpload && (
-          <input
-            ref={inputRef}
-            type="file"
-            style={{ display: 'none' }}
-            onChange={handleFileSelected}
-            onClick={(e) => e.stopPropagation()}
-          />
-        )}
-
-        {showOverlay && (
-          <div style={previewOverlayStyle}>
-            {uploading ? '上傳中…' : dragActive ? '放開以上傳檔案' : '點擊或拖拉檔案到此處上傳'}
-          </div>
+        {dragActive && canUpload && (
+          <div style={previewOverlayStyle}>放開以上傳檔案</div>
         )}
       </div>
+
+      {canPreview && (
+        <div style={focusInfoRowStyle}>
+          <span style={focusInfoTextStyle}>
+            焦點 (Focus Point)：{focusX.toFixed(2)}, {focusY.toFixed(2)}
+          </span>
+          {hasCustomFocus && (
+            <button type="button" onClick={handleResetFocus} style={focusResetBtnStyle} title="重設回置中">
+              重設中心點
+            </button>
+          )}
+        </div>
+      )}
+      {canPreview && (
+        <div style={focusHintStyle}>預覽 — 點擊圖片設定焦點，用於 object-position 裁切</div>
+      )}
+
+      {canUpload && (
+        <button
+          type="button"
+          onClick={handlePickFile}
+          style={pickFileBtnStyle}
+          disabled={uploading}
+        >
+          {uploading ? '上傳中…' : '點擊選擇檔案上傳'}
+        </button>
+      )}
+
+      {canUpload && (
+        <input
+          ref={inputRef}
+          type="file"
+          style={{ display: 'none' }}
+          onChange={handleFileSelected}
+        />
+      )}
 
       {uploadError && <div style={uploadErrorStyle}>⚠ {uploadError}</div>}
     </div>
   );
+}
+
+/** 把數值夾在 [0, 1] 區間內，避免點擊在框線上時因為浮點誤差跑出範圍。 */
+function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n));
 }
 
 /** 唯讀的單行資訊列（mimeType / size / uploadedAt），這些欄位一律由上傳流程自動填入。 */
@@ -414,4 +484,61 @@ const uploadErrorStyle: React.CSSProperties = {
   fontSize: 11,
   color: '#e77',
   marginTop: 6,
+};
+
+const focusMarkerStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: 16,
+  height: 16,
+  marginLeft: -8,
+  marginTop: -8,
+  borderRadius: '50%',
+  border: '2px solid #7fdbca',
+  boxShadow: '0 0 0 1px rgba(0,0,0,0.6), 0 0 4px rgba(0,0,0,0.8)',
+  pointerEvents: 'none',
+};
+
+const focusInfoRowStyle: React.CSSProperties = {
+  marginTop: 8,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+};
+
+const focusInfoTextStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#ccc',
+  fontFamily: 'monospace',
+};
+
+const focusResetBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: '#7fdbca',
+  border: '1px solid #2d6a4f',
+  borderRadius: 4,
+  padding: '2px 8px',
+  fontSize: 11,
+  cursor: 'pointer',
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
+};
+
+const focusHintStyle: React.CSSProperties = {
+  marginTop: 2,
+  fontSize: 11,
+  color: '#777',
+};
+
+const pickFileBtnStyle: React.CSSProperties = {
+  marginTop: 10,
+  width: '100%',
+  background: '#1e1e1e',
+  color: '#ddd',
+  border: '1px dashed #444',
+  borderRadius: 6,
+  padding: '8px 12px',
+  fontSize: 12.5,
+  cursor: 'pointer',
+  textAlign: 'center',
 };

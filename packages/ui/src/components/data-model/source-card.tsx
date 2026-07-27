@@ -119,6 +119,8 @@ export function SourceCard({
               url={source.url}
               resolvePreviewUrl={resolvePreviewUrl}
               size={22}
+              focusX={source.focusX}
+              focusY={source.focusY}
             />
           )}
           {!expanded && (

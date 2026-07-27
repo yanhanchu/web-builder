@@ -23,19 +23,33 @@ export function formatBytes(bytes: number): string {
 /**
  * 圖片預覽／縮圖元件。一般 http(s) 網址用 fetch 抓取後轉成 blob url 顯示；
  * 其他 scheme（例如 opfs://）交給 resolvePreviewUrl 轉成可顯示的網址。
- * fill=true 時撐滿容器並用 object-fit: contain，預設維持小縮圖的 cover 裁切。
+ * fill=true 時撐滿容器，object-fit 由 fillFit 決定（預設 contain，維持舊行為）；
+ * 非 fill 的小縮圖固定用 cover 裁切。
+ * focusX / focusY（0~1）可指定 object-position，讓卡片列表縮圖等會裁切
+ * 圖片的地方，也能對齊使用者設定的焦點，預設置中（0.5, 0.5）。
  */
 export function ImageThumb({
   url,
   resolvePreviewUrl,
   size = 22,
   fill = false,
+  fillFit = 'contain',
+  focusX,
+  focusY,
+  imgRef,
 }: {
   url: string;
   resolvePreviewUrl?: FilePreviewUrlResolver;
   size?: number;
   fill?: boolean;
+  /** fill=true 時的 object-fit，預設 'contain'；需要「撐滿不留白」的地方（例如焦點編輯器）可傳 'cover'。 */
+  fillFit?: 'contain' | 'cover';
+  focusX?: number;
+  focusY?: number;
+  /** 外部想量測實際渲染出來的 <img> 尺寸／位置時用（例如點擊設定焦點要換算座標）。 */
+  imgRef?: React.Ref<HTMLImageElement>;
 }) {
+  const objectPosition = `${((focusX ?? 0.5) * 100).toFixed(2)}% ${((focusY ?? 0.5) * 100).toFixed(2)}%`;
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -91,6 +105,7 @@ export function ImageThumb({
 
   return (
     <img
+      ref={imgRef}
       src={resolvedSrc}
       alt=""
       style={
@@ -98,12 +113,14 @@ export function ImageThumb({
           ? {
               width: '100%',
               height: '100%',
-              objectFit: 'contain',
+              objectFit: fillFit,
+              objectPosition,
             }
           : {
               width: size,
               height: size,
               objectFit: 'cover',
+              objectPosition,
               borderRadius: 4,
               border: '1px solid #333',
               flexShrink: 0,
