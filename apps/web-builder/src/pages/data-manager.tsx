@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Download, FolderOutput } from "lucide-react";
 import {
   InMemoryDataStore,
   resolveValue,
@@ -25,6 +26,10 @@ import {
 import { usePagesState } from "../lib/pages-store";
 import { DEFAULT_APP_NAME } from "../lib/upload-client";
 import { resolveOpfsUrlToObjectUrl, isOpfsUrl } from "../lib/opfs";
+import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "./admin/style-manager";
+import { buildFlatDataFiles } from "../lib/export-flat-data";
+import { downloadFlatDataZip } from "../lib/download-flat-data-zip";
+import { exportFlatDataToServer } from "../lib/export-flat-data-to-server";
 
 // 目前 DataSourceManager 支援的四種分頁，順序跟元件內部 KIND_ORDER 一致，
 // 用來驗證從 URL hash 讀回來的值是不是合法的 kind（避免手動改網址帶入亂字串）。
@@ -86,7 +91,50 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
+  // 樣式表清單同理只讀：跟「樣式管理」共用同一個 key / 初始值
+  // （STYLE_SHEETS_KEY / INITIAL_SHEETS 從 style-manager.tsx 匯出，
+  // 匯出資料需要 style-sheets.json，這裡只是借用同一份 state，不做任何編輯）。
+  const [styleSheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
   const fileSync = useFileSync(sources, setSources, DEFAULT_APP_NAME);
+
+  const [zipExportState, setZipExportState] = useState<"idle" | "exporting" | "error">("idle");
+  const [writeExportState, setWriteExportState] = useState<"idle" | "exporting" | "error">("idle");
+  // 寫檔成功後記錄實際寫入的資料夾名稱（例如 "data-07-28"），顯示在按鈕旁邊。
+  const [exportedDir, setExportedDir] = useState<string | null>(null);
+
+  // 匯出（下載 zip）：把目前 localStorage 裡的四種資料（sources / locales /
+  // pages / styleSheets）轉成 apps/site-generator 讀取的攤平檔案格式，打包成
+  // zip 觸發下載。使用者下載後手動解壓縮覆蓋專案的 data/ 目錄即可 —— 不需要
+  // dev server 額外提供的寫檔 API，純瀏覽器就能完成，適合不在本機開發環境
+  // （例如只在瀏覽器操作、要把資料帶去別的地方）的情境。
+  const handleExportZip = async () => {
+    setZipExportState("exporting");
+    try {
+      const files = buildFlatDataFiles({ sources, locales, pages, styleSheets });
+      await downloadFlatDataZip(files, "data.zip");
+      setZipExportState("idle");
+    } catch (err) {
+      console.error("匯出攤平資料失敗：", err);
+      setZipExportState("error");
+    }
+  };
+
+  // 回寫到專案：把同一份攤平資料改成呼叫 vite dev server 的
+  // /api/data-export，由 server 直接寫檔到專案根目錄的 data-{mm-dd}/
+  // （未打包），不需要使用者下載 zip 後手動解壓縮覆蓋。只能在本機
+  // dev server 有跑起來時使用（見 server/data-export-dev-plugin.ts）。
+  const handleWriteToServer = async () => {
+    setWriteExportState("exporting");
+    try {
+      const files = buildFlatDataFiles({ sources, locales, pages, styleSheets });
+      const result = await exportFlatDataToServer(files);
+      setExportedDir(result.dir);
+      setWriteExportState("idle");
+    } catch (err) {
+      console.error("回寫攤平資料失敗：", err);
+      setWriteExportState("error");
+    }
+  };
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(
@@ -122,6 +170,49 @@ export default function DataManagerPage() {
               {l}
             </button>
           ))}
+          <button
+            onClick={handleExportZip}
+            disabled={zipExportState === "exporting"}
+            title="把目前的 sources / locales / pages / styleSheets 匯出成 data/ 攤平檔案（zip）"
+            style={{
+              ...localeBtnStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: zipExportState === "error" ? "#7a2d2d" : "#2d2d2d",
+              cursor: zipExportState === "exporting" ? "wait" : "pointer",
+            }}
+          >
+            <Download size={14} />
+            {zipExportState === "exporting"
+              ? "匯出中…"
+              : zipExportState === "error"
+                ? "匯出失敗，重試"
+                : "匯出 data.zip"}
+          </button>
+          <button
+            onClick={handleWriteToServer}
+            disabled={writeExportState === "exporting"}
+            title="把目前的 sources / locales / pages / styleSheets 寫到專案的 data-{mm-dd}/ 目錄（未打包，需 dev server 執行中）"
+            style={{
+              ...localeBtnStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: writeExportState === "error" ? "#7a2d2d" : "#2d2d2d",
+              cursor: writeExportState === "exporting" ? "wait" : "pointer",
+            }}
+          >
+            <FolderOutput size={14} />
+            {writeExportState === "exporting"
+              ? "回寫中…"
+              : writeExportState === "error"
+                ? "回寫失敗，重試"
+                : "回寫到 data-{mm-dd}/"}
+          </button>
+          {exportedDir && writeExportState === "idle" && (
+            <span style={{ fontSize: 12, color: "#8fbf8f" }}>已寫入 {exportedDir}/</span>
+          )}
         </div>
       }
     >

@@ -50,6 +50,9 @@
     "./lib/generator/*": "./src/lib/generator/*.ts",
     "./lib/data-model": "./src/lib/data-model/index.ts",
     "./lib/data-model/*": "./src/lib/data-model/*.ts",
+    "./lib/page-model": "./src/lib/page-model/index.ts",
+    "./lib/site-renderer": "./src/lib/site-renderer/index.ts",
+    "./lib/site-renderer/*": "./src/lib/site-renderer/*.ts",
     "./types/generator/*": "./src/types/generator/*.ts",
     "./functions/*": "./src/functions/*.ts"
   }

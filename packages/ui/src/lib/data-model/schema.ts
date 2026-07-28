@@ -236,6 +236,25 @@ export function resolveValue(
   return `⚠️ type/node mismatch: ${type.kind} vs ${node.mode}`;
 }
 
+// typedData source 的 typeId 遵循「一整組資料用 `<單筆複合id>[]` 表示」的慣例
+// （見下面 fieldTypeForTypedDataTypeId／matchesRefType 的註解），但 typeRegistry
+// （from-generated.ts 自動產生）只會註冊單筆型別本身的複合 id，從未額外註冊帶
+// "[]" 後綴的陣列版本。之前這裡直接 store.getTypeDef(typeId) 查，對陣列型
+// typedData 一律會落空（回傳 undefined -> "⚠️ unknown type" 警告字串），
+// 讓依賴這個值的元件（例如 Header 的 primaryNav）在 .map() 時整個炸掉。
+// 改用 fieldTypeForTypedDataTypeId 先把 typeId 轉成正確的 FieldType（陣列時
+// 包成 { kind: "array", item: { kind: "ref", typeId } }），"ref" 的部分再交給
+// resolveValue 本身的 type.kind === "ref" 分支去查 typeRegistry，不需要在這裡
+// 提前解析、也不用重複一份轉換邏輯。
+function resolveTypedDataTypeDef(store: DataStore, typeId: string): FieldType | undefined {
+  const fieldType = fieldTypeForTypedDataTypeId(typeId);
+  if (fieldType.kind === "ref" && !store.getTypeDef(fieldType.typeId)) return undefined;
+  if (fieldType.kind === "array" && fieldType.item.kind === "ref" && !store.getTypeDef(fieldType.item.typeId)) {
+    return undefined;
+  }
+  return fieldType;
+}
+
 function resolveSourceRoot(
   source: DataSource,
   store: DataStore,
@@ -251,7 +270,7 @@ function resolveSourceRoot(
     case "route":
       return source.value;
     case "typedData": {
-      const typeDef = store.getTypeDef(source.typeId);
+      const typeDef = resolveTypedDataTypeDef(store, source.typeId);
       if (!typeDef) return `⚠️ unknown type: ${source.typeId}`;
       return resolveValue(typeDef, source.value, store, ctx);
     }

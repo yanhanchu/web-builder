@@ -33,7 +33,7 @@ export const siteInfo: SiteInfoProps = {
   faviconUrl: "/favicon.ico",
   manifestUrl: "/manifest.webmanifest",
   themeColor: "#2d9c74",
-  defaultLocale: "zh-TW",
+  defaultLocale: "en",
   contactEmail: "hello@example.com",
   publisher: "Web Builder",
 };

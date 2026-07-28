@@ -24,26 +24,11 @@ import {
   ghostBtnStyle,
   usePersistentState,
 } from "../admin-ui";
-import {
-  allComponents,
-  loadComponentModule,
-} from "@workspace/ui/lib/generator/component-registry";
+import { allComponents } from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
-import {
-  InMemoryDataStore,
-  typeRegistry,
-  componentPropsRegistry,
-  resolveValue,
-  type DataSource,
-  type FieldType,
-  type ValueNode,
-} from "@workspace/ui/lib/data-model";
-import {
-  splitSlotProps,
-  findBlockDeep,
-  type PageItem,
-  type PageBlock,
-} from "@/lib/pages-store";
+import { InMemoryDataStore, typeRegistry, componentPropsRegistry, type DataSource } from "@workspace/ui/lib/data-model";
+import { resolvePlainProps, useComponentModule } from "@workspace/ui/lib/site-renderer";
+import { findBlockDeep, splitSlotProps, type PageItem, type PageBlock } from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
 import {
@@ -824,46 +809,6 @@ export function CanvasPanel({
  *     巢狀關係，跟「組件樹狀結構」面板共用同一個 onMoveBlock。
  */
 /**
- * 判斷 block.props 裡的一般值是不是「組件屬性面板」bindable 欄位寫回的
- * ValueNode（{ mode: 'literal' | 'bound' | 'array' | 'object', ... }，見
- * component-properties-panel.tsx 的 toValueNode/BindableField），是的話透過
- * resolveValue 解析成實際純值再交給真正的組件；不是的話（例如尚未被新版
- * 面板碰過的舊資料，直接存裸的 string/number/boolean/object/array）原樣
- * 傳回，維持相容。
- *
- * fieldType 找不到時（理論上不會發生，componentPropsRegistry 跟屬性面板
- * 用同一份生成資料）就不解析，直接回傳原始值，避免因為型別對不上而讓畫布
- * 整個炸掉——保底行為優先於「正確解析」。
- */
-function resolvePlainPropValue(
-  rawValue: unknown,
-  fieldType: FieldType | undefined,
-  store: InMemoryDataStore,
-): unknown {
-  const isValueNode =
-    rawValue !== null &&
-    typeof rawValue === "object" &&
-    typeof (rawValue as { mode?: unknown }).mode === "string" &&
-    ["literal", "bound", "array", "object"].includes(
-      (rawValue as { mode: string }).mode,
-    );
-
-  if (!isValueNode || !fieldType) return rawValue;
-
-  try {
-    // locale 沿用 data-manager.tsx / data-model-demo.tsx 的預設 locale（"zh-TW"，
-    // 見 data-manager.tsx 的 wb.locales 初始值）；畫布目前沒有 locale 切換 UI，
-    // 之後若要讓畫布也能切換預覽 locale，這裡可以改吃外部傳入的 locale。
-    return resolveValue(fieldType, rawValue as ValueNode, store, {
-      locale: "zh-TW",
-    });
-  } catch {
-    // 解析失敗（例如型別跟節點形狀對不上）也不該讓整個畫布炸掉，退回原始值。
-    return rawValue;
-  }
-}
-
-/**
  * 防呆：某個 block 實際 render 真正的組件時如果丟出例外（不管是必填 prop
  * 缺漏、組件本身的 bug，還是使用者透過「組件屬性」面板改出不合法的值），
  * React 預設會讓整棵 fiber tree 往上炸，整個畫布（甚至整個 admin 頁面）
@@ -1009,47 +954,7 @@ function CanvasBlockRenderer({
     [dataSources],
   );
 
-  type LoadState =
-    | { status: "loading" }
-    | { status: "error"; message: string }
-    | {
-        status: "ready";
-        Component: React.ComponentType<Record<string, unknown>>;
-      };
-
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-
-  useEffect(() => {
-    if (!component) return;
-    let cancelled = false;
-    setState({ status: "loading" });
-
-    loadComponentModule(component.importPath)
-      .then((mod) => {
-        if (cancelled) return;
-        const Component = mod[component.componentName] as
-          React.ComponentType<Record<string, unknown>> | undefined;
-        if (!Component) {
-          setState({
-            status: "error",
-            message: `找不到具名 export "${component.componentName}"`,
-          });
-          return;
-        }
-        setState({ status: "ready", Component });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setState({
-          status: "error",
-          message: err instanceof Error ? err.message : String(err),
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [component]);
+  const state = useComponentModule(component);
 
   const selected = block.instanceId === selectedBlockId;
   const isDraggingSelf =
@@ -1241,17 +1146,19 @@ function CanvasBlockRenderer({
   }
 
   const { plainProps, slotProps } = splitSlotProps(block);
-  const resolvedProps: Record<string, unknown> = {};
   const propsFieldType = component
     ? componentPropsRegistry[component.id]?.propsType
     : undefined;
-  for (const [key, rawValue] of Object.entries(plainProps)) {
-    const fieldType: FieldType | undefined =
-      propsFieldType?.kind === "object"
-        ? propsFieldType.fields[key]
-        : undefined;
-    resolvedProps[key] = resolvePlainPropValue(rawValue, fieldType, store);
-  }
+  // resolvePlainProps 是框架無關的共用核心（@workspace/ui/lib/site-renderer），
+  // 靜態產生器與畫布都呼叫同一份邏輯，保證「畫布看到的」跟「最終產出的靜態頁面」
+  // 對同一份資料 resolve 出一樣的結果。locale 沿用 data-manager.tsx /
+  // data-model-demo.tsx 的預設值（畫布目前沒有 locale 切換 UI）。
+  const resolvedProps: Record<string, unknown> = resolvePlainProps(
+    plainProps,
+    propsFieldType,
+    store,
+    "zh-TW",
+  );
   for (const [key, children] of Object.entries(slotProps)) {
     resolvedProps[key] =
       children.length === 0 ? null : (
