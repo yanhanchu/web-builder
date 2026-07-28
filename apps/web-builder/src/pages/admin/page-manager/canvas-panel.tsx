@@ -11,9 +11,23 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { Save, FileText, LoaderCircle, TriangleAlert, Trash2 } from "lucide-react";
-import { panelTitleStyle, primaryBtnStyle, ghostBtnStyle, usePersistentState } from "../admin-ui";
-import { allComponents, loadComponentModule } from "@workspace/ui/lib/generator/component-registry";
+import {
+  Save,
+  FileText,
+  LoaderCircle,
+  TriangleAlert,
+  Trash2,
+} from "lucide-react";
+import {
+  panelTitleStyle,
+  primaryBtnStyle,
+  ghostBtnStyle,
+  usePersistentState,
+} from "../admin-ui";
+import {
+  allComponents,
+  loadComponentModule,
+} from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
 import {
   InMemoryDataStore,
@@ -24,10 +38,20 @@ import {
   type FieldType,
   type ValueNode,
 } from "@workspace/ui/lib/data-model";
-import { splitSlotProps, findBlockDeep, type PageItem, type PageBlock } from "@/lib/pages-store";
+import {
+  splitSlotProps,
+  findBlockDeep,
+  type PageItem,
+  type PageBlock,
+} from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
-import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "../style-manager";
+import {
+  STYLE_SHEETS_KEY,
+  INITIAL_SHEETS,
+  type StyleSheet,
+} from "../style-manager";
+import { themeBootstrapScript } from "@workspace/ui/lib/theme";
 
 // 中間「視圖／畫布」：依 viewport 切換寬度並置中留白，即時 render 出頁面
 // 目前實際組合的組件（不再只是示意卡片）——每個 block 對應真正 import 進來的
@@ -139,7 +163,7 @@ function cloneHostStylesInto(targetDoc: Document) {
 function useDeleteKeyToRemoveBlock(
   doc: Document | null,
   selectedBlockId: string | null,
-  onRemoveBlock: (instanceId: string) => void
+  onRemoveBlock: (instanceId: string) => void,
 ) {
   useEffect(() => {
     if (!doc) return;
@@ -150,7 +174,10 @@ function useDeleteKeyToRemoveBlock(
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       const isEditable =
-        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable;
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable;
       if (isEditable) return;
 
       e.preventDefault();
@@ -189,7 +216,10 @@ function CanvasFrame({
 
   // 唯讀取用「樣式管理」頁面維護的樣式表清單，跟 style-manager.tsx /
   // properties-panel.tsx 共用同一把 localStorage key、同一份型別。
-  const [sheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+  const [sheets] = usePersistentState<StyleSheet[]>(
+    STYLE_SHEETS_KEY,
+    INITIAL_SHEETS,
+  );
 
   const selectedCss = useMemo(() => {
     return styleSheetIds
@@ -214,6 +244,23 @@ function CanvasFrame({
       doc.write("<!doctype html><html><head></head><body></body></html>");
       doc.close();
       cloneHostStylesInto(doc);
+
+      // 【dark mode 修正】iframe 是全新、獨立的 document，自己的 <html>
+      // 上完全沒有 data-theme 屬性——即使上面 cloneHostStylesInto 把
+      // `[data-theme="dark"] {...}` 這些 CSS 規則複製過去了，沒有屬性可
+      // 匹配，規則永遠不會生效，畫布裡的組件會卡在 light mode 樣式。
+      //
+      // 這裡不去讀外層 admin document 現在是什麼主題、鏡射過來——那樣會把
+      // 「編輯器介面本身的外觀」跟「使用者網站實際看起來如何」這兩個本該
+      // 獨立的東西綁在一起，而且以後也用不到真正的靜態產出上。正確做法是
+      // 讓 iframe 跟未來真正產出的靜態頁一樣，自己跑一次
+      // themeBootstrapScript（見 @workspace/ui/lib/theme），完全靠自己的
+      // localStorage 選擇 + matchMedia 系統偏好決定初始 dark/light，
+      // 兩邊互不影響，行為也會跟正式站台一致。
+      const themeScript = doc.createElement("script");
+      themeScript.textContent = themeBootstrapScript;
+      doc.head.appendChild(themeScript);
+
       doc.body.style.margin = "0";
       setMountNode(doc.body);
       setIframeDoc(doc);
@@ -233,7 +280,9 @@ function CanvasFrame({
   useEffect(() => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc || !mountNode) return;
-    let tag = doc.getElementById("wb-page-stylesheets") as HTMLStyleElement | null;
+    let tag = doc.getElementById(
+      "wb-page-stylesheets",
+    ) as HTMLStyleElement | null;
     if (!tag) {
       tag = doc.createElement("style");
       tag.id = "wb-page-stylesheets";
@@ -277,7 +326,8 @@ const COMPONENT_DRAG_TYPE = "application/x-wb-component-id";
  * 只有在 drop 那一刻才需要、也才讀得到，所以 dragover 階段只需要知道
  * 「現在是不是在拖一張新組件卡片」這個粗粒度資訊即可。
  */
-type DragPayload = { kind: "new-component" } | { kind: "existing-node"; instanceId: string };
+type DragPayload =
+  { kind: "new-component" } | { kind: "existing-node"; instanceId: string };
 
 interface DragState {
   current: DragPayload | null;
@@ -309,7 +359,8 @@ const DragStateContext = createContext<DragState | null>(null);
 
 function useDragState(): DragState {
   const ctx = useContext(DragStateContext);
-  if (!ctx) throw new Error("useDragState 必須在 DragStateContext.Provider 底下使用");
+  if (!ctx)
+    throw new Error("useDragState 必須在 DragStateContext.Provider 底下使用");
   return ctx;
 }
 
@@ -324,14 +375,16 @@ type SlotTarget = { parentId: string; slotKey: string } | null;
 
 type AddBlockFn = (
   component: ComponentDoc,
-  target?: { kind: "root" } | { kind: "slot"; parentId: string; slotKey: string; toIndex: number }
+  target?:
+    | { kind: "root" }
+    | { kind: "slot"; parentId: string; slotKey: string; toIndex: number },
 ) => void;
 
 type MoveBlockFn = (
   instanceId: string,
   targetParentId: string | null,
   targetSlotKey: string | null,
-  toIndex: number
+  toIndex: number,
 ) => void;
 
 /**
@@ -379,7 +432,8 @@ function InsertionLine({
     if (!active) return;
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = current?.kind === "new-component" ? "copy" : "move";
+    e.dataTransfer.dropEffect =
+      current?.kind === "new-component" ? "copy" : "move";
     setHover(true);
   };
 
@@ -398,7 +452,12 @@ function InsertionLine({
       const newComponent = allComponents.find((c) => c.id === componentId);
       if (!newComponent) return;
       if (target) {
-        onAddBlock(newComponent, { kind: "slot", parentId: target.parentId, slotKey: target.slotKey, toIndex: index });
+        onAddBlock(newComponent, {
+          kind: "slot",
+          parentId: target.parentId,
+          slotKey: target.slotKey,
+          toIndex: index,
+        });
       } else {
         onAddBlock(newComponent, { kind: "root" });
       }
@@ -465,7 +524,12 @@ export function CanvasPanel({
   // 目前哪個節點該顯示「放入 slot」提示，集中管理（見 DragState 型別上的
   // 說明，這是修正巢狀拖曳時提示卡住不消失的關鍵）。
   const [hoverTarget, setHoverTarget] = useState<string | null>(null);
-  const dragState: DragState = { current: dragCurrent, setCurrent: setDragCurrent, hoverTarget, setHoverTarget };
+  const dragState: DragState = {
+    current: dragCurrent,
+    setCurrent: setDragCurrent,
+    hoverTarget,
+    setHoverTarget,
+  };
 
   // 畫布上既有節點的拖曳（握把上的 onDragStart）會直接呼叫 setDragCurrent，
   // 因為那段程式碼本來就在這個 Provider 底下。但左側「現有組件」面板的卡片
@@ -520,7 +584,11 @@ export function CanvasPanel({
   // 情況（例如剛點選畫布節點但瀏覽器把 focus 留在外層某處）。iframe 內部
   // 焦點時的鍵盤刪除由 CanvasFrame 內部另外綁的一份負責，見
   // useDeleteKeyToRemoveBlock 定義處的說明。
-  useDeleteKeyToRemoveBlock(typeof document !== "undefined" ? document : null, selectedBlockId, onRemoveBlock);
+  useDeleteKeyToRemoveBlock(
+    typeof document !== "undefined" ? document : null,
+    selectedBlockId,
+    onRemoveBlock,
+  );
 
   if (!selected || !draft) {
     return (
@@ -564,7 +632,11 @@ export function CanvasPanel({
         <div style={{ minWidth: 0 }}>
           <h2 style={{ ...panelTitleStyle, margin: 0 }}>
             視圖 · {draft.name}
-            {dirty && <span style={{ color: "#e8b64c", marginLeft: 8, fontSize: 11 }}>未儲存變更</span>}
+            {dirty && (
+              <span style={{ color: "#e8b64c", marginLeft: 8, fontSize: 11 }}>
+                未儲存變更
+              </span>
+            )}
           </h2>
           <p style={{ fontSize: 11, color: "#777", margin: "4px 0 0" }}>
             {draft.blocks.length > 0
@@ -572,10 +644,21 @@ export function CanvasPanel({
               : "尚無組件，從左側「現有組件」拖拉或加入。"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
           {dirty && (
             <>
-              <button style={ghostBtnStyle} onClick={onDiscard} title="放棄變更">
+              <button
+                style={ghostBtnStyle}
+                onClick={onDiscard}
+                title="放棄變更"
+              >
                 還原
               </button>
               <button style={primaryBtnStyle} onClick={onSave} title="儲存此頁">
@@ -624,7 +707,8 @@ export function CanvasPanel({
                 // 拖到容器 padding 區域）。
                 if (!dragCurrent) return;
                 e.preventDefault();
-                e.dataTransfer.dropEffect = dragCurrent.kind === "new-component" ? "copy" : "move";
+                e.dataTransfer.dropEffect =
+                  dragCurrent.kind === "new-component" ? "copy" : "move";
                 setDragOver(true);
               }}
               onDragLeave={(e) => {
@@ -632,7 +716,8 @@ export function CanvasPanel({
                 // 巢狀節點之間移動滑鼠時提示閃爍。
                 // 【已知風險，見檔案開頭 CanvasFrame 說明】relatedTarget 在
                 // iframe 邊界情境下可能是 null，會讓這裡誤判成「已離開」。
-                if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                if (e.currentTarget.contains(e.relatedTarget as Node | null))
+                  return;
                 setDragOver(false);
               }}
               onDrop={(e) => {
@@ -643,19 +728,27 @@ export function CanvasPanel({
                 if (dragCurrent.kind === "new-component") {
                   // 命中這裡代表沒有被任何 InsertionLine／節點攔截（例如拖到
                   // padding 空白區），一律加到頂層最後方，跟「+」按鈕一致。
-                  const componentId = e.dataTransfer.getData(COMPONENT_DRAG_TYPE);
-                  const component = allComponents.find((c) => c.id === componentId);
+                  const componentId =
+                    e.dataTransfer.getData(COMPONENT_DRAG_TYPE);
+                  const component = allComponents.find(
+                    (c) => c.id === componentId,
+                  );
                   if (component) onAddBlock(component, { kind: "root" });
                   return;
                 }
 
-                onMoveBlock(dragCurrent.instanceId, null, null, draft.blocks.length);
+                onMoveBlock(
+                  dragCurrent.instanceId,
+                  null,
+                  null,
+                  draft.blocks.length,
+                );
               }}
               style={{
                 border: dragOver ? "1px dashed #2d9c74" : "1px dashed #333",
                 borderRadius: 8,
                 padding: 16,
-                background: dragOver ? "#132420" : "#141414",
+                background: dragOver ? "rgba(0,0,0,.8)" : "transparent",
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
@@ -684,7 +777,12 @@ export function CanvasPanel({
                 </div>
               ) : (
                 <>
-                  <InsertionLine index={0} target={null} onAddBlock={onAddBlock} onMoveBlock={onMoveBlock} />
+                  <InsertionLine
+                    index={0}
+                    target={null}
+                    onAddBlock={onAddBlock}
+                    onMoveBlock={onMoveBlock}
+                  />
                   {draft.blocks.map((block, i) => (
                     <Fragment key={block.instanceId}>
                       <CanvasBlockRenderer
@@ -737,12 +835,18 @@ export function CanvasPanel({
  * 用同一份生成資料）就不解析，直接回傳原始值，避免因為型別對不上而讓畫布
  * 整個炸掉——保底行為優先於「正確解析」。
  */
-function resolvePlainPropValue(rawValue: unknown, fieldType: FieldType | undefined, store: InMemoryDataStore): unknown {
+function resolvePlainPropValue(
+  rawValue: unknown,
+  fieldType: FieldType | undefined,
+  store: InMemoryDataStore,
+): unknown {
   const isValueNode =
     rawValue !== null &&
     typeof rawValue === "object" &&
     typeof (rawValue as { mode?: unknown }).mode === "string" &&
-    ["literal", "bound", "array", "object"].includes((rawValue as { mode: string }).mode);
+    ["literal", "bound", "array", "object"].includes(
+      (rawValue as { mode: string }).mode,
+    );
 
   if (!isValueNode || !fieldType) return rawValue;
 
@@ -750,7 +854,9 @@ function resolvePlainPropValue(rawValue: unknown, fieldType: FieldType | undefin
     // locale 沿用 data-manager.tsx / data-model-demo.tsx 的預設 locale（"zh-TW"，
     // 見 data-manager.tsx 的 wb.locales 初始值）；畫布目前沒有 locale 切換 UI，
     // 之後若要讓畫布也能切換預覽 locale，這裡可以改吃外部傳入的 locale。
-    return resolveValue(fieldType, rawValue as ValueNode, store, { locale: "zh-TW" });
+    return resolveValue(fieldType, rawValue as ValueNode, store, {
+      locale: "zh-TW",
+    });
   } catch {
     // 解析失敗（例如型別跟節點形狀對不上）也不該讓整個畫布炸掉，退回原始值。
     return rawValue;
@@ -779,7 +885,12 @@ function resolvePlainPropValue(rawValue: unknown, fieldType: FieldType | undefin
  * state.error 自動清空、重新渲染一次真正的組件——不需要額外的「重試」按鈕。
  */
 class BlockErrorBoundary extends ReactComponentClass<
-  { componentName: string; instanceId: string; onRemove: () => void; children: ReactNode },
+  {
+    componentName: string;
+    instanceId: string;
+    onRemove: () => void;
+    children: ReactNode;
+  },
   { error: Error | null }
 > {
   state: { error: Error | null } = { error: null };
@@ -794,7 +905,7 @@ class BlockErrorBoundary extends ReactComponentClass<
     console.error(
       `[BlockErrorBoundary] ${this.props.componentName}（${this.props.instanceId}）渲染時發生錯誤，已攔截、不會讓整個畫布掛掉：`,
       error,
-      info
+      info,
     );
   }
 
@@ -813,7 +924,16 @@ class BlockErrorBoundary extends ReactComponentClass<
           gap: 8,
         }}
       >
-        <p style={{ color: "#e77", fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+        <p
+          style={{
+            color: "#e77",
+            fontSize: 12,
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
           <TriangleAlert size={13} />
           {this.props.componentName} 渲染失敗：{error.message}
         </p>
@@ -867,7 +987,12 @@ function CanvasBlockRenderer({
   onMoveBlock: MoveBlockFn;
   onRemoveBlock: (instanceId: string) => void;
 }) {
-  const { current: dragCurrent, setCurrent: setDragCurrent, hoverTarget, setHoverTarget } = useDragState();
+  const {
+    current: dragCurrent,
+    setCurrent: setDragCurrent,
+    hoverTarget,
+    setHoverTarget,
+  } = useDragState();
   const component = allComponents.find((c) => c.id === block.componentId);
 
   // 唯讀取用「資料管理」頁面維護的 DataSource 清單，跟 component-properties-panel.tsx
@@ -875,13 +1000,22 @@ function CanvasBlockRenderer({
   // 可能存放的 ValueNode（{ mode: 'literal' | 'bound' | 'array' | 'object', ... }，
   // 屬性面板 bindable 欄位寫回的格式，見該檔案 toValueNode/BindableField 的說明）
   // 解析成實際純值後再傳給真正的組件——畫布這裡完全不寫回 dataSources。
-  const [dataSources] = usePersistentState<Record<string, DataSource>>("wb.dataSources", {});
-  const store = useMemo(() => new InMemoryDataStore(dataSources, typeRegistry), [dataSources]);
+  const [dataSources] = usePersistentState<Record<string, DataSource>>(
+    "wb.dataSources",
+    {},
+  );
+  const store = useMemo(
+    () => new InMemoryDataStore(dataSources, typeRegistry),
+    [dataSources],
+  );
 
   type LoadState =
     | { status: "loading" }
     | { status: "error"; message: string }
-    | { status: "ready"; Component: React.ComponentType<Record<string, unknown>> };
+    | {
+        status: "ready";
+        Component: React.ComponentType<Record<string, unknown>>;
+      };
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -894,17 +1028,22 @@ function CanvasBlockRenderer({
       .then((mod) => {
         if (cancelled) return;
         const Component = mod[component.componentName] as
-          | React.ComponentType<Record<string, unknown>>
-          | undefined;
+          React.ComponentType<Record<string, unknown>> | undefined;
         if (!Component) {
-          setState({ status: "error", message: `找不到具名 export "${component.componentName}"` });
+          setState({
+            status: "error",
+            message: `找不到具名 export "${component.componentName}"`,
+          });
           return;
         }
         setState({ status: "ready", Component });
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+        setState({
+          status: "error",
+          message: err instanceof Error ? err.message : String(err),
+        });
       });
 
     return () => {
@@ -913,7 +1052,9 @@ function CanvasBlockRenderer({
   }, [component]);
 
   const selected = block.instanceId === selectedBlockId;
-  const isDraggingSelf = dragCurrent?.kind === "existing-node" && dragCurrent.instanceId === block.instanceId;
+  const isDraggingSelf =
+    dragCurrent?.kind === "existing-node" &&
+    dragCurrent.instanceId === block.instanceId;
   const slotKey = component ? primarySlotKey(component.id) : null;
   const canAcceptDrop = slotKey != null;
   // 「放入 slot」的 outline + 提示文字要不要顯示在這個節點上，直接看集中
@@ -925,7 +1066,9 @@ function CanvasBlockRenderer({
   const slotChildren: PageBlock[] = (() => {
     if (!slotKey) return [];
     const value = block.props[slotKey];
-    return value && typeof value === "object" && (value as { __slot?: boolean }).__slot
+    return value &&
+      typeof value === "object" &&
+      (value as { __slot?: boolean }).__slot
       ? ((value as { blocks: PageBlock[] }).blocks ?? [])
       : [];
   })();
@@ -937,7 +1080,9 @@ function CanvasBlockRenderer({
     if (dragCurrent?.kind !== "existing-node") return false;
     if (dragCurrent.instanceId === block.instanceId) return true;
     const draggedBlock = findBlockDeep(rootBlocks, dragCurrent.instanceId);
-    return draggedBlock ? findBlockDeep([draggedBlock], block.instanceId) != null : false;
+    return draggedBlock
+      ? findBlockDeep([draggedBlock], block.instanceId) != null
+      : false;
   })();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -957,7 +1102,8 @@ function CanvasBlockRenderer({
       return;
     }
     e.preventDefault();
-    e.dataTransfer.dropEffect = dragCurrent.kind === "new-component" ? "copy" : "move";
+    e.dataTransfer.dropEffect =
+      dragCurrent.kind === "new-component" ? "copy" : "move";
     setHoverTarget(block.instanceId);
   };
 
@@ -996,7 +1142,12 @@ function CanvasBlockRenderer({
       return;
     }
 
-    onMoveBlock(dragCurrent.instanceId, block.instanceId, slotKey, slotChildren.length);
+    onMoveBlock(
+      dragCurrent.instanceId,
+      block.instanceId,
+      slotKey,
+      slotChildren.length,
+    );
   };
 
   const wrapperStyle: React.CSSProperties = {
@@ -1023,7 +1174,16 @@ function CanvasBlockRenderer({
         }}
         style={{ ...wrapperStyle, border: "1px dashed #a33", padding: 12 }}
       >
-        <p style={{ color: "#e77", fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+        <p
+          style={{
+            color: "#e77",
+            fontSize: 12,
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
           <TriangleAlert size={13} />
           找不到此組件定義（{block.componentId}），可能已移除。
         </p>
@@ -1063,7 +1223,16 @@ function CanvasBlockRenderer({
         }}
         style={{ ...wrapperStyle, border: "1px dashed #a33", padding: 12 }}
       >
-        <p style={{ color: "#e77", fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+        <p
+          style={{
+            color: "#e77",
+            fontSize: 12,
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
           <TriangleAlert size={13} />
           {block.componentName} 載入失敗：{state.message}
         </p>
@@ -1073,10 +1242,14 @@ function CanvasBlockRenderer({
 
   const { plainProps, slotProps } = splitSlotProps(block);
   const resolvedProps: Record<string, unknown> = {};
-  const propsFieldType = component ? componentPropsRegistry[component.id]?.propsType : undefined;
+  const propsFieldType = component
+    ? componentPropsRegistry[component.id]?.propsType
+    : undefined;
   for (const [key, rawValue] of Object.entries(plainProps)) {
     const fieldType: FieldType | undefined =
-      propsFieldType?.kind === "object" ? propsFieldType.fields[key] : undefined;
+      propsFieldType?.kind === "object"
+        ? propsFieldType.fields[key]
+        : undefined;
     resolvedProps[key] = resolvePlainPropValue(rawValue, fieldType, store);
   }
   for (const [key, children] of Object.entries(slotProps)) {
@@ -1089,8 +1262,22 @@ function CanvasBlockRenderer({
                   拖到「最前面」，不只是永遠加在最後方。用 height:0 +
                   overflow:visible 的包裝，盡量不干擾原組件本身對 children
                   排版的假設（例如 flex/grid gap），但仍保留可互動區域。 */}
-              <span style={{ display: "block", position: "relative", height: 0, overflow: "visible" }}>
-                <span style={{ position: "absolute", inset: "-5px 0", display: "block", zIndex: 4 }}>
+              <span
+                style={{
+                  display: "block",
+                  position: "relative",
+                  height: 0,
+                  overflow: "visible",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: "-5px 0",
+                    display: "block",
+                    zIndex: 4,
+                  }}
+                >
                   <InsertionLine
                     index={i}
                     target={{ parentId: block.instanceId, slotKey: key }}
@@ -1109,8 +1296,22 @@ function CanvasBlockRenderer({
                 onRemoveBlock={onRemoveBlock}
               />
               {i === children.length - 1 && (
-                <span style={{ display: "block", position: "relative", height: 0, overflow: "visible" }}>
-                  <span style={{ position: "absolute", inset: "-5px 0", display: "block", zIndex: 4 }}>
+                <span
+                  style={{
+                    display: "block",
+                    position: "relative",
+                    height: 0,
+                    overflow: "visible",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: "-5px 0",
+                      display: "block",
+                      zIndex: 4,
+                    }}
+                  >
                     <InsertionLine
                       index={children.length}
                       target={{ parentId: block.instanceId, slotKey: key }}
