@@ -91,6 +91,8 @@ export default function DataManagerPage() {
   // （STYLE_SHEETS_KEY / INITIAL_SHEETS 從 style-manager.tsx 匯出，
   // 匯出資料需要 style-sheets.json，這裡只是借用同一份 state，不做任何編輯）。
   const [styleSheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+  // 未用到 to be confirmed
+  console.log(styleSheets)
   const fileSync = useFileSync(sources, setSources, DEFAULT_APP_NAME);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
