@@ -70,8 +70,7 @@ export const header: HeaderProps = {
   themeGroupLabel: "Theme",
   themeLabel: "Theme",
   openMenuLabel: "Open menu",
-  closeMenuLabel: "Close menu",
-  testNumber: 0,
+  closeMenuLabel: "Close menu"
 }
 
 export const input: InputProps = {

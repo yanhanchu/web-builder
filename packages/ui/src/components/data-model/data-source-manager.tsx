@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Download, LayoutGrid, List, Plus, Upload } from 'lucide-react';
+import JSZip from 'jszip';
+import { ChevronDown, Download, LayoutGrid, List, Plus, Upload } from 'lucide-react';
 import type {
   DataSource,
   DataSourceKind,
@@ -15,6 +16,8 @@ import {
   createDefaultValueNode,
   fieldTypeForTypedDataTypeId,
 } from '@workspace/ui/lib/data-model/schema';
+import { sourcesToFlatI18n } from '@workspace/ui/lib/data-model/i18n-flat';
+import { sourcesToFlatKind, type FlatKind } from '@workspace/ui/lib/data-model/flat-export';
 import type { FileDetailSyncSlot, FileRowSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
 import { ImportModal } from './import-modal';
 import { LocaleBar } from './locale-bar';
@@ -72,6 +75,14 @@ const KIND_LABELS: Record<DataSourceKind, string> = {
   typedData: '型別資料 Typed Data',
 };
 
+// 攤平匯出／匯入涵蓋的 kind：i18n 有自己的一套（依 locale 攤平，見
+// i18n-flat.ts），route/file/typedData 共用「去除 id/kind」的攤平格式
+// （見 flat-export.ts）。這個型別防護只是把 DataSourceKind 窄化成
+// FlatKind，方便呼叫 sourcesToFlatKind 時 TS 能推得出正確的多載。
+function isFlatKind(kind: DataSourceKind): kind is FlatKind {
+  return kind !== 'i18n';
+}
+
 const KIND_ORDER: DataSourceKind[] = ['i18n', 'route', 'file', 'typedData'];
 
 type SortKey = 'id' | 'label';
@@ -125,6 +136,8 @@ export function DataSourceManager({
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(() => new Set());
 
   const [showImport, setShowImport] = useState(false);
+  // 匯出下拉選單：選「匯出全部（DataSource JSON）」或「匯出扁平 i18n（依 locale）」。
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // 用當前 sources + types 建一個 store，供 typedData 的 FieldEditor 綁定候選使用
   const store = useMemo(
@@ -289,6 +302,24 @@ export function DataSourceManager({
     typedData: addTypedData,
   };
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadJson = (payload: unknown, filename: string) => {
+    downloadBlob(
+      new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+      filename,
+    );
+  };
+
   // 匯出：把當前全部 sources 序列化成 JSON 並觸發下載
   const handleExport = () => {
     const payload = {
@@ -296,17 +327,37 @@ export function DataSourceManager({
       exportedAt: new Date().toISOString(),
       sources,
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `data-sources-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadJson(payload, `data-sources-${Date.now()}.json`);
+  };
+
+  // 匯出：把當前 i18n 來源依指定 locale 攤平成單語系 JSON（例如 en.json），
+  // 對接一般 i18n 工具鏈（next-intl / react-i18next 等）慣用的檔案格式。
+  const handleExportFlatI18n = (locale: string) => {
+    const flat = sourcesToFlatI18n(sources, locale);
+    downloadJson(flat, `${locale}.json`);
+    setShowExportMenu(false);
+  };
+
+  // 匯出：一次把「目前所有 locale」各自攤平成單語系 JSON，打包成單一 zip
+  // （en.json、zh-TW.json… 都在同一個 i18n.zip 裡），一次下載即可拿到全部
+  // 語系檔案，直接解壓縮丟進專案的 i18n 資料夾。
+  const handleExportAllFlatI18n = async () => {
+    setShowExportMenu(false);
+    const zip = new JSZip();
+    for (const locale of locales) {
+      const flat = sourcesToFlatI18n(sources, locale);
+      zip.file(`${locale}.json`, JSON.stringify(flat, null, 2));
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, `i18n-${Date.now()}.zip`);
+  };
+
+  // 匯出：把「目前分頁」所有 route / file / typedData 資料攤平成
+  // { key: 去除 id/kind 的物件 } 並觸發下載，跟 import-modal 的攤平格式對稱。
+  const handleExportFlatKind = (kind: FlatKind) => {
+    const flat = sourcesToFlatKind(sources, kind);
+    downloadJson(flat, `${kind}-${Date.now()}.json`);
+    setShowExportMenu(false);
   };
 
   // 匯入：把解析後的來源套用（合併 or 覆蓋）
@@ -420,20 +471,92 @@ export function DataSourceManager({
           <Upload size={12} />
           匯入
         </button>
-        <button
-          style={{
-            ...ioBtnStyle,
-            ...(Object.keys(sources).length === 0
-              ? { opacity: 0.45, cursor: 'not-allowed' }
-              : null),
-          }}
-          onClick={handleExport}
-          title="匯出全部來源為 JSON"
-          disabled={Object.keys(sources).length === 0}
-        >
-          <Download size={12} />
-          匯出
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            style={{
+              ...ioBtnStyle,
+              ...(Object.keys(sources).length === 0
+                ? { opacity: 0.45, cursor: 'not-allowed' }
+                : null),
+            }}
+            onClick={() => setShowExportMenu((v) => !v)}
+            title="匯出來源為 JSON"
+            disabled={Object.keys(sources).length === 0}
+            aria-haspopup="menu"
+            aria-expanded={showExportMenu}
+          >
+            <Download size={12} />
+            匯出
+            <ChevronDown size={12} />
+          </button>
+          {showExportMenu && (
+            <>
+              {/* 點擊選單外任意處關閉；覆蓋整個畫面的透明層，放在選單本身之下。 */}
+              <div
+                style={exportMenuOverlayStyle}
+                onClick={() => setShowExportMenu(false)}
+              />
+              <div style={exportMenuStyle} role="menu">
+                <button
+                  style={exportMenuItemStyle}
+                  role="menuitem"
+                  onClick={() => {
+                    handleExport();
+                    setShowExportMenu(false);
+                  }}
+                >
+                  匯出全部（DataSource JSON）
+                </button>
+                <div style={exportMenuDividerStyle} />
+                {activeKind === 'i18n' ? (
+                  <>
+                    <div style={exportMenuGroupLabelStyle}>扁平單語系 i18n JSON</div>
+                    {locales.length === 0 ? (
+                      <div style={exportMenuEmptyStyle}>尚未設定任何 locale</div>
+                    ) : (
+                      <>
+                        <button
+                          style={exportMenuItemStyle}
+                          role="menuitem"
+                          onClick={handleExportAllFlatI18n}
+                          title="把每個 locale 的攤平 JSON 打包成單一 zip 下載"
+                        >
+                          一次匯出全部語系（打包 {locales.length} 個檔案為 zip）
+                        </button>
+                        {locales.map((l) => (
+                          <button
+                            key={l}
+                            style={exportMenuItemStyle}
+                            role="menuitem"
+                            onClick={() => handleExportFlatI18n(l)}
+                          >
+                            匯出 {l}.json
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  isFlatKind(activeKind) && (
+                    <>
+                      <div style={exportMenuGroupLabelStyle}>
+                        扁平 {KIND_LABELS[activeKind]} JSON
+                      </div>
+                      <button
+                        style={exportMenuItemStyle}
+                        role="menuitem"
+                        onClick={() => handleExportFlatKind(activeKind)}
+                        title="把目前分頁的資料攤平成 { key: 去除 id/kind 的物件 } 並下載"
+                      >
+                        匯出扁平 {activeKind}.json
+                      </button>
+                    </>
+                  )
+                )}
+              </div>
+            </>
+          )}
+        </div>
         <button style={addBtnStyle} onClick={addHandlers[activeKind]} title={`新增${KIND_LABELS[activeKind]}`}>
           <Plus size={12} />
           新增{KIND_LABELS[activeKind]}
@@ -495,6 +618,9 @@ export function DataSourceManager({
       {showImport && (
         <ImportModal
           existingCount={Object.keys(sources).length}
+          existingSources={sources}
+          locales={locales}
+          activeKind={activeKind}
           onClose={() => setShowImport(false)}
           onApply={handleImport}
         />
@@ -622,4 +748,56 @@ const ioBtnStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 4,
   whiteSpace: 'nowrap',
+};
+
+const exportMenuOverlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1000,
+};
+
+const exportMenuStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 4px)',
+  right: 0,
+  background: '#1e1e1e',
+  border: '1px solid #444',
+  borderRadius: 6,
+  padding: 4,
+  minWidth: 200,
+  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+  zIndex: 1001,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const exportMenuItemStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: '#eee',
+  border: 'none',
+  borderRadius: 4,
+  padding: '6px 8px',
+  fontSize: 12,
+  textAlign: 'left',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+const exportMenuDividerStyle: React.CSSProperties = {
+  height: 1,
+  background: '#333',
+  margin: '4px 0',
+};
+
+const exportMenuGroupLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: '#888',
+  padding: '4px 8px 2px',
+};
+
+const exportMenuEmptyStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#666',
+  fontStyle: 'italic',
+  padding: '6px 8px',
 };

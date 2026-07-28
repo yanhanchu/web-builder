@@ -888,7 +888,7 @@
     "componentName": "ThemeToggle",
     "filePath": "src/components/landing1/theme-toggle.tsx",
     "importPath": "components/landing1/theme-toggle",
-    "description": "Light / dark / system theme switcher.\n\nNo Context/provider: reads the persisted choice from `localStorage`\non mount (via `getStoredTheme`) and writes through `setTheme` from\n`@/lib/theme`, which updates `data-theme` on `<html>` directly. Local\n`useState` here is only for the button's own active-state highlight,\nnot shared app state — this component is the only thing that needs\nto re-render when the choice changes.",
+    "description": "Light / dark / system theme switcher.\n\nNo Context/provider: reads the persisted choice from `localStorage`\non mount (via `getStoredTheme`) and writes through `setTheme` from\n`@/lib/theme`, which updates `data-theme` on `<html>` directly. Local\n`useState` here is only for the button's own active-state highlight,\nnot shared app state — this component is the only thing that needs\nto re-render when the choice changes.\n\n【為什麼 onClick 要傳 e.currentTarget.ownerDocument】這個組件可能被畫布\n編輯器用 React portal 掛進一個獨立的 iframe document 裡預覽（見\napps/web-builder 的 CanvasFrame）。portal 只搬動 DOM 節點，這裡的 JS\n還是跑在外層 window 的 realm，如果 setTheme 內部寫死操作全域\n`document`，畫布裡點這顆按鈕改到的會是外層 admin 頁面的 `<html>`，不是\niframe 自己的、真正套用了預覽樣式的那個 `<html>`——畫面上會像完全沒反應。\n`e.currentTarget` 是這顆 `<button>` 自己，它的 `ownerDocument` 永遠正確\n指向它實際被 portal 進去的那個 document（一般情境下就是全域\n`document`，行為不變），不需要額外用 Context 或 prop 往下傳。",
     "props": [
       {
         "name": "groupLabel",

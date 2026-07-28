@@ -1,5 +1,7 @@
 export * from './schema';
 export * from './from-generated';
+export * from './i18n-flat';
+export * from './flat-export';
 export { FieldEditor } from '@workspace/ui/components/data-model/field-editor';
 export { DataSourceManager } from '@workspace/ui/components/data-model/data-source-manager';
 export type { PageOption } from '@workspace/ui/components/data-model/data-source-manager';
