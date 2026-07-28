@@ -14,10 +14,12 @@ import { Home } from "@workspace/ui/pages/generator/home";
 import { ComponentDetail } from "@workspace/ui/pages/generator/component-detail";
 import { FunctionsHome } from "@workspace/ui/pages/generator/functions-home";
 import { FunctionDetail } from "@workspace/ui/pages/generator/function-detail";
+import { Toaster } from "./components/ui/sonner";
 
 export function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster richColors closeButton position="bottom-right" />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />

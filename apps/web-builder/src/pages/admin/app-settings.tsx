@@ -45,6 +45,7 @@ import { buildFlatDataFiles } from "../../lib/export-flat-data";
 import { downloadFlatDataZip } from "../../lib/download-flat-data-zip";
 import { exportFlatDataToServer } from "../../lib/export-flat-data-to-server";
 import { importFlatDataFromServer } from "../../lib/import-flat-data-from-server";
+import { toast } from "sonner";
 
 // App 設定：網站基本資訊與 SEO 直接綁定到單一型別資料記錄。
 // 這裡不再各自重複定義欄位，而是對應到 data-model 裡的 SiteInfoData / SeoData
@@ -102,10 +103,6 @@ export default function AppSettingsPage() {
   const [zipExportState, setZipExportState] = useState<"idle" | "exporting" | "error">("idle");
   const [writeExportState, setWriteExportState] = useState<"idle" | "exporting" | "error">("idle");
   const [readImportState, setReadImportState] = useState<"idle" | "importing" | "error">("idle");
-  // 寫檔成功後記錄實際寫入的資料夾名稱（例如 "data/my-app"），顯示在按鈕旁邊。
-  const [exportedDir, setExportedDir] = useState<string | null>(null);
-  // 讀回成功後記錄實際讀取的資料夾名稱，顯示在按鈕旁邊。
-  const [importedDir, setImportedDir] = useState<string | null>(null);
 
   // 匯出（下載 zip）：把目前 localStorage 裡的四種資料（sources / locales /
   // pages / styleSheets）轉成 apps/site-generator 讀取的攤平檔案格式，打包成
@@ -123,9 +120,13 @@ export default function AppSettingsPage() {
       });
       await downloadFlatDataZip(files, "data.zip");
       setZipExportState("idle");
+      toast.success("已匯出 data.zip");
     } catch (err) {
       console.error("匯出攤平資料失敗：", err);
       setZipExportState("error");
+      toast.error("匯出 data.zip 失敗", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
   };
 
@@ -144,11 +145,14 @@ export default function AppSettingsPage() {
         styleSheets: exportStyleSheets,
       });
       const result = await exportFlatDataToServer(files, effectiveAppName);
-      setExportedDir(result.dir);
       setWriteExportState("idle");
+      toast.success("已寫入專案", { description: `${result.dir}/` });
     } catch (err) {
       console.error("回寫攤平資料失敗：", err);
       setWriteExportState("error");
+      toast.error("回寫到專案失敗", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
   };
 
@@ -163,17 +167,22 @@ export default function AppSettingsPage() {
   //
   // 覆蓋 localStorage 之後，這頁與其他頁面（資料管理／頁面管理…）用
   // usePersistentState 讀出來的 state 都還停留在覆蓋前的記憶體值，
-  // 所以讀回成功後直接重新整理頁面，讓所有頁面改讀新值。
+  // 所以讀回成功後直接重新整理頁面，讓所有頁面改讀新值。成功的 toast
+  // 訊息會在重新整理前先觸發，但頁面刷新後就會消失 —— 這是預期行為，
+  // 使用者按下按鈕到看到頁面刷新這段時間夠短，不需要特別跨刷新保留訊息。
   const handleReadFromServer = async () => {
     setReadImportState("importing");
     try {
       const result = await importFlatDataFromServer(effectiveAppName);
-      setImportedDir(result.dir);
       setReadImportState("idle");
+      toast.success("已從專案讀回並覆蓋", { description: `${result.dir}/` });
       window.location.reload();
     } catch (err) {
       console.error("讀回攤平資料失敗：", err);
       setReadImportState("error");
+      toast.error("從專案讀回失敗", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
   };
 
@@ -296,9 +305,6 @@ export default function AppSettingsPage() {
                 ? "回寫失敗，重試"
                 : `回寫到 /data/${effectiveAppName}/`}
           </button>
-          {exportedDir && writeExportState === "idle" && (
-            <span style={{ fontSize: 12, color: "#8fbf8f" }}>已寫入 {exportedDir}/</span>
-          )}
           <button
             onClick={handleReadFromServer}
             disabled={readImportState === "importing"}
@@ -316,9 +322,6 @@ export default function AppSettingsPage() {
                 ? "讀回失敗，重試"
                 : `從 /data/${effectiveAppName}/ 讀回`}
           </button>
-          {importedDir && readImportState === "idle" && (
-            <span style={{ fontSize: 12, color: "#8fbf8f" }}>已從 {importedDir}/ 覆蓋</span>
-          )}
         </>
       }
     >
