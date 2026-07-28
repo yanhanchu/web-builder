@@ -1,0 +1,9 @@
+{
+  "logo-main": {
+    "label": "檔案: 主要 Logo",
+    "url": "https://example.com/logo.svg",
+    "mimeType": "image/svg+xml",
+    "caption": "OZSV 主要 Logo",
+    "description": "用於 Header / Footer 的主要品牌 Logo，SVG 向量格式。"
+  }
+}

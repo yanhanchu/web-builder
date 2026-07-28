@@ -1,0 +1,187 @@
+[
+  {
+    "id": "home",
+    "name": "首頁",
+    "status": "published",
+    "styleSheetIds": ["global"],
+    "seo": {
+      "title": "首頁",
+      "titleTemplate": "%s | OZSV",
+      "description": "OZSV 官方網站首頁。",
+      "keywords": "",
+      "ogImage": "",
+      "ogType": "website",
+      "twitterCard": "",
+      "twitterSite": "",
+      "canonicalUrl": "",
+      "robots": "index, follow"
+    },
+    "blocks": [
+      {
+        "instanceId": "blk_layout_home",
+        "componentId": "src/components/landing1/layout.tsx#Layout",
+        "componentName": "Layout",
+        "props": {
+          "header": {
+            "mode": "object",
+            "fields": {
+              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
+              "primaryNav": { "mode": "bound", "sourceId": "typedData:nav:primary" },
+              "themeOptions": { "mode": "bound", "sourceId": "typedData:theme:options" },
+              "themeGroupLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
+              "themeLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
+              "openMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.open" },
+              "closeMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.close" }
+            }
+          },
+          "footer": {
+            "mode": "object",
+            "fields": {
+              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
+              "tagline": { "mode": "bound", "sourceId": "i18n:footer.tagline" },
+              "email": { "mode": "literal", "value": "hello@example.com" },
+              "emailAriaLabel": { "mode": "literal", "value": "Email us at hello@example.com" },
+              "columns": { "mode": "bound", "sourceId": "typedData:nav:footerColumns" },
+              "copyright": { "mode": "bound", "sourceId": "i18n:footer.copyright" },
+              "meta": { "mode": "literal", "value": "Made in Australia" }
+            }
+          },
+          "children": {
+            "__slot": true,
+            "blocks": [
+              {
+                "instanceId": "blk_hero_home",
+                "componentId": "src/components/landing1/hero.tsx#Hero",
+                "componentName": "Hero",
+                "props": {
+                  "eyebrow": { "mode": "bound", "sourceId": "i18n:hero.eyebrow" },
+                  "title": {
+                    "mode": "object",
+                    "fields": {
+                      "lead": { "mode": "bound", "sourceId": "i18n:hero.title.lead" },
+                      "accent": { "mode": "bound", "sourceId": "i18n:hero.title.accent" }
+                    }
+                  },
+                  "subtitle": { "mode": "bound", "sourceId": "i18n:hero.subtitle" },
+                  "primaryCta": {
+                    "mode": "object",
+                    "fields": {
+                      "label": { "mode": "bound", "sourceId": "i18n:hero.primaryCta.label" },
+                      "to": { "mode": "literal", "value": "/product" }
+                    }
+                  },
+                  "secondaryCta": {
+                    "mode": "object",
+                    "fields": {
+                      "label": { "mode": "bound", "sourceId": "i18n:hero.secondaryCta.label" },
+                      "to": { "mode": "literal", "value": "/about" }
+                    }
+                  }
+                }
+              },
+              {
+                "instanceId": "blk_valueprops_home",
+                "componentId": "src/components/landing1/value-props.tsx#ValueProps",
+                "componentName": "ValueProps",
+                "props": {
+                  "items": {
+                    "mode": "array",
+                    "items": [
+                      {
+                        "mode": "object",
+                        "fields": {
+                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.fast.title" },
+                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.fast.body" }
+                        }
+                      },
+                      {
+                        "mode": "object",
+                        "fields": {
+                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.flexible.title" },
+                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.flexible.body" }
+                        }
+                      },
+                      {
+                        "mode": "object",
+                        "fields": {
+                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.reliable.title" },
+                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.reliable.body" }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "instanceId": "blk_ctabanner_home",
+                "componentId": "src/components/landing1/cta-banner.tsx#CtaBanner",
+                "componentName": "CtaBanner",
+                "props": {
+                  "title": { "mode": "bound", "sourceId": "i18n:cta.title" },
+                  "body": { "mode": "bound", "sourceId": "i18n:cta.body" },
+                  "ctaLabel": { "mode": "bound", "sourceId": "i18n:cta.label" },
+                  "ctaHref": { "mode": "literal", "value": "mailto:hello@example.com" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "about",
+    "name": "關於我們",
+    "status": "published",
+    "styleSheetIds": ["global"],
+    "seo": {
+      "title": "關於我們",
+      "titleTemplate": "%s | OZSV",
+      "description": "認識 OZSV 團隊與我們的理念。",
+      "keywords": "",
+      "ogImage": "",
+      "ogType": "website",
+      "twitterCard": "",
+      "twitterSite": "",
+      "canonicalUrl": "",
+      "robots": "index, follow"
+    },
+    "blocks": [
+      {
+        "instanceId": "blk_layout_about",
+        "componentId": "src/components/landing1/layout.tsx#Layout",
+        "componentName": "Layout",
+        "props": {
+          "header": {
+            "mode": "object",
+            "fields": {
+              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
+              "primaryNav": { "mode": "bound", "sourceId": "typedData:nav:primary" },
+              "themeOptions": { "mode": "bound", "sourceId": "typedData:theme:options" },
+              "themeGroupLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
+              "themeLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
+              "openMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.open" },
+              "closeMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.close" }
+            }
+          },
+          "footer": {
+            "mode": "object",
+            "fields": {
+              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
+              "tagline": { "mode": "bound", "sourceId": "i18n:footer.tagline" },
+              "email": { "mode": "literal", "value": "hello@example.com" },
+              "emailAriaLabel": { "mode": "literal", "value": "Email us at hello@example.com" },
+              "columns": { "mode": "bound", "sourceId": "typedData:nav:footerColumns" },
+              "copyright": { "mode": "bound", "sourceId": "i18n:footer.copyright" },
+              "meta": { "mode": "literal", "value": "Made in Australia" }
+            }
+          },
+          "children": {
+            "__slot": true,
+            "blocks": []
+          }
+        }
+      }
+    ]
+  }
+]

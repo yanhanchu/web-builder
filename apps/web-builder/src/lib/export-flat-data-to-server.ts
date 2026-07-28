@@ -12,7 +12,7 @@
 import type { ExportedFiles } from "./export-flat-data";
 
 export interface DataExportResult {
-  /** 實際寫入的資料夾名稱，例如 "data-07-28"（相對於 monorepo 根目錄）。 */
+  /** 實際寫入的資料夾名稱，例如 "data/my-app"（相對於 monorepo 根目錄）。 */
   dir: string;
   /** 實際寫入的相對檔案路徑清單，例如 ["sources/route.json", "pages.json", ...]。 */
   files: string[];
@@ -20,9 +20,15 @@ export interface DataExportResult {
 
 /**
  * 把 buildFlatDataFiles() 的結果 POST 給 /api/data-export，
- * 由 dev server 寫到 data-{mm-dd}/ 目錄。
+ * 由 dev server 寫到 /data/{appName}/ 目錄。
+ *
+ * appName 對應「App 設定」頁新增的 App Name 欄位；未提供或空字串時，
+ * server 端會退回預設值 "default"（見 data-export-dev-plugin.ts）。
  */
-export async function exportFlatDataToServer(files: ExportedFiles): Promise<DataExportResult> {
+export async function exportFlatDataToServer(
+  files: ExportedFiles,
+  appName?: string,
+): Promise<DataExportResult> {
   const payload: Record<string, string> = {};
   for (const [relativePath, content] of files) {
     payload[relativePath] = content;
@@ -31,7 +37,7 @@ export async function exportFlatDataToServer(files: ExportedFiles): Promise<Data
   const res = await fetch("/api/data-export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ files: payload }),
+    body: JSON.stringify({ files: payload, appName }),
   });
 
   const data = await res.json().catch(() => ({}));

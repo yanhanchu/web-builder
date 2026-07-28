@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Save, RotateCcw, Trash2, HardDrive, Cloud } from "lucide-react";
+import { Save, RotateCcw, Trash2, HardDrive, Cloud, Download, FolderOutput, FolderInput } from "lucide-react";
 import {
   AdminLayout,
   useSavedFlash,
+  usePersistentState,
   panelStyle,
   panelTitleStyle,
   labelStyle,
@@ -23,7 +24,9 @@ import {
 import {
   SeoDataTypeId,
   SiteInfoDataTypeId,
+  sources as initialSources,
 } from "@workspace/ui/lib/data-model/sample-data";
+import type { DataSource } from "@workspace/ui/lib/data-model";
 import {
   UPLOAD_DESTS_KEY,
   DEFAULT_UPLOAD_DESTS,
@@ -36,6 +39,12 @@ import {
   type S3UploadDest,
 } from "../../lib/upload-destinations";
 import { syncUploadSettings, DEFAULT_APP_NAME } from "../../lib/upload-client";
+import { usePagesState } from "../../lib/pages-store";
+import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "./style-manager";
+import { buildFlatDataFiles } from "../../lib/export-flat-data";
+import { downloadFlatDataZip } from "../../lib/download-flat-data-zip";
+import { exportFlatDataToServer } from "../../lib/export-flat-data-to-server";
+import { importFlatDataFromServer } from "../../lib/import-flat-data-from-server";
 
 // App 設定：網站基本資訊與 SEO 直接綁定到單一型別資料記錄。
 // 這裡不再各自重複定義欄位，而是對應到 data-model 裡的 SiteInfoData / SeoData
@@ -50,6 +59,10 @@ import { syncUploadSettings, DEFAULT_APP_NAME } from "../../lib/upload-client";
 
 const SITE_INFO_KEY = "wb.typedData.siteInfo:main";
 const SEO_KEY = "wb.typedData.seo:default";
+// App Name：獨立、單純的字串輸入，跟 siteInfo / seo 那種型別資料無關，
+// 只用來決定「回寫到專案」時要寫進 /data/{app name} 的哪個資料夾。
+// 沒有填（或只有空白）時，系統預設為 "default"。
+const APP_NAME_KEY = "wb.appName";
 
 export default function AppSettingsPage() {
   const [siteInfo, setSiteInfo] = useState<SiteInfoData>(() =>
@@ -61,9 +74,108 @@ export default function AppSettingsPage() {
   const [uploadDests, setUploadDests] = useState<UploadDest[]>(() =>
     readUploadDestsArray(UPLOAD_DESTS_KEY, DEFAULT_UPLOAD_DESTS),
   );
+  // App Name：獨立、單純的字串輸入，跟其他欄位分開存（自己的 localStorage
+  // key），即時持久化，不用等按「儲存設定」。沒有填（trim 後為空）時，
+  // 系統預設為 "default" —— 這個 fallback 在 effectiveAppName 統一處理，
+  // 存檔本身允許暫時是空字串（讓使用者打字時不會被強制蓋成 "default"）。
+  const [appName, setAppName] = usePersistentState<string>(APP_NAME_KEY, "");
+  const effectiveAppName = appName.trim() || DEFAULT_APP_NAME;
+
   const [saved, flashSaved] = useSavedFlash();
   const [dirty, setDirty] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // ---- 從「資料管理」頁搬過來的匯出／回寫功能 ----
+  // 資料管理頁（data-manager.tsx）的四種 DataSource 相關 state
+  // （sources / locales / pages / styleSheets）都各自存在自己的
+  // localStorage key，這裡用同樣的 key 讀出「目前」的值，藉此組出
+  // 跟資料管理頁一致的攤平匯出內容，不需要把這些 state 的「編輯」搬過來，
+  // 只需要「讀」。
+  const [exportSources] = usePersistentState<Record<string, DataSource>>(
+    "wb.dataSources",
+    initialSources,
+  );
+  const [exportLocales] = usePersistentState<string[]>("wb.locales", ["zh-TW", "en"]);
+  const [exportPages] = usePagesState();
+  const [exportStyleSheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+
+  const [zipExportState, setZipExportState] = useState<"idle" | "exporting" | "error">("idle");
+  const [writeExportState, setWriteExportState] = useState<"idle" | "exporting" | "error">("idle");
+  const [readImportState, setReadImportState] = useState<"idle" | "importing" | "error">("idle");
+  // 寫檔成功後記錄實際寫入的資料夾名稱（例如 "data/my-app"），顯示在按鈕旁邊。
+  const [exportedDir, setExportedDir] = useState<string | null>(null);
+  // 讀回成功後記錄實際讀取的資料夾名稱，顯示在按鈕旁邊。
+  const [importedDir, setImportedDir] = useState<string | null>(null);
+
+  // 匯出（下載 zip）：把目前 localStorage 裡的四種資料（sources / locales /
+  // pages / styleSheets）轉成 apps/site-generator 讀取的攤平檔案格式，打包成
+  // zip 觸發下載。使用者下載後手動解壓縮覆蓋專案的 data/ 目錄即可 —— 不需要
+  // dev server 額外提供的寫檔 API，純瀏覽器就能完成，適合不在本機開發環境
+  // （例如只在瀏覽器操作、要把資料帶去別的地方）的情境。
+  const handleExportZip = async () => {
+    setZipExportState("exporting");
+    try {
+      const files = buildFlatDataFiles({
+        sources: exportSources,
+        locales: exportLocales,
+        pages: exportPages,
+        styleSheets: exportStyleSheets,
+      });
+      await downloadFlatDataZip(files, "data.zip");
+      setZipExportState("idle");
+    } catch (err) {
+      console.error("匯出攤平資料失敗：", err);
+      setZipExportState("error");
+    }
+  };
+
+  // 回寫到專案：把同一份攤平資料改成呼叫 vite dev server 的
+  // /api/data-export，由 server 直接寫檔到專案根目錄的 /data/{app name}/
+  // （未打包），不需要使用者下載 zip 後手動解壓縮覆蓋。只能在本機
+  // dev server 有跑起來時使用（見 server/data-export-dev-plugin.ts）。
+  // app name 沒填時用 "default"（effectiveAppName）。
+  const handleWriteToServer = async () => {
+    setWriteExportState("exporting");
+    try {
+      const files = buildFlatDataFiles({
+        sources: exportSources,
+        locales: exportLocales,
+        pages: exportPages,
+        styleSheets: exportStyleSheets,
+      });
+      const result = await exportFlatDataToServer(files, effectiveAppName);
+      setExportedDir(result.dir);
+      setWriteExportState("idle");
+    } catch (err) {
+      console.error("回寫攤平資料失敗：", err);
+      setWriteExportState("error");
+    }
+  };
+
+  // 讀回專案：反向操作，呼叫 vite dev server 的 /api/data-export（GET），
+  // 把 /data/{app name}/ 目錄底下目前的攤平檔案整包讀回來，直接覆蓋掉
+  // localStorage 的 wb.dataSources / wb.locales / wb.pages / wb.styleSheets
+  // 四個 key —— 不考慮衝突，是整包取代，不是合併。
+  //
+  // 這裡刻意不做「上傳檔案」的 UI：app name 本來就設定在這一頁
+  // （effectiveAppName），直接照這個名稱去讀 server 上對應的資料夾即可，
+  // 不需要使用者自己選檔案。
+  //
+  // 覆蓋 localStorage 之後，這頁與其他頁面（資料管理／頁面管理…）用
+  // usePersistentState 讀出來的 state 都還停留在覆蓋前的記憶體值，
+  // 所以讀回成功後直接重新整理頁面，讓所有頁面改讀新值。
+  const handleReadFromServer = async () => {
+    setReadImportState("importing");
+    try {
+      const result = await importFlatDataFromServer(effectiveAppName);
+      setImportedDir(result.dir);
+      setReadImportState("idle");
+      window.location.reload();
+    } catch (err) {
+      console.error("讀回攤平資料失敗：", err);
+      setReadImportState("error");
+    }
+  };
 
   const setSite = <K extends keyof SiteInfoData>(
     key: K,
@@ -150,10 +262,84 @@ export default function AppSettingsPage() {
             <RotateCcw size={14} />
             還原預設值
           </button>
+          <button
+            onClick={handleExportZip}
+            disabled={zipExportState === "exporting"}
+            title="把目前的 sources / locales / pages / styleSheets 匯出成 data/ 攤平檔案（zip）"
+            style={{
+              ...ghostBtnStyle,
+              background: zipExportState === "error" ? "#7a2d2d" : undefined,
+              cursor: zipExportState === "exporting" ? "wait" : "pointer",
+            }}
+          >
+            <Download size={14} />
+            {zipExportState === "exporting"
+              ? "匯出中…"
+              : zipExportState === "error"
+                ? "匯出失敗，重試"
+                : "匯出 data.zip"}
+          </button>
+          <button
+            onClick={handleWriteToServer}
+            disabled={writeExportState === "exporting"}
+            title={`把目前的 sources / locales / pages / styleSheets 寫到專案的 /data/${effectiveAppName}/ 目錄（未打包，需 dev server 執行中）`}
+            style={{
+              ...ghostBtnStyle,
+              background: writeExportState === "error" ? "#7a2d2d" : undefined,
+              cursor: writeExportState === "exporting" ? "wait" : "pointer",
+            }}
+          >
+            <FolderOutput size={14} />
+            {writeExportState === "exporting"
+              ? "回寫中…"
+              : writeExportState === "error"
+                ? "回寫失敗，重試"
+                : `回寫到 /data/${effectiveAppName}/`}
+          </button>
+          {exportedDir && writeExportState === "idle" && (
+            <span style={{ fontSize: 12, color: "#8fbf8f" }}>已寫入 {exportedDir}/</span>
+          )}
+          <button
+            onClick={handleReadFromServer}
+            disabled={readImportState === "importing"}
+            title={`從專案的 /data/${effectiveAppName}/ 目錄讀回 sources / locales / pages / styleSheets，整包覆蓋掉目前的 localStorage（不考慮衝突，需 dev server 執行中）`}
+            style={{
+              ...ghostBtnStyle,
+              background: readImportState === "error" ? "#7a2d2d" : undefined,
+              cursor: readImportState === "importing" ? "wait" : "pointer",
+            }}
+          >
+            <FolderInput size={14} />
+            {readImportState === "importing"
+              ? "讀回中…"
+              : readImportState === "error"
+                ? "讀回失敗，重試"
+                : `從 /data/${effectiveAppName}/ 讀回`}
+          </button>
+          {importedDir && readImportState === "idle" && (
+            <span style={{ fontSize: 12, color: "#8fbf8f" }}>已從 {importedDir}/ 覆蓋</span>
+          )}
         </>
       }
     >
       <div style={{ maxWidth: 760 }}>
+        <section style={panelStyle}>
+          <h2 style={panelTitleStyle}>App Name</h2>
+          <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
+            獨立的字串設定，跟下面的網站資訊／SEO 型別資料無關，只決定「回寫到專案」
+            要寫進哪個資料夾：<code>/data/{effectiveAppName}</code>。沒有填時系統預設為{" "}
+            <code>default</code>。
+          </p>
+          <Field label="App Name">
+            <input
+              style={inputStyle}
+              value={appName}
+              placeholder={DEFAULT_APP_NAME}
+              onChange={(e) => setAppName(e.target.value)}
+            />
+          </Field>
+        </section>
+
         <section style={panelStyle}>
           <div
             style={{

@@ -1,0 +1,14 @@
+{
+  "home": {
+    "target": "page",
+    "pageId": "home",
+    "value": "/",
+    "noindex": false
+  },
+  "about": {
+    "target": "page",
+    "pageId": "about",
+    "value": "/about",
+    "noindex": false
+  }
+}

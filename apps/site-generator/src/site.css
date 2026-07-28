@@ -1,0 +1,13 @@
+/*
+  CSS 建置入口，只給 generate.ts 的 buildCss() 當 Vite build 的 rollup input 用，
+  本身不會被任何頁面 import。內容跟 apps/web-builder/src/index.css 對齊：
+  引入 @workspace/ui 的 globals.css（Tailwind v4 + design tokens），並用
+  @source 指令告訴 Tailwind 去掃 packages/ui/src 底下所有 .tsx，把實際被
+  組件用到的 utility class 都產生出來 —— 靜態站只會用到 landing1 等組件
+  裡出現過的 class，不需要、也不會產生整包 Tailwind。
+*/
+@import "@workspace/ui/styles/globals.css";
+
+@source "./src/**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+

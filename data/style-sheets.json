@@ -1,0 +1,7 @@
+[
+  {
+    "id": "global",
+    "name": "全域樣式",
+    "css": ":root {\n  --brand: #2d9c74;\n}\n\nbody {\n  font-family: system-ui, sans-serif;\n}"
+  }
+]

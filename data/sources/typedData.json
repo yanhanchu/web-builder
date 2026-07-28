@@ -1,0 +1,141 @@
+{
+  "brand:main": {
+    "label": "型別資料: 主品牌 (BrandData)",
+    "typeId": "src/components/landing1/types.ts#BrandData",
+    "value": {
+      "mode": "object",
+      "fields": {
+        "toHome": { "mode": "literal", "value": "/" },
+        "ariaLabel": { "mode": "bound", "sourceId": "i18n:brand.ariaLabel" },
+        "mark": { "mode": "bound", "sourceId": "i18n:brand.mark" },
+        "logoSrc": { "mode": "bound", "sourceId": "file:logo-main" },
+        "wordmark": {
+          "mode": "object",
+          "fields": {
+            "lead": { "mode": "bound", "sourceId": "i18n:brand.wordmark.lead" },
+            "accent": { "mode": "bound", "sourceId": "i18n:brand.wordmark.accent" }
+          }
+        }
+      }
+    }
+  },
+
+  "nav:primary": {
+    "label": "型別資料: 主導覽 (NavItem[])",
+    "typeId": "src/components/landing1/types.ts#NavItem[]",
+    "value": {
+      "mode": "array",
+      "items": [
+        {
+          "mode": "object",
+          "fields": {
+            "label": { "mode": "bound", "sourceId": "i18n:nav.product" },
+            "to": { "mode": "literal", "value": "/product" }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "label": { "mode": "bound", "sourceId": "i18n:nav.about" },
+            "to": { "mode": "literal", "value": "/about" }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "label": { "mode": "bound", "sourceId": "i18n:nav.contact" },
+            "to": { "mode": "literal", "value": "/contact" }
+          }
+        }
+      ]
+    }
+  },
+
+  "theme:options": {
+    "label": "型別資料: 主題選項 (ThemeOption[])",
+    "typeId": "src/components/landing1/types.ts#ThemeOption[]",
+    "value": {
+      "mode": "array",
+      "items": [
+        { "mode": "object", "fields": { "value": { "mode": "literal", "value": "light" }, "label": { "mode": "literal", "value": "Light" } } },
+        { "mode": "object", "fields": { "value": { "mode": "literal", "value": "dark" }, "label": { "mode": "literal", "value": "Dark" } } },
+        { "mode": "object", "fields": { "value": { "mode": "literal", "value": "system" }, "label": { "mode": "literal", "value": "System" } } }
+      ]
+    }
+  },
+
+  "nav:footerColumns": {
+    "label": "型別資料: Footer 導覽分組 (NavColumn[])",
+    "typeId": "src/components/landing1/types.ts#NavColumn[]",
+    "value": {
+      "mode": "array",
+      "items": [
+        {
+          "mode": "object",
+          "fields": {
+            "title": { "mode": "literal", "value": "Product" },
+            "items": {
+              "mode": "array",
+              "items": [
+                { "mode": "object", "fields": { "label": { "mode": "literal", "value": "Features" }, "to": { "mode": "literal", "value": "/features" } } },
+                { "mode": "object", "fields": { "label": { "mode": "literal", "value": "Pricing" }, "to": { "mode": "literal", "value": "/pricing" } } }
+              ]
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "title": { "mode": "literal", "value": "Company" },
+            "items": {
+              "mode": "array",
+              "items": [
+                { "mode": "object", "fields": { "label": { "mode": "bound", "sourceId": "i18n:nav.about" }, "to": { "mode": "literal", "value": "/about" } } },
+                { "mode": "object", "fields": { "label": { "mode": "bound", "sourceId": "i18n:nav.contact" }, "to": { "mode": "literal", "value": "/contact" } } }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+
+  "siteInfo:main": {
+    "label": "型別資料: 網站基本資訊 (SiteInfoData)",
+    "typeId": "src/components/site/types.ts#SiteInfoData",
+    "value": {
+      "mode": "object",
+      "fields": {
+        "siteName": { "mode": "literal", "value": "OZSV" },
+        "tagline": { "mode": "literal", "value": "使用 Web Builder 打造你的網站。" },
+        "siteUrl": { "mode": "literal", "value": "https://example.com" },
+        "faviconUrl": { "mode": "literal", "value": "/favicon.ico" },
+        "manifestUrl": { "mode": "literal", "value": "/manifest.webmanifest" },
+        "themeColor": { "mode": "literal", "value": "#2d9c74" },
+        "defaultLocale": { "mode": "literal", "value": "en" },
+        "contactEmail": { "mode": "literal", "value": "hello@example.com" },
+        "publisher": { "mode": "literal", "value": "OZSV" }
+      }
+    }
+  },
+
+  "seo:default": {
+    "label": "型別資料: 全站 SEO 預設 (SeoData)",
+    "typeId": "src/components/site/types.ts#SeoData",
+    "value": {
+      "mode": "object",
+      "fields": {
+        "title": { "mode": "literal", "value": "OZSV" },
+        "titleTemplate": { "mode": "literal", "value": "%s | OZSV" },
+        "description": { "mode": "literal", "value": "一套現代化工具組，協助你打造精緻的網站體驗。" },
+        "keywords": { "mode": "literal", "value": "web, builder, cms" },
+        "ogImage": { "mode": "literal", "value": "/og-image.png" },
+        "ogType": { "mode": "literal", "value": "website" },
+        "twitterCard": { "mode": "literal", "value": "summary_large_image" },
+        "twitterSite": { "mode": "literal", "value": "@ozsv" },
+        "canonicalUrl": { "mode": "literal", "value": "" },
+        "robots": { "mode": "literal", "value": "index, follow" }
+      }
+    }
+  }
+}
