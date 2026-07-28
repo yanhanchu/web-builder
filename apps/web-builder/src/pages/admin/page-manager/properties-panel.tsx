@@ -1,4 +1,5 @@
-import { Save, Trash2, Undo2, ChevronUp, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Save, Trash2, Undo2, ChevronUp, ChevronDown, X } from "lucide-react";
 import {
   panelTitleStyle,
   labelStyle,
@@ -160,14 +161,19 @@ export function PropertiesPanel({
  * 引用陣列、依陣列順序即套用順序（後面的覆蓋前面同名 CSS 規則），不複製
  * 樣式表內容本身——與 pages-store.ts 對這個欄位的既有註解設計一致。
  *
- * 分兩塊呈現：
- *   - 「已套用」：依目前 selectedIds 順序列出，每列可上移/下移調整順序、
- *     或移除；拖放函式庫在這個專案裡沒有其他地方用過，這裡沿用同樣「簡單
- *     按鈕」的風格，不額外引入新依賴。
- *   - 「可加入」：尚未選取的樣式表，點擊加到「已套用」清單最後方。
+ * 呈現方式採「下拉觸發 + 浮動面板」的多選選單（樣式比照 component-
+ * properties-panel.tsx 的 ReactNodeField「加入組件…」下拉，同一套視覺
+ * 語言），而不是把整批已選清單常駐展開在面板裡——樣式表一多，逐列展開會
+ * 佔掉右側面板大半空間，收合成一顆按鈕比較節省版面，點開才看到完整清單。
+ * 收合狀態的觸發按鈕本身會顯示已選數量與名稱摘要，不用展開也能一眼確認
+ * 目前套用了哪些。
  *
- * 沒有任何樣式表可選（使用者還沒去「樣式管理」建立過任何一份）時顯示提示
- * 文字，請使用者自行切換到「樣式管理」頁面新增，不顯示空白列表。
+ * 浮動面板內仍保留每列的上移/下移／移除，勾選未選取的樣式表則加到清單
+ * 最後方——順序調整、移除、加入都收在同一個下拉面板裡完成，不需要在
+ * 面板外再另外呈現一份「可加入」清單。
+ *
+ * 沒有任何樣式表可選（使用者還沒去「樣式管理」建立過任何一份）時觸發
+ * 按鈕直接顯示提示文字並停用，不用點開才知道沒東西可選。
  */
 function StyleSheetPicker({
   selectedIds,
@@ -177,24 +183,35 @@ function StyleSheetPicker({
   onChange: (ids: string[]) => void;
 }) {
   const [sheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
-  if (sheets.length === 0) {
-    return (
-      <p style={{ fontSize: 12, color: "#777", margin: 0 }}>
-        尚未建立任何樣式表，請先到「樣式管理」頁面新增。
-      </p>
-    );
-  }
+  // 點下拉面板以外的地方自動收合，避免使用者點了畫面別處，選單還一直
+  // 浮在上面。用 mousedown（而非 click）搭配 capture 前的最基本判斷即可，
+  // 這裡不需要額外處理拖曳選取文字誤觸關閉之類的邊界情況。
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
 
   const sheetById = new Map(sheets.map((s) => [s.id, s]));
   // 已套用的樣式表可能引用到已被「樣式管理」刪除的 id（該份樣式表後來被刪
-  // 除了），這裡照樣列出、只是找不到名稱時退回顯示 id 本身，不靜默丟棄，
+  // 除了），這裡照樣列出、只是找不到名稱時退回顯示提示文字，不靜默丟棄，
   // 避免使用者存檔時被悄悄清空一筆設定卻毫無感知。
   const selectedSheets = selectedIds.map((id) => ({ id, name: sheetById.get(id)?.name ?? null }));
-  const availableSheets = sheets.filter((s) => !selectedIds.includes(s.id));
 
-  const remove = (id: string) => onChange(selectedIds.filter((existing) => existing !== id));
-  const add = (id: string) => onChange([...selectedIds, id]);
+  const toggle = (id: string) => {
+    const next = selectedIds.includes(id)
+      ? selectedIds.filter((existing) => existing !== id)
+      : [...selectedIds, id];
+    onChange(next);
+  };
 
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction;
@@ -204,88 +221,135 @@ function StyleSheetPicker({
     onChange(next);
   };
 
-  const rowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 13,
-    color: "#ccc",
-    padding: "4px 6px",
-    borderRadius: 4,
-    background: "#1c2b23",
-  };
+  const summary =
+    selectedSheets.length === 0
+      ? "未套用樣式表"
+      : `已套用 ${selectedSheets.length} 份：${selectedSheets.map((s) => s.name ?? "（已刪除）").join("、")}`;
+
+  if (sheets.length === 0) {
+    return (
+      <button type="button" disabled style={{ ...inputStyle, color: "#666", cursor: "not-allowed", textAlign: "left" }}>
+        尚未建立任何樣式表，請先到「樣式管理」頁面新增
+      </button>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <div style={{ fontSize: 11, color: "#777", marginBottom: 4 }}>
-          已套用（依序疊加，下方覆蓋上方同名規則）
-        </div>
-        {selectedSheets.length === 0 ? (
-          <p style={{ fontSize: 12, color: "#666", margin: 0, fontStyle: "italic" }}>尚未套用任何樣式表。</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {selectedSheets.map((sheet, index) => (
-              <div key={sheet.id} style={rowStyle}>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <button
-                    style={{ ...iconBtnStyle, padding: 0, opacity: index === 0 ? 0.3 : 1 }}
-                    onClick={() => move(index, -1)}
-                    disabled={index === 0}
-                    title="上移"
-                  >
-                    <ChevronUp size={12} />
-                  </button>
-                  <button
-                    style={{ ...iconBtnStyle, padding: 0, opacity: index === selectedSheets.length - 1 ? 0.3 : 1 }}
-                    onClick={() => move(index, 1)}
-                    disabled={index === selectedSheets.length - 1}
-                    title="下移"
-                  >
-                    <ChevronDown size={12} />
-                  </button>
-                </div>
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {sheet.name ?? <em style={{ color: "#e77" }}>（找不到此樣式表，可能已被刪除）</em>}
-                </span>
-                <code style={{ fontSize: 10, color: "#666" }}>{sheet.id}</code>
-                <button style={{ ...iconBtnStyle, color: "#e77" }} onClick={() => remove(sheet.id)} title="移除套用">
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 8 }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span
+          style={{
+            color: selectedSheets.length === 0 ? "#999" : "#ccc",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          {summary}
+        </span>
+        <ChevronDown size={12} style={{ color: "#777", flexShrink: 0 }} />
+      </button>
 
-      {availableSheets.length > 0 && (
-        <div>
-          <div style={{ fontSize: 11, color: "#777", marginBottom: 4 }}>可加入</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {availableSheets.map((sheet) => (
-              <button
-                key={sheet.id}
-                type="button"
-                onClick={() => add(sheet.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 13,
-                  color: "#999",
-                  cursor: "pointer",
-                  padding: "4px 6px",
-                  borderRadius: 4,
-                  background: "transparent",
-                  border: "1px dashed #333",
-                  textAlign: "left",
-                }}
-                title="套用此樣式表"
-              >
-                {sheet.name}
-                <code style={{ fontSize: 10, color: "#666", marginLeft: "auto" }}>{sheet.id}</code>
-              </button>
-            ))}
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            zIndex: 20,
+            background: "#171717",
+            border: "1px solid #333",
+            borderRadius: 6,
+            padding: 8,
+            maxHeight: 300,
+            overflowY: "auto",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          }}
+        >
+          {selectedSheets.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, color: "#777", padding: "2px 6px 4px" }}>
+                已套用（依序疊加，下方覆蓋上方同名規則）
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                {selectedSheets.map((sheet, index) => (
+                  <div
+                    key={sheet.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      color: "#ccc",
+                      padding: "4px 6px",
+                      borderRadius: 4,
+                      background: "#1c2b23",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <button
+                        style={{ ...iconBtnStyle, padding: 0, opacity: index === 0 ? 0.3 : 1 }}
+                        onClick={() => move(index, -1)}
+                        disabled={index === 0}
+                        title="上移"
+                      >
+                        <ChevronUp size={11} />
+                      </button>
+                      <button
+                        style={{ ...iconBtnStyle, padding: 0, opacity: index === selectedSheets.length - 1 ? 0.3 : 1 }}
+                        onClick={() => move(index, 1)}
+                        disabled={index === selectedSheets.length - 1}
+                        title="下移"
+                      >
+                        <ChevronDown size={11} />
+                      </button>
+                    </div>
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {sheet.name ?? <em style={{ color: "#e77" }}>（找不到此樣式表，可能已被刪除）</em>}
+                    </span>
+                    <button style={{ ...iconBtnStyle, color: "#e77" }} onClick={() => toggle(sheet.id)} title="移除套用">
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div style={{ fontSize: 10, color: "#777", padding: "2px 6px 4px" }}>全部樣式表</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {sheets.map((sheet) => {
+              const checked = selectedIds.includes(sheet.id);
+              return (
+                <label
+                  key={sheet.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    color: checked ? "#8fe" : "#ccc",
+                    cursor: "pointer",
+                    padding: "5px 6px",
+                    borderRadius: 4,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <input type="checkbox" checked={checked} onChange={() => toggle(sheet.id)} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {sheet.name}
+                  </span>
+                  <code style={{ fontSize: 10, color: "#666" }}>{sheet.id}</code>
+                </label>
+              );
+            })}
           </div>
         </div>
       )}
