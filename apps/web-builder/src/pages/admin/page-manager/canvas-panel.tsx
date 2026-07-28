@@ -1,5 +1,17 @@
-import { createContext, Fragment, useContext, useEffect, useMemo, useState } from "react";
-import { Save, FileText, LoaderCircle, TriangleAlert } from "lucide-react";
+import {
+  Component as ReactComponentClass,
+  createContext,
+  Fragment,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { Save, FileText, LoaderCircle, TriangleAlert, Trash2 } from "lucide-react";
 import { panelTitleStyle, primaryBtnStyle, ghostBtnStyle, usePersistentState } from "../admin-ui";
 import { allComponents, loadComponentModule } from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
@@ -15,6 +27,7 @@ import {
 import { splitSlotProps, findBlockDeep, type PageItem, type PageBlock } from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
+import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "../style-manager";
 
 // 中間「視圖／畫布」：依 viewport 切換寬度並置中留白，即時 render 出頁面
 // 目前實際組合的組件（不再只是示意卡片）——每個 block 對應真正 import 進來的
@@ -69,6 +82,190 @@ import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
 // 存在的）返回值。dataTransfer 仍然照樣寫入（drop 時可靠地讀出真正的值），
 // 但 dragover 階段的「能不能放這裡」判斷不再依賴它。
 // ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
+// 【技術驗證】畫布改用 iframe 隔離渲染
+//
+// 目的：讓畫布裡渲染的頁面（1）真的套用 draft.styleSheetIds 選中的樣式表
+// （2）不受 admin 後台自己的樣式影響、也不會反過來汙染 admin 後台。
+//
+// 舊版問題：canvas 直接畫在跟 admin 後台同一個 document 裡，draft.styleSheetIds
+// 從頭到尾沒有被讀取、注入過，選了樣式表其實沒有任何效果；就算硬塞一個全域
+// <style> 進 admin document，選擇器（body、h1、共用 class 名）也會外溢污染
+// 整個後台介面，是雙向都會出問題。
+//
+// 這裡的做法：CanvasFrame 建立一個獨立的 <iframe>，一旦它的 contentDocument
+// 準備好，就把「外層 admin document <head> 裡目前所有的 <style>/<link
+// rel=stylesheet>」複製一份進 iframe 的 <head>（這一步是為了讓 Tailwind v4
+// 編譯出來的 utility class CSS 在 iframe 內也生效——Tailwind 掃描原始碼、
+// 產生 CSS 這件事跟 iframe 無關照樣掃得到，但編譯出來的 CSS 預設只會被注入
+// 外層 document 的 <head>，iframe 有自己獨立的 document，不會自動繼承外層
+// 的 <style>/<link>，所以需要手動複製一份進去），接著再把 draft.styleSheetIds
+// 對應到的使用者自訂樣式表 CSS 追加在最後面（讓使用者樣式表可以覆蓋
+// Tailwind 預設）。畫布本體（拖放邏輯、CanvasBlockRenderer 那整棵樹）則透過
+// React createPortal 掛進 iframe 的 document.body——因為 React context
+// （這裡是 DragStateContext）走的是 fiber tree，不是實體 DOM tree，所以
+// portal 進 iframe 之後，畫布內部原有的拖放 state 共享邏輯不需要另外橋接。
+//
+// 已知風險（技術驗證階段還沒處理，需要之後實測 + 補強）：
+//   - handleDragLeave 依賴 e.currentTarget.contains(e.relatedTarget)，滑鼠
+//     從 iframe 內部拖到 iframe 外面（例如拖回外層的「現有組件」面板）時，
+//     relatedTarget 在跨 document 情境下常常是 null，會讓這個判斷失準，
+//     可能導致 hoverTarget 卡住不清除。目前先靠既有的 window 級
+//     dragend/drop 監聽兜底，但那兩個監聽器目前掛在外層 window 上，iframe
+//     內部觸發的 dragend/drop 是否會冒泡到外層 window 需要之後實測確認
+//     （一般不會自動冒泡），這是後續要修的地方，此版本先原樣保留。
+//   - 外層「現有組件」面板 dragstart 監聽是 document.addEventListener 掛在
+//     外層 document，這部分沒動，仍然抓得到，因為拖曳來源本來就在外層。
+// ------------------------------------------------------------------
+
+/** 把 <head> 裡目前所有樣式來源（<style> 與 <link rel="stylesheet">）複製一份到目標 document，讓 Tailwind 編譯出的 CSS 在 iframe 內也生效。 */
+function cloneHostStylesInto(targetDoc: Document) {
+  const host = document.head.querySelectorAll("style, link[rel='stylesheet']");
+  host.forEach((node) => {
+    targetDoc.head.appendChild(node.cloneNode(true));
+  });
+}
+
+/**
+ * 選取畫布上組件後按 Delete / Backspace 直接刪除該組件。抽成共用 hook，
+ * 因為【技術驗證：iframe 隔離渲染】之後，畫布內容實際掛在 iframe 自己的
+ * document 裡，鍵盤事件不會從 iframe 冒泡到外層 window/document——所以
+ * 外層 CanvasPanel 跟 CanvasFrame 內部各自需要對「自己看得到的那個
+ * document」綁一份監聽，兩邊呼叫的是同一個 onRemoveBlock，行為完全一致。
+ * doc 傳 null／尚未就緒時（例如 iframe 還沒 load 完）不綁定，避免對一個
+ * 還不存在的 document 掛監聽器。
+ */
+function useDeleteKeyToRemoveBlock(
+  doc: Document | null,
+  selectedBlockId: string | null,
+  onRemoveBlock: (instanceId: string) => void
+) {
+  useEffect(() => {
+    if (!doc) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!selectedBlockId) return;
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable =
+        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable;
+      if (isEditable) return;
+
+      e.preventDefault();
+      onRemoveBlock(selectedBlockId);
+    };
+    doc.addEventListener("keydown", onKeyDown);
+    return () => doc.removeEventListener("keydown", onKeyDown);
+  }, [doc, selectedBlockId, onRemoveBlock]);
+}
+
+/**
+ * 承載畫布內容的 iframe：負責建立獨立 document、注入樣式（Tailwind + 選中的
+ * 樣式表），並把 children（畫布實際內容）用 createPortal 掛進 iframe body。
+ * iframe 本身不外顯邊框，視覺上盡量讓使用者感覺不到「這其實是另一個
+ * document」，維持跟舊版一致的畫布外觀。
+ */
+function CanvasFrame({
+  styleSheetIds,
+  selectedBlockId,
+  onRemoveBlock,
+  children,
+}: {
+  styleSheetIds: string[];
+  /** 供 iframe 內部的鍵盤刪除監聽使用，見下方 useDeleteKeyToRemoveBlock 呼叫。 */
+  selectedBlockId: string | null;
+  onRemoveBlock: (instanceId: string) => void;
+  children: React.ReactNode;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
+  // iframe 自己的 document，就緒後才能拿到；用來讓
+  // useDeleteKeyToRemoveBlock 在「iframe 內部」也綁一份鍵盤監聽（畫布內容
+  // 實際上是掛在這個 document 底下，鍵盤事件不會冒泡到外層 window，見該
+  // hook 定義處的說明）。
+  const [iframeDoc, setIframeDoc] = useState<Document | null>(null);
+
+  // 唯讀取用「樣式管理」頁面維護的樣式表清單，跟 style-manager.tsx /
+  // properties-panel.tsx 共用同一把 localStorage key、同一份型別。
+  const [sheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+
+  const selectedCss = useMemo(() => {
+    return styleSheetIds
+      .map((id) => sheets.find((s) => s.id === id))
+      .filter((s): s is StyleSheet => s != null)
+      .map((s) => `/* ${s.name} (${s.id}) */\n${s.css}`)
+      .join("\n\n");
+  }, [styleSheetIds, sheets]);
+
+  // iframe 載入完成後，複製一次 host 的樣式來源（Tailwind 編譯結果等）進去，
+  // 並準備好一個掛載節點供 createPortal 使用。只在 iframe 第一次 load 時
+  // 做一次；後續切換 styleSheetIds 只更新下面那個獨立的 <style> 標籤內容，
+  // 不需要重新複製整份 host 樣式。
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const setup = () => {
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      doc.open();
+      doc.write("<!doctype html><html><head></head><body></body></html>");
+      doc.close();
+      cloneHostStylesInto(doc);
+      doc.body.style.margin = "0";
+      setMountNode(doc.body);
+      setIframeDoc(doc);
+    };
+
+    if (iframe.contentDocument?.readyState === "complete") {
+      setup();
+    } else {
+      iframe.addEventListener("load", setup);
+      return () => iframe.removeEventListener("load", setup);
+    }
+  }, []);
+
+  // 選中的樣式表內容變動時，更新（或新建）iframe 內專門放使用者樣式表的
+  // <style id="wb-page-stylesheets">，故意跟複製進來的 Tailwind <style> 分開
+  // 一個標籤管理，順序上排在最後，讓使用者樣式表可以覆蓋 Tailwind 預設。
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc || !mountNode) return;
+    let tag = doc.getElementById("wb-page-stylesheets") as HTMLStyleElement | null;
+    if (!tag) {
+      tag = doc.createElement("style");
+      tag.id = "wb-page-stylesheets";
+      doc.head.appendChild(tag);
+    }
+    tag.textContent = selectedCss;
+  }, [selectedCss, mountNode]);
+
+  // iframe 內部這一份鍵盤刪除監聽：畫布節點被點選時，瀏覽器的鍵盤焦點通常
+  // 就在 iframe 內部（使用者剛在裡面點擊），這時 keydown 事件只會派送到
+  // iframeDoc，不會冒泡到外層 window/document，外層 CanvasPanel 那份監聽
+  // 收不到，這是「按 Delete 沒反應」regression 的根本原因。這裡補上對應
+  // 的一份即可修正，兩邊呼叫同一個 onRemoveBlock，行為一致、不會重複刪除
+  // （同一個 keydown 事件只會發生在其中一個 document 上）。
+  useDeleteKeyToRemoveBlock(iframeDoc, selectedBlockId, onRemoveBlock);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title="頁面預覽畫布"
+      style={{
+        width: "100%",
+        height: "100%",
+        border: "none",
+        display: "block",
+        minHeight: 400,
+      }}
+    >
+      {mountNode && createPortal(children, mountNode)}
+    </iframe>
+  );
+}
 
 /** 從左側「現有組件」卡片拖曳出來的新組件（見 components-panel.tsx）。 */
 const COMPONENT_DRAG_TYPE = "application/x-wb-component-id";
@@ -319,23 +516,11 @@ export function CanvasPanel({
   // 只在焦點不在輸入欄位（input / textarea / select / contenteditable）時生效，
   // 避免使用者在右側「組件屬性」面板打字時（例如刪 label 文字的最後一個字）
   // 誤觸而把整個組件砍掉。
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!selectedBlockId) return;
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      const isEditable =
-        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable;
-      if (isEditable) return;
-
-      e.preventDefault();
-      onRemoveBlock(selectedBlockId);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectedBlockId, onRemoveBlock]);
+  // 鍵盤刪除（外層 admin document 這一份）：涵蓋焦點還沒進到 iframe 內部的
+  // 情況（例如剛點選畫布節點但瀏覽器把 focus 留在外層某處）。iframe 內部
+  // 焦點時的鍵盤刪除由 CanvasFrame 內部另外綁的一份負責，見
+  // useDeleteKeyToRemoveBlock 定義處的說明。
+  useDeleteKeyToRemoveBlock(typeof document !== "undefined" ? document : null, selectedBlockId, onRemoveBlock);
 
   if (!selected || !draft) {
     return (
@@ -418,94 +603,111 @@ export function CanvasPanel({
             maxWidth: "100%",
             flexShrink: 0,
             transition: "width 0.15s ease",
+            // iframe 預設是 inline 元素，外層又是 flex 容器，容易被壓成 0
+            // 高度，這裡讓外層 div 依內容撐開，配合 iframe 的 minHeight。
+            display: "flex",
           }}
         >
-          <div
-            onDragOver={(e) => {
-              // 畫布最外層容器：只在「目前確實有東西正在拖」時才接住，作為
-              // 沒有被任何 InsertionLine／節點攔截時的最後 fallback（例如
-              // 拖到容器 padding 區域）。
-              if (!dragCurrent) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = dragCurrent.kind === "new-component" ? "copy" : "move";
-              setDragOver(true);
-            }}
-            onDragLeave={(e) => {
-              // 只有真的離開整個畫布容器（不是移到子節點）才取消提示，避免
-              // 巢狀節點之間移動滑鼠時提示閃爍。
-              if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-              setDragOver(false);
-            }}
-            onDrop={(e) => {
-              if (!dragCurrent) return;
-              e.preventDefault();
-              setDragOver(false);
-
-              if (dragCurrent.kind === "new-component") {
-                // 命中這裡代表沒有被任何 InsertionLine／節點攔截（例如拖到
-                // padding 空白區），一律加到頂層最後方，跟「+」按鈕一致。
-                const componentId = e.dataTransfer.getData(COMPONENT_DRAG_TYPE);
-                const component = allComponents.find((c) => c.id === componentId);
-                if (component) onAddBlock(component, { kind: "root" });
-                return;
-              }
-
-              onMoveBlock(dragCurrent.instanceId, null, null, draft.blocks.length);
-            }}
-            style={{
-              border: dragOver ? "1px dashed #2d9c74" : "1px dashed #333",
-              borderRadius: 8,
-              padding: 16,
-              background: dragOver ? "#132420" : "#141414",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              minHeight: 400,
-              transition: "border-color 0.1s ease, background 0.1s ease",
-            }}
+          {/* 【技術驗證】畫布內容改在 CanvasFrame（獨立 iframe）裡渲染，
+              套用 draft.styleSheetIds 選中的樣式表、且跟 admin 後台雙向隔離。
+              拖放邏輯（onDragOver/onDragLeave/onDrop）維持原樣，事件本身
+              會由瀏覽器正確派送到 iframe 內部，不需要另外橋接。 */}
+          <CanvasFrame
+            styleSheetIds={draft.styleSheetIds ?? []}
+            selectedBlockId={selectedBlockId}
+            onRemoveBlock={onRemoveBlock}
           >
-            {draft.blocks.length === 0 ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: dragOver ? "#7fdbca" : "#555",
-                  fontSize: 13,
-                  textAlign: "center",
-                  padding: 24,
-                  minHeight: 360,
-                }}
-              >
-                把組件拖到這裡開始編排頁面
-                <br />
-                （或用左側面板的「+」加入按鈕）
-              </div>
-            ) : (
-              <>
-                <InsertionLine index={0} target={null} onAddBlock={onAddBlock} onMoveBlock={onMoveBlock} />
-                {draft.blocks.map((block, i) => (
-                  <Fragment key={block.instanceId}>
-                    <CanvasBlockRenderer
-                      block={block}
-                      rootBlocks={draft.blocks}
-                      selectedBlockId={selectedBlockId}
-                      onSelectBlock={onSelectBlock}
-                      onAddBlock={onAddBlock}
-                      onMoveBlock={onMoveBlock}
-                    />
-                    <InsertionLine
-                      index={i + 1}
-                      target={null}
-                      onAddBlock={onAddBlock}
-                      onMoveBlock={onMoveBlock}
-                    />
-                  </Fragment>
-                ))}
-              </>
-            )}
-          </div>
+            <div
+              onDragOver={(e) => {
+                // 畫布最外層容器：只在「目前確實有東西正在拖」時才接住，作為
+                // 沒有被任何 InsertionLine／節點攔截時的最後 fallback（例如
+                // 拖到容器 padding 區域）。
+                if (!dragCurrent) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = dragCurrent.kind === "new-component" ? "copy" : "move";
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                // 只有真的離開整個畫布容器（不是移到子節點）才取消提示，避免
+                // 巢狀節點之間移動滑鼠時提示閃爍。
+                // 【已知風險，見檔案開頭 CanvasFrame 說明】relatedTarget 在
+                // iframe 邊界情境下可能是 null，會讓這裡誤判成「已離開」。
+                if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                setDragOver(false);
+              }}
+              onDrop={(e) => {
+                if (!dragCurrent) return;
+                e.preventDefault();
+                setDragOver(false);
+
+                if (dragCurrent.kind === "new-component") {
+                  // 命中這裡代表沒有被任何 InsertionLine／節點攔截（例如拖到
+                  // padding 空白區），一律加到頂層最後方，跟「+」按鈕一致。
+                  const componentId = e.dataTransfer.getData(COMPONENT_DRAG_TYPE);
+                  const component = allComponents.find((c) => c.id === componentId);
+                  if (component) onAddBlock(component, { kind: "root" });
+                  return;
+                }
+
+                onMoveBlock(dragCurrent.instanceId, null, null, draft.blocks.length);
+              }}
+              style={{
+                border: dragOver ? "1px dashed #2d9c74" : "1px dashed #333",
+                borderRadius: 8,
+                padding: 16,
+                background: dragOver ? "#132420" : "#141414",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                minHeight: 400,
+                boxSizing: "border-box",
+                transition: "border-color 0.1s ease, background 0.1s ease",
+              }}
+            >
+              {draft.blocks.length === 0 ? (
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: dragOver ? "#7fdbca" : "#555",
+                    fontSize: 13,
+                    textAlign: "center",
+                    padding: 24,
+                    minHeight: 360,
+                  }}
+                >
+                  把組件拖到這裡開始編排頁面
+                  <br />
+                  （或用左側面板的「+」加入按鈕）
+                </div>
+              ) : (
+                <>
+                  <InsertionLine index={0} target={null} onAddBlock={onAddBlock} onMoveBlock={onMoveBlock} />
+                  {draft.blocks.map((block, i) => (
+                    <Fragment key={block.instanceId}>
+                      <CanvasBlockRenderer
+                        block={block}
+                        rootBlocks={draft.blocks}
+                        selectedBlockId={selectedBlockId}
+                        onSelectBlock={onSelectBlock}
+                        onAddBlock={onAddBlock}
+                        onMoveBlock={onMoveBlock}
+                        onRemoveBlock={onRemoveBlock}
+                      />
+                      <InsertionLine
+                        index={i + 1}
+                        target={null}
+                        onAddBlock={onAddBlock}
+                        onMoveBlock={onMoveBlock}
+                      />
+                    </Fragment>
+                  ))}
+                </>
+              )}
+            </div>
+          </CanvasFrame>
         </div>
       </div>
     </DragStateContext.Provider>
@@ -555,6 +757,97 @@ function resolvePlainPropValue(rawValue: unknown, fieldType: FieldType | undefin
   }
 }
 
+/**
+ * 防呆：某個 block 實際 render 真正的組件時如果丟出例外（不管是必填 prop
+ * 缺漏、組件本身的 bug，還是使用者透過「組件屬性」面板改出不合法的值），
+ * React 預設會讓整棵 fiber tree 往上炸，整個畫布（甚至整個 admin 頁面）
+ * 白畫面——這正是先前 Footer 那次事故實際發生的事。
+ *
+ * 用 error boundary 把「渲染單一 block」這件事隔離起來：只有壞掉的那個
+ * block 顯示成一張紅框錯誤卡片，其他 block 完全不受影響，使用者可以直接
+ * 點卡片上的按鈕把壞掉的 block 移除（呼叫跟屬性面板「刪除」按鈕相同的
+ * onRemoveBlock），不必透過復原/重新整理頁面這種重手段。
+ *
+ * error boundary 只能用 class component 實作（React 目前沒有 hook 版本），
+ * 所以這裡把 React.Component 用別名 ReactComponentClass import 進來，避免
+ * 跟下面 CanvasBlockRenderer 內部「解構出真正組件」的區域變數 `Component`
+ * 撞名。
+ *
+ * 重新嘗試渲染的時機：呼叫端把 `key` 設成 `instanceId + JSON.stringify(props)`
+ * （見下方 <BlockErrorBoundary key={...}>），使用者透過屬性面板改掉造成
+ * 錯誤的那個值之後，key 會跟著變，React 會整個 remount 這個 boundary、
+ * state.error 自動清空、重新渲染一次真正的組件——不需要額外的「重試」按鈕。
+ */
+class BlockErrorBoundary extends ReactComponentClass<
+  { componentName: string; instanceId: string; onRemove: () => void; children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // 保留完整錯誤堆疊在 console，方便照著堆疊定位是哪個組件、哪一行壞的，
+    // 畫面上的卡片只放給使用者看的精簡訊息。
+    console.error(
+      `[BlockErrorBoundary] ${this.props.componentName}（${this.props.instanceId}）渲染時發生錯誤，已攔截、不會讓整個畫布掛掉：`,
+      error,
+      info
+    );
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    return (
+      <div
+        style={{
+          border: "1px dashed #a33",
+          borderRadius: 4,
+          padding: 12,
+          background: "#1c1010",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <p style={{ color: "#e77", fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <TriangleAlert size={13} />
+          {this.props.componentName} 渲染失敗：{error.message}
+        </p>
+        <p style={{ color: "#999", fontSize: 11, margin: 0 }}>
+          可能是缺少必填欄位或欄位值不合法。可以在右側「組件屬性」面板修正後自動重新渲染，或直接移除這個組件。
+        </p>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            this.props.onRemove();
+          }}
+          style={{
+            alignSelf: "flex-start",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            color: "#e77",
+            background: "transparent",
+            border: "1px solid #a33",
+            borderRadius: 4,
+            padding: "4px 8px",
+            cursor: "pointer",
+          }}
+        >
+          <Trash2 size={12} />
+          移除這個組件
+        </button>
+      </div>
+    );
+  }
+}
+
 function CanvasBlockRenderer({
   block,
   rootBlocks,
@@ -562,6 +855,7 @@ function CanvasBlockRenderer({
   onSelectBlock,
   onAddBlock,
   onMoveBlock,
+  onRemoveBlock,
 }: {
   block: PageBlock;
   /** 整個頁面最頂層的 blocks（不隨遞迴縮小），用來在整棵樹裡定位拖曳來源節點，
@@ -571,6 +865,7 @@ function CanvasBlockRenderer({
   onSelectBlock: (instanceId: string) => void;
   onAddBlock: AddBlockFn;
   onMoveBlock: MoveBlockFn;
+  onRemoveBlock: (instanceId: string) => void;
 }) {
   const { current: dragCurrent, setCurrent: setDragCurrent, hoverTarget, setHoverTarget } = useDragState();
   const component = allComponents.find((c) => c.id === block.componentId);
@@ -811,6 +1106,7 @@ function CanvasBlockRenderer({
                 onSelectBlock={onSelectBlock}
                 onAddBlock={onAddBlock}
                 onMoveBlock={onMoveBlock}
+                onRemoveBlock={onRemoveBlock}
               />
               {i === children.length - 1 && (
                 <span style={{ display: "block", position: "relative", height: 0, overflow: "visible" }}>
@@ -882,7 +1178,14 @@ function CanvasBlockRenderer({
           : `${block.componentName}（可拖曳整個組件搬移）`
       }
     >
-      <Component {...resolvedProps} />
+      <BlockErrorBoundary
+        key={`${block.instanceId}:${JSON.stringify(block.props)}`}
+        componentName={block.componentName}
+        instanceId={block.instanceId}
+        onRemove={() => onRemoveBlock(block.instanceId)}
+      >
+        <Component {...resolvedProps} />
+      </BlockErrorBoundary>
       {canAcceptDrop && slotDragOver && (
         <div
           style={{

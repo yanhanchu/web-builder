@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { AdminLayout, useSavedFlash, panelStyle, savedFlashStyle } from "./admin-ui";
 import { defaultSeo, type SeoData } from "@workspace/ui/lib/data-model";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
@@ -49,6 +50,18 @@ export default function PageManagerPage() {
   const [selectedId, setSelectedId] = useState<string | null>(pages[0]?.id ?? null);
   const [drafts, setDrafts] = useState<Record<string, PageItem>>({});
   const [saved, flashSaved] = useSavedFlash();
+
+  // 新增組件失敗時（例如組件模組載入失敗、default.ts 載入或解析時噴例外）
+  // 顯示的提示訊息，跟 saved 同樣是「顯示幾秒後自動消失」的 flash，
+  // 不需要使用者手動關閉。跟畫布上 BlockErrorBoundary 是兩道不同防線：
+  // 這裡防的是「加入動作本身失敗、block 根本沒被建立」，
+  // BlockErrorBoundary 防的是「block 已經在頁面上、但 render 該組件時噴例外」。
+  const [addBlockError, setAddBlockError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!addBlockError) return;
+    const t = setTimeout(() => setAddBlockError(null), 5000);
+    return () => clearTimeout(t);
+  }, [addBlockError]);
 
   // 頁面清單快速篩選（在工具列 popover 內使用）
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -140,6 +153,19 @@ export default function PageManagerPage() {
     setDrafts((prev) => {
       const base = prev[selected.id] ?? selected;
       const resolved = typeof patch === "function" ? patch(base) : patch;
+      // [DEBUG] 觀察每次 updateDraft 實際合併時，base 是不是「有 drafts 覆寫」還是
+      // 「退回 selected（表示 drafts 裡還沒有這頁的草稿）」，以及合併前後的
+      // blocks 長度／每個 block 的 props key 數量，藉此看出某次 patch 是否被
+      // 後一次呼叫蓋掉。
+      console.log("[DEBUG updateDraft]", {
+        pageId: selected.id,
+        baseSource: prev[selected.id] ? "drafts" : "selected(fallback)",
+        baseBlocksCount: base.blocks.length,
+        resolvedBlocksCount: (resolved as Partial<PageItem>).blocks?.length,
+        resolvedBlocksPropsKeys: (resolved as Partial<PageItem>).blocks?.map(
+          (b) => `${b.componentName}(${b.instanceId.slice(0, 8)}):[${Object.keys(b.props).join(",")}]`
+        ),
+      });
       return { ...prev, [selected.id]: { ...base, ...resolved } };
     });
   };
@@ -155,38 +181,106 @@ export default function PageManagerPage() {
     | { kind: "root" }
     | { kind: "slot"; parentId: string; slotKey: string; toIndex: number };
 
-  const addBlock = (component: ComponentDoc, target: AddBlockTarget = { kind: "root" }) => {
+  const addBlock = async (component: ComponentDoc, target: AddBlockTarget = { kind: "root" }) => {
     if (!selected) return;
     const instanceId = makeBlockId();
-    const base = drafts[selected.id] ?? selected;
-    const block: PageBlock = {
-      instanceId,
-      componentId: component.id,
+
+    // 【真正的根因】舊版邏輯是「先用空 props ({}) 把 block 同步插進畫布，
+    // 再非同步載入 default.ts 示範資料、事後用 patchBlockPropsDeep 補回去」。
+    // 問題不在於哪一次 updateDraft 蓋掉哪一次（那部分已經用 functional
+    // updateDraft 處理，不會互相覆蓋）；問題在於 canvas-panel.tsx 的
+    // CanvasBlockRenderer 完全不管 props 是否「補齊」，只要 block 進了畫布
+    // 就立刻用當下的 block.props 渲染真正的組件（`<Component {...resolvedProps} />`）。
+    // 也就是說，只要「組件本身 render」跟「default props 補回 state」這兩件
+    // 事之間存在任何時間差，畫布就會先用空 props 渲染一次——對有必填 prop
+    // （例如 Footer 的 columns、Header/Layout 這類複雜預設值組件）的組件，
+    // 這一次空 props 渲染就會直接因為 undefined.map 之類的存取整個掛掉。
+    //
+    // 這個時間差是否會被「使用者看得到」，取決於兩條各自獨立的非同步鏈：
+    //   (a) CanvasBlockRenderer 內部用 loadComponentModule(component.importPath)
+    //       動態載入組件本身模組，決定 state 何時從 "loading" 變成 "ready"
+    //   (b) 這裡的 loadDefaultBlockProps(component) 載入同目錄 default.ts
+    //       的示範資料，決定 props 何時被補齊
+    // 兩者都經過同一個 loadComponentModule，但目標檔案不同、promise chain
+    // 長度也不同，「誰先 resolve」沒有保證。第一次把某個組件拖進畫布時，
+    // (a) 通常還沒被瀏覽器/打包器快取，載入較慢，剛好讓 (b) 先完成、props
+    // 先補齊，看起來一切正常；但同一個組件第二次（或之後）被加入時，(a) 的
+    // 模組已經是熱快取，幾乎瞬間變成 "ready"，反而搶在 (b) 補齊 props 之前
+    // 就先用空 props 渲染一次，畫面直接白掉——這正好對應「同一個複雜預設值
+    // 組件放第二次才會壞、簡單組件都正常（沒有必填 prop 可以在空 props 時
+    // 噴例外）」的現象。
+    //
+    // 修法：不要把「插入空殼」跟「事後補 props」拆成兩個階段。改成在把 block
+    // 寫進頁面 state 之前，就先 await 把 default.ts 示範資料載入完成，直接
+    // 用補好的 props 組出完整的 block，再一次性插入畫布。這樣
+    // CanvasBlockRenderer 從頭到尾都不會看到「空 props」這個中繼狀態，不管
+    // (a)(b) 兩條非同步鏈誰先完成、有沒有被模組快取加速，都不影響結果——
+    // 徹底消除這個競態，而不是繼續賭時間差。
+    console.log("[DEBUG addBlock:start]", {
+      t: performance.now().toFixed(1),
       componentName: component.componentName,
-      props: {},
-    };
-
-    if (target.kind === "root") {
-      updateDraft({ blocks: [...base.blocks, block] });
-    } else {
-      updateDraft({
-        blocks: insertIntoSlotDeep(base.blocks, target.parentId, target.slotKey, target.toIndex, block),
-      });
-    }
-
-    // 沒有預設值的必填 prop（按鈕的 label、圖片的 src…）在畫布即時渲染下
-    // 會直接讓組件壞掉或整片空白，所以新增後緊接著非同步載入該組件目錄的
-    // default.ts 示範資料，補進這個新 block 的 props（slot 型別的 key 已在
-    // loadDefaultBlockProps 內濾掉，不會誤把 JSX 塞進只接受純值/SlotValue
-    // 的 block.props）。用 instanceId 精準定位、functional updateDraft 疊加，
-    // 避免載入期間使用者又新增了別的 block，導致用過期快照覆蓋掉。
-    loadDefaultBlockProps(component).then((defaultProps) => {
-      if (Object.keys(defaultProps).length === 0) return;
-      updateDraft((current) => ({
-        blocks: patchBlockPropsDeep(current.blocks, instanceId, defaultProps),
-      }));
+      instanceId,
+      target,
     });
+
+    // loadDefaultBlockProps 內部（component-grouping.ts）已經對「找不到
+    // default.ts / 找不到對應 export」做了 try/catch、失敗時回傳 {}，不會
+    // 讓這裡的呼叫噴例外。這裡外面再包一層 try/catch 是防呆的最後一道防線：
+    // 涵蓋任何未預期的例外（例如 import 的模組本身在載入時就直接噴錯、
+    // 或未來改動不小心讓 loadDefaultBlockProps 的例外處理漏了某個分支），
+    // 確保「新增組件」這個動作本身失敗時，使用者會看到明確的提示訊息，
+    // 而不是點了按鈕卻什麼事都沒發生（畫布上也不會留下一個 props 不完整、
+    // 之後才讓 BlockErrorBoundary 抓到的半殘 block）。
+    try {
+      const defaultProps = await loadDefaultBlockProps(component);
+
+      console.log("[DEBUG addBlock:loadDefaultBlockProps:resolved]", {
+        t: performance.now().toFixed(1),
+        componentName: component.componentName,
+        instanceId,
+        defaultPropsKeys: Object.keys(defaultProps),
+        isEmpty: Object.keys(defaultProps).length === 0,
+      });
+
+      const block: PageBlock = {
+        instanceId,
+        componentId: component.id,
+        componentName: component.componentName,
+        props: defaultProps,
+      };
+
+      // 一律用 updateDraft 的「函式」形式，讓 blocks 陣列一律基於 setDrafts
+      // updater 內部當下最新的 current.blocks 計算，不受這段 await 期間使用者
+      // 又觸發了其他 addBlock / 編輯動作、導致呼叫當下的閉包快照過期影響。
+      updateDraft((current) => {
+        const nextBlocks =
+          target.kind === "root"
+            ? [...current.blocks, block]
+            : insertIntoSlotDeep(current.blocks, target.parentId, target.slotKey, target.toIndex, block);
+        const inserted = findBlockDeep(nextBlocks, instanceId);
+        console.log("[DEBUG addBlock:insertWithResolvedProps]", {
+          t: performance.now().toFixed(1),
+          componentName: component.componentName,
+          instanceId,
+          insertedPropsKeys: inserted ? Object.keys(inserted.props) : null,
+        });
+        return { blocks: nextBlocks };
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[DEBUG addBlock:failed]", {
+        t: performance.now().toFixed(1),
+        componentName: component.componentName,
+        instanceId,
+        error: err,
+      });
+      setAddBlockError(`加入「${component.componentName}」失敗：${message}`);
+      // 注意：這裡直接 return，不呼叫 updateDraft——失敗時畫布上完全不會
+      // 留下這個 block（不管是空殼還是半殘），使用者只會看到上面的提示
+      // 訊息，跟「什麼事都沒發生」比起來更清楚，也不需要額外去手動移除。
+    }
   };
+
 
   const removeBlock = (instanceId: string) => {
     if (!selected) return;
@@ -253,6 +347,21 @@ export default function PageManagerPage() {
       actions={
         <>
           {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
+          {addBlockError && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "#e77",
+                alignSelf: "center",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <TriangleAlert size={13} />
+              {addBlockError}
+            </span>
+          )}
           <PageSwitcher
             open={pagePickerOpen}
             setOpen={setPagePickerOpen}
