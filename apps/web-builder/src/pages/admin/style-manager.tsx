@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   AdminLayout,
   usePersistentState,
-  useSavedFlash,
   panelStyle,
   panelTitleStyle,
   labelStyle,
@@ -12,7 +12,6 @@ import {
   primaryBtnStyle,
   ghostBtnStyle,
   dangerBtnStyle,
-  savedFlashStyle,
 } from "./admin-ui";
 
 // 樣式管理：貼上樣式表並儲存，支援多份樣式表（各有名稱與內容）。
@@ -55,7 +54,6 @@ export default function StyleManagerPage() {
   );
   // 草稿：以 sheet id 為 key，存放該樣式表尚未儲存的暫存內容。
   const [drafts, setDrafts] = useState<Record<string, StyleSheet>>({});
-  const [saved, flashSaved] = useSavedFlash();
 
   const selected = sheets.find((s) => s.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
@@ -92,7 +90,7 @@ export default function StyleManagerPage() {
       const { [selected.id]: _drop, ...rest } = prev;
       return rest;
     });
-    flashSaved();
+    toast.success("已儲存樣式表");
   };
 
   const discardDraft = () => {
@@ -110,7 +108,6 @@ export default function StyleManagerPage() {
       description="貼上並儲存自訂 CSS 樣式表。可建立多份。之後可套用到網站頁面。"
       actions={
         <>
-          {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
           <button style={primaryBtnStyle} onClick={addSheet} title="新增樣式表">
             <Plus size={14} />
             新增樣式表

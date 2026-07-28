@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { TriangleAlert } from "lucide-react";
-import { AdminLayout, useSavedFlash, panelStyle, savedFlashStyle } from "./admin-ui";
+import { AdminLayout, panelStyle } from "./admin-ui";
 import { defaultSeo, type SeoData } from "@workspace/ui/lib/data-model";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
 import {
@@ -23,6 +22,7 @@ import { ComponentPropertiesPanel } from "./page-manager/component-properties-pa
 import { ComponentTreeModal } from "./page-manager/component-tree-modal";
 import { loadDefaultBlockProps } from "./page-manager/component-grouping";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
+import { toast } from "sonner";
 
 // 頁面管理：頁面的新增 / 刪除 / 編輯，以及每頁的 SEO 設定與內容組件組合。
 // 編輯採草稿 + 明確儲存模式，儲存按鈕只在有未儲存變更時出現。
@@ -49,19 +49,12 @@ export default function PageManagerPage() {
   const [pages, setPages] = usePagesState();
   const [selectedId, setSelectedId] = useState<string | null>(pages[0]?.id ?? null);
   const [drafts, setDrafts] = useState<Record<string, PageItem>>({});
-  const [saved, flashSaved] = useSavedFlash();
 
   // 新增組件失敗時（例如組件模組載入失敗、default.ts 載入或解析時噴例外）
-  // 顯示的提示訊息，跟 saved 同樣是「顯示幾秒後自動消失」的 flash，
-  // 不需要使用者手動關閉。跟畫布上 BlockErrorBoundary 是兩道不同防線：
-  // 這裡防的是「加入動作本身失敗、block 根本沒被建立」，
-  // BlockErrorBoundary 防的是「block 已經在頁面上、但 render 該組件時噴例外」。
-  const [addBlockError, setAddBlockError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!addBlockError) return;
-    const t = setTimeout(() => setAddBlockError(null), 5000);
-    return () => clearTimeout(t);
-  }, [addBlockError]);
+  // 用 toast 顯示，不用手動管理 timeout 自動消失。跟畫布上
+  // BlockErrorBoundary 是兩道不同防線：這裡防的是「加入動作本身失敗、
+  // block 根本沒被建立」，BlockErrorBoundary 防的是「block 已經在頁面上、
+  // 但 render 該組件時噴例外」。
 
   // 頁面清單快速篩選（在工具列 popover 內使用）
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -274,7 +267,7 @@ export default function PageManagerPage() {
         instanceId,
         error: err,
       });
-      setAddBlockError(`加入「${component.componentName}」失敗：${message}`);
+      toast.error(`加入「${component.componentName}」失敗`, { description: message });
       // 注意：這裡直接 return，不呼叫 updateDraft——失敗時畫布上完全不會
       // 留下這個 block（不管是空殼還是半殘），使用者只會看到上面的提示
       // 訊息，跟「什麼事都沒發生」比起來更清楚，也不需要額外去手動移除。
@@ -328,7 +321,7 @@ export default function PageManagerPage() {
       const { [selected.id]: _drop, ...rest } = prev;
       return rest;
     });
-    flashSaved();
+    toast.success("已儲存頁面");
   };
 
   const discardDraft = () => {
@@ -346,22 +339,6 @@ export default function PageManagerPage() {
       description="新增、編輯、刪除網站頁面，並設定每一頁的 SEO 與內容組件組合。頁面路徑與 noindex 由「資料管理」設定。"
       actions={
         <>
-          {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          {addBlockError && (
-            <span
-              style={{
-                fontSize: 12,
-                color: "#e77",
-                alignSelf: "center",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <TriangleAlert size={13} />
-              {addBlockError}
-            </span>
-          )}
           <PageSwitcher
             open={pagePickerOpen}
             setOpen={setPagePickerOpen}

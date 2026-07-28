@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { RefreshCw, Cloud, HardDrive, UploadCloud, RotateCw } from "lucide-react";
+import { toast } from "sonner";
 import type { DataSource, FileDataSource } from "@workspace/ui/lib/data-model";
 import { readUploadDestinations } from "../../lib/upload-destinations";
 import {
@@ -365,22 +366,23 @@ export function FileDropZone({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [lastError, setLastError] = useState<string | null>(null);
   const dragCounter = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
-    setLastError(null);
     try {
       const results = await uploadFiles(Array.from(fileList));
       const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) {
-        setLastError(
-          failed
-            .map((f) => `${f.file.name}：${f.errorMessage ?? "上傳失敗"}`)
-            .join("；"),
+        toast.error(
+          failed.length === 1 ? `${failed[0].file.name} 上傳失敗` : `${failed.length} 個檔案上傳失敗`,
+          {
+            description: failed
+              .map((f) => `${f.file.name}：${f.errorMessage ?? "上傳失敗"}`)
+              .join("；"),
+          },
         );
       }
     } finally {
@@ -446,7 +448,6 @@ export function FileDropZone({
           }}
         />
       </div>
-      {lastError && <div style={dropErrorStyle}>⚠ {lastError}</div>}
     </div>
   );
 }
@@ -592,11 +593,6 @@ const dropZoneActiveStyle: CSSProperties = {
   borderColor: "#2d6a4f",
   color: "#7fdbca",
   background: "#132119",
-};
-
-const dropErrorStyle: CSSProperties = {
-  fontSize: 11,
-  color: "#e77",
 };
 
 const detailListStyle: CSSProperties = {

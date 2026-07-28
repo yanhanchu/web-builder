@@ -25,7 +25,6 @@ import {
 import { usePagesState } from "../lib/pages-store";
 import { DEFAULT_APP_NAME } from "../lib/upload-client";
 import { resolveOpfsUrlToObjectUrl, isOpfsUrl } from "../lib/opfs";
-import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "./admin/style-manager";
 
 // 目前 DataSourceManager 支援的四種分頁，順序跟元件內部 KIND_ORDER 一致，
 // 用來驗證從 URL hash 讀回來的值是不是合法的 kind（避免手動改網址帶入亂字串）。
@@ -87,12 +86,6 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
-  // 樣式表清單同理只讀：跟「樣式管理」共用同一個 key / 初始值
-  // （STYLE_SHEETS_KEY / INITIAL_SHEETS 從 style-manager.tsx 匯出，
-  // 匯出資料需要 style-sheets.json，這裡只是借用同一份 state，不做任何編輯）。
-  const [styleSheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
-  // 未用到 to be confirmed
-  console.log(styleSheets)
   const fileSync = useFileSync(sources, setSources, DEFAULT_APP_NAME);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映

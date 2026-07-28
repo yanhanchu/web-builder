@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Save, RotateCcw, Trash2, HardDrive, Cloud, Download, FolderOutput, FolderInput } from "lucide-react";
 import {
   AdminLayout,
-  useSavedFlash,
   usePersistentState,
   panelStyle,
   panelTitleStyle,
@@ -13,7 +12,6 @@ import {
   primaryBtnStyle,
   ghostBtnStyle,
   dangerBtnStyle,
-  savedFlashStyle,
 } from "./admin-ui";
 import {
   defaultSeo,
@@ -82,9 +80,7 @@ export default function AppSettingsPage() {
   const [appName, setAppName] = usePersistentState<string>(APP_NAME_KEY, "");
   const effectiveAppName = appName.trim() || DEFAULT_APP_NAME;
 
-  const [saved, flashSaved] = useSavedFlash();
   const [dirty, setDirty] = useState(false);
-  const [syncError, setSyncError] = useState<string | null>(null);
 
   // ---- 從「資料管理」頁搬過來的匯出／回寫功能 ----
   // 資料管理頁（data-manager.tsx）的四種 DataSource 相關 state
@@ -225,20 +221,17 @@ export default function AppSettingsPage() {
     writePersistent(SEO_KEY, seo);
     writePersistent(UPLOAD_DESTS_KEY, uploadDests);
     setDirty(false);
-    flashSaved();
+    toast.success("已儲存設定");
 
     // 把上傳目的地同步到 dev server（server/upload-dev-plugin.ts），
     // 本機上傳 / S3 presign API 之後都是讀這份存檔。localStorage 的
     // 儲存已經完成，這裡失敗只顯示提示、不影響上面的「已儲存」狀態。
     try {
-      setSyncError(null);
       await syncUploadSettings(uploadDests, DEFAULT_APP_NAME);
     } catch (err) {
-      setSyncError(
-        err instanceof Error
-          ? `上傳設定同步到伺服器失敗：${err.message}`
-          : "上傳設定同步到伺服器失敗",
-      );
+      toast.error("上傳設定同步到伺服器失敗", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
   };
 
@@ -255,12 +248,6 @@ export default function AppSettingsPage() {
       description="網站基本資訊與 SEO 預設直接綁定單一型別資料（SiteInfoData / SeoData），供所有頁面套用。"
       actions={
         <>
-          {saved && <span style={savedFlashStyle}>已儲存 ✓</span>}
-          {syncError && (
-            <span style={syncErrorStyle} title={syncError}>
-              ⚠ 伺服器同步失敗
-            </span>
-          )}
           {dirty && (
             <button style={primaryBtnStyle} onClick={save} title="儲存設定">
               <Save size={14} />
@@ -831,15 +818,6 @@ const badgeStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "1px 6px",
   fontFamily: "monospace",
-};
-
-const syncErrorStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: "#e77",
-  border: "1px solid #5a2b2b",
-  background: "#2a1414",
-  borderRadius: 4,
-  padding: "2px 8px",
 };
 
 const countBadgeStyle: React.CSSProperties = {
