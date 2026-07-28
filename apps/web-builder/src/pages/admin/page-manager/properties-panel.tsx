@@ -1,4 +1,4 @@
-import { Save, Trash2, Undo2 } from "lucide-react";
+import { Save, Trash2, Undo2, ChevronUp, ChevronDown } from "lucide-react";
 import {
   panelTitleStyle,
   labelStyle,
@@ -7,11 +7,13 @@ import {
   textareaStyle,
   primaryBtnStyle,
   ghostBtnStyle,
+  usePersistentState,
 } from "../admin-ui";
 import type { SeoData } from "@workspace/ui/lib/data-model";
 import { SeoDataTypeId } from "@workspace/ui/lib/data-model/sample-data";
 import type { PageItem } from "@/lib/pages-store";
 import { SEO_KEY_PREFIX, typeBadgeStyle, iconBtnStyle } from "./shared";
+import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "../style-manager";
 
 // 右側「頁面屬性」：頁面名稱 / 狀態 / SEO 設定。
 // 對應目前選中的頁面草稿。
@@ -126,6 +128,20 @@ export function PropertiesPanel({
               paddingTop: 12,
             }}
           >
+            <h3 style={{ fontSize: 13, color: "#ccc", margin: "0 0 12px" }}>套用樣式表</h3>
+            <StyleSheetPicker
+              selectedIds={draft.styleSheetIds ?? []}
+              onChange={(styleSheetIds) => onUpdateDraft({ styleSheetIds })}
+            />
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px solid #333",
+              margin: "8px 0 14px",
+              paddingTop: 12,
+            }}
+          >
             <h3 style={{ fontSize: 13, color: "#ccc", margin: "0 0 12px" }}>
               SEO 設定（綁定 SeoData）
             </h3>
@@ -134,6 +150,146 @@ export function PropertiesPanel({
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * 頁面屬性面板的「套用樣式表」區塊：讀取「樣式管理」頁面維護的樣式表清單
+ * （wb.styleSheets，唯讀，這裡不會新增/編輯/刪除樣式表本體，只選擇要套用
+ * 哪幾份、以及套用順序），選取結果就是 PageItem.styleSheetIds，只存 id
+ * 引用陣列、依陣列順序即套用順序（後面的覆蓋前面同名 CSS 規則），不複製
+ * 樣式表內容本身——與 pages-store.ts 對這個欄位的既有註解設計一致。
+ *
+ * 分兩塊呈現：
+ *   - 「已套用」：依目前 selectedIds 順序列出，每列可上移/下移調整順序、
+ *     或移除；拖放函式庫在這個專案裡沒有其他地方用過，這裡沿用同樣「簡單
+ *     按鈕」的風格，不額外引入新依賴。
+ *   - 「可加入」：尚未選取的樣式表，點擊加到「已套用」清單最後方。
+ *
+ * 沒有任何樣式表可選（使用者還沒去「樣式管理」建立過任何一份）時顯示提示
+ * 文字，請使用者自行切換到「樣式管理」頁面新增，不顯示空白列表。
+ */
+function StyleSheetPicker({
+  selectedIds,
+  onChange,
+}: {
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [sheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
+
+  if (sheets.length === 0) {
+    return (
+      <p style={{ fontSize: 12, color: "#777", margin: 0 }}>
+        尚未建立任何樣式表，請先到「樣式管理」頁面新增。
+      </p>
+    );
+  }
+
+  const sheetById = new Map(sheets.map((s) => [s.id, s]));
+  // 已套用的樣式表可能引用到已被「樣式管理」刪除的 id（該份樣式表後來被刪
+  // 除了），這裡照樣列出、只是找不到名稱時退回顯示 id 本身，不靜默丟棄，
+  // 避免使用者存檔時被悄悄清空一筆設定卻毫無感知。
+  const selectedSheets = selectedIds.map((id) => ({ id, name: sheetById.get(id)?.name ?? null }));
+  const availableSheets = sheets.filter((s) => !selectedIds.includes(s.id));
+
+  const remove = (id: string) => onChange(selectedIds.filter((existing) => existing !== id));
+  const add = (id: string) => onChange([...selectedIds, id]);
+
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= selectedIds.length) return;
+    const next = [...selectedIds];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 13,
+    color: "#ccc",
+    padding: "4px 6px",
+    borderRadius: 4,
+    background: "#1c2b23",
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 11, color: "#777", marginBottom: 4 }}>
+          已套用（依序疊加，下方覆蓋上方同名規則）
+        </div>
+        {selectedSheets.length === 0 ? (
+          <p style={{ fontSize: 12, color: "#666", margin: 0, fontStyle: "italic" }}>尚未套用任何樣式表。</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {selectedSheets.map((sheet, index) => (
+              <div key={sheet.id} style={rowStyle}>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <button
+                    style={{ ...iconBtnStyle, padding: 0, opacity: index === 0 ? 0.3 : 1 }}
+                    onClick={() => move(index, -1)}
+                    disabled={index === 0}
+                    title="上移"
+                  >
+                    <ChevronUp size={12} />
+                  </button>
+                  <button
+                    style={{ ...iconBtnStyle, padding: 0, opacity: index === selectedSheets.length - 1 ? 0.3 : 1 }}
+                    onClick={() => move(index, 1)}
+                    disabled={index === selectedSheets.length - 1}
+                    title="下移"
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                </div>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {sheet.name ?? <em style={{ color: "#e77" }}>（找不到此樣式表，可能已被刪除）</em>}
+                </span>
+                <code style={{ fontSize: 10, color: "#666" }}>{sheet.id}</code>
+                <button style={{ ...iconBtnStyle, color: "#e77" }} onClick={() => remove(sheet.id)} title="移除套用">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {availableSheets.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: "#777", marginBottom: 4 }}>可加入</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {availableSheets.map((sheet) => (
+              <button
+                key={sheet.id}
+                type="button"
+                onClick={() => add(sheet.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  color: "#999",
+                  cursor: "pointer",
+                  padding: "4px 6px",
+                  borderRadius: 4,
+                  background: "transparent",
+                  border: "1px dashed #333",
+                  textAlign: "left",
+                }}
+                title="套用此樣式表"
+              >
+                {sheet.name}
+                <code style={{ fontSize: 10, color: "#666", marginLeft: "auto" }}>{sheet.id}</code>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

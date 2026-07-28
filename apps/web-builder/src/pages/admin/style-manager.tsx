@@ -20,13 +20,20 @@ import {
 // 編輯採「草稿 + 明確儲存」模式（與資料管理、頁面管理一致）：
 // 使用者輸入時只改本地草稿，按下「儲存」才寫回 store。
 // 儲存按鈕只在有未儲存變更時出現。
-interface StyleSheet {
+//
+// StyleSheet / STYLE_SHEETS_KEY / INITIAL_SHEETS 皆 export 出去，供
+// page-manager/properties-panel.tsx（頁面屬性面板「套用樣式表」）共用同一份
+// 型別與 localStorage key、初始值，避免兩處各自定義而在欄位形狀或 key
+// 字串上悄悄不同步。
+export const STYLE_SHEETS_KEY = "wb.styleSheets";
+
+export interface StyleSheet {
   id: string;
   name: string;
   css: string;
 }
 
-const INITIAL_SHEETS: StyleSheet[] = [
+export const INITIAL_SHEETS: StyleSheet[] = [
   {
     id: "global",
     name: "全域樣式",
@@ -40,7 +47,7 @@ function makeId() {
 
 export default function StyleManagerPage() {
   const [sheets, setSheets] = usePersistentState<StyleSheet[]>(
-    "wb.styleSheets",
+    STYLE_SHEETS_KEY,
     INITIAL_SHEETS
   );
   const [selectedId, setSelectedId] = useState<string | null>(

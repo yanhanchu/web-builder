@@ -1,8 +1,17 @@
-import { createContext, Fragment, useContext, useEffect, useState } from "react";
-import { Save, FileText, LoaderCircle, TriangleAlert, GripVertical } from "lucide-react";
-import { panelTitleStyle, primaryBtnStyle, ghostBtnStyle } from "../admin-ui";
+import { createContext, Fragment, useContext, useEffect, useMemo, useState } from "react";
+import { Save, FileText, LoaderCircle, TriangleAlert } from "lucide-react";
+import { panelTitleStyle, primaryBtnStyle, ghostBtnStyle, usePersistentState } from "../admin-ui";
 import { allComponents, loadComponentModule } from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
+import {
+  InMemoryDataStore,
+  typeRegistry,
+  componentPropsRegistry,
+  resolveValue,
+  type DataSource,
+  type FieldType,
+  type ValueNode,
+} from "@workspace/ui/lib/data-model";
 import { splitSlotProps, findBlockDeep, type PageItem, type PageBlock } from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
@@ -20,11 +29,10 @@ import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
 //   - 每個節點的上／下方都有一條「插入線」（InsertionLine），拖曳經過時
 //     才會顯示，可以把新組件或既有節點精確插入到兩個兄弟節點之間的任意
 //     位置（同層排序），不再只能加到該層最後方。
-//   - 畫布上既有的組件節點整個都可以拖曳（不限於左上角小握把，滑鼠移到
-//     節點上按住任何地方拖曳即可），放到另一個有 slot 的節點上即可搬移
-//     巢狀關係，跟「組件樹狀結構」面板的拖拉搬移是同一套 onMoveBlock
-//     邏輯、同一份防呆（不能拖進自己或自己的子孫底下）。左上角的握把
-//     圖示只是「這裡可以拖」的視覺提示，不是唯一能觸發拖曳的地方。
+//   - 畫布上既有的組件節點整個都可以拖曳，滑鼠移到節點上按住任何地方拖曳
+//     即可，放到另一個有 slot 的節點上即可搬移巢狀關係，跟「組件樹狀結構」
+//     面板的拖拉搬移是同一套 onMoveBlock 邏輯、同一份防呆（不能拖進自己或
+//     自己的子孫底下）。
 //   - 一個容器（有 slot 的組件）可以重複拖入多個組件：每次放開都會把
 //     新組件插入到該 slot 陣列裡對應的位置，不會覆蓋掉原本已經放進去
 //     的組件，可以一個接一個拖，全部疊在同一個 slot 底下、也可以再用
@@ -77,6 +85,27 @@ type DragPayload = { kind: "new-component" } | { kind: "existing-node"; instance
 interface DragState {
   current: DragPayload | null;
   setCurrent: (payload: DragPayload | null) => void;
+  /**
+   * 目前「放入 slot」提示（outline + "放入「xxx」插槽" 文字）該顯示在哪一個
+   * block 上，null 代表都不顯示。集中在這裡管理，而不是讓每個
+   * CanvasBlockRenderer 各自維護一份本地 slotDragOver boolean —— 原本的
+   * 寫法在遞迴巢狀時會壞掉：每個節點的 dragover handler 都會
+   * stopPropagation（避免事件冒泡到外層畫布誤判成拖到空白處，見檔案開頭
+   * 說明），所以當滑鼠從父節點 A 移進它裡面的巢狀子節點 B 時，A 不會再收到
+   * 任何後續 dragover；而 A 的 dragleave 判斷式（relatedTarget 是否仍在
+   * currentTarget 底下）看到 relatedTarget 是自己的子孫 B，會判定「還沒真的
+   * 離開」而略過重置，導致 A 的本地 slotDragOver 永遠卡在 true——這就是
+   * 「放入 children 插槽」提示在巢狀拖曳時不會消失的根本原因。
+   *
+   * 改成單一共用的 hoverTarget 就沒有這個問題：任一節點的 dragover
+   * 觸發時一律把 hoverTarget 設成「自己的 instanceId」（能接受 drop）或
+   * null（不能接受），因為 stopPropagation 保證同一時間只有滑鼠正下方最
+   * 內層的節點會收到事件，所以永遠只有一個節點會被標記成當前目標，父層自然
+   * 會在滑鼠移進子節點的當下就被覆蓋掉，不需要再依賴容易誤判的 dragleave
+   * contains 判斷來清除。
+   */
+  hoverTarget: string | null;
+  setHoverTarget: (instanceId: string | null) => void;
 }
 
 const DragStateContext = createContext<DragState | null>(null);
@@ -236,7 +265,10 @@ export function CanvasPanel({
   // 是因為 InsertionLine / CanvasBlockRenderer 需要在拖曳開始/結束時重新
   // render 才能正確判斷「active」，純 ref 不會觸發重繪。
   const [dragCurrent, setDragCurrent] = useState<DragPayload | null>(null);
-  const dragState: DragState = { current: dragCurrent, setCurrent: setDragCurrent };
+  // 目前哪個節點該顯示「放入 slot」提示，集中管理（見 DragState 型別上的
+  // 說明，這是修正巢狀拖曳時提示卡住不消失的關鍵）。
+  const [hoverTarget, setHoverTarget] = useState<string | null>(null);
+  const dragState: DragState = { current: dragCurrent, setCurrent: setDragCurrent, hoverTarget, setHoverTarget };
 
   // 畫布上既有節點的拖曳（握把上的 onDragStart）會直接呼叫 setDragCurrent，
   // 因為那段程式碼本來就在這個 Provider 底下。但左側「現有組件」面板的卡片
@@ -258,7 +290,10 @@ export function CanvasPanel({
   // 保險：無論 drop 是否成功接住，dragend 一律清掉拖曳狀態，避免因為某次
   // drop 沒有正確處理而讓 dragCurrent 卡住，之後所有插入線誤判成「還在拖」。
   useEffect(() => {
-    const clear = () => setDragCurrent(null);
+    const clear = () => {
+      setDragCurrent(null);
+      setHoverTarget(null);
+    };
     window.addEventListener("dragend", clear);
     window.addEventListener("drop", clear);
     return () => {
@@ -485,9 +520,41 @@ export function CanvasPanel({
  * 同時身兼「拖放目標」與「拖放來源」：
  *   - 目標：若這個組件有 slot prop，滑鼠拖著新組件卡片或既有節點經過時會用
  *     outline 提示「放進這裡」，放開後新增／搬移進 primarySlotKey 對應的 slot。
- *   - 來源：節點左上角浮現的握把（GripVertical）可拖曳，放到別的 slot 目標
- *     即可搬移巢狀關係，跟「組件樹狀結構」面板共用同一個 onMoveBlock。
+ *   - 來源：整個節點本身即可拖曳（draggable），放到別的 slot 目標即可搬移
+ *     巢狀關係，跟「組件樹狀結構」面板共用同一個 onMoveBlock。
  */
+/**
+ * 判斷 block.props 裡的一般值是不是「組件屬性面板」bindable 欄位寫回的
+ * ValueNode（{ mode: 'literal' | 'bound' | 'array' | 'object', ... }，見
+ * component-properties-panel.tsx 的 toValueNode/BindableField），是的話透過
+ * resolveValue 解析成實際純值再交給真正的組件；不是的話（例如尚未被新版
+ * 面板碰過的舊資料，直接存裸的 string/number/boolean/object/array）原樣
+ * 傳回，維持相容。
+ *
+ * fieldType 找不到時（理論上不會發生，componentPropsRegistry 跟屬性面板
+ * 用同一份生成資料）就不解析，直接回傳原始值，避免因為型別對不上而讓畫布
+ * 整個炸掉——保底行為優先於「正確解析」。
+ */
+function resolvePlainPropValue(rawValue: unknown, fieldType: FieldType | undefined, store: InMemoryDataStore): unknown {
+  const isValueNode =
+    rawValue !== null &&
+    typeof rawValue === "object" &&
+    typeof (rawValue as { mode?: unknown }).mode === "string" &&
+    ["literal", "bound", "array", "object"].includes((rawValue as { mode: string }).mode);
+
+  if (!isValueNode || !fieldType) return rawValue;
+
+  try {
+    // locale 沿用 data-manager.tsx / data-model-demo.tsx 的預設 locale（"zh-TW"，
+    // 見 data-manager.tsx 的 wb.locales 初始值）；畫布目前沒有 locale 切換 UI，
+    // 之後若要讓畫布也能切換預覽 locale，這裡可以改吃外部傳入的 locale。
+    return resolveValue(fieldType, rawValue as ValueNode, store, { locale: "zh-TW" });
+  } catch {
+    // 解析失敗（例如型別跟節點形狀對不上）也不該讓整個畫布炸掉，退回原始值。
+    return rawValue;
+  }
+}
+
 function CanvasBlockRenderer({
   block,
   rootBlocks,
@@ -505,8 +572,16 @@ function CanvasBlockRenderer({
   onAddBlock: AddBlockFn;
   onMoveBlock: MoveBlockFn;
 }) {
-  const { current: dragCurrent, setCurrent: setDragCurrent } = useDragState();
+  const { current: dragCurrent, setCurrent: setDragCurrent, hoverTarget, setHoverTarget } = useDragState();
   const component = allComponents.find((c) => c.id === block.componentId);
+
+  // 唯讀取用「資料管理」頁面維護的 DataSource 清單，跟 component-properties-panel.tsx
+  // 使用同一把 localStorage key、同一份 typeRegistry，只用來把 block.props 裡
+  // 可能存放的 ValueNode（{ mode: 'literal' | 'bound' | 'array' | 'object', ... }，
+  // 屬性面板 bindable 欄位寫回的格式，見該檔案 toValueNode/BindableField 的說明）
+  // 解析成實際純值後再傳給真正的組件——畫布這裡完全不寫回 dataSources。
+  const [dataSources] = usePersistentState<Record<string, DataSource>>("wb.dataSources", {});
+  const store = useMemo(() => new InMemoryDataStore(dataSources, typeRegistry), [dataSources]);
 
   type LoadState =
     | { status: "loading" }
@@ -514,7 +589,6 @@ function CanvasBlockRenderer({
     | { status: "ready"; Component: React.ComponentType<Record<string, unknown>> };
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [slotDragOver, setSlotDragOver] = useState(false);
 
   useEffect(() => {
     if (!component) return;
@@ -547,6 +621,10 @@ function CanvasBlockRenderer({
   const isDraggingSelf = dragCurrent?.kind === "existing-node" && dragCurrent.instanceId === block.instanceId;
   const slotKey = component ? primarySlotKey(component.id) : null;
   const canAcceptDrop = slotKey != null;
+  // 「放入 slot」的 outline + 提示文字要不要顯示在這個節點上，直接看集中
+  // 管理的 hoverTarget 是不是指向自己（見 DragState 型別上關於巢狀拖曳
+  // 卡住問題的說明），不再用每個節點各自的 local state。
+  const slotDragOver = hoverTarget === block.instanceId;
 
   // 這個 block 目前 slot 裡已有的子節點清單（給 InsertionLine 算插入位置用）。
   const slotChildren: PageBlock[] = (() => {
@@ -556,17 +634,6 @@ function CanvasBlockRenderer({
       ? ((value as { blocks: PageBlock[] }).blocks ?? [])
       : [];
   })();
-
-  useEffect(() => {
-    if (!slotDragOver) return;
-    const reset = () => setSlotDragOver(false);
-    window.addEventListener("dragend", reset);
-    window.addEventListener("drop", reset);
-    return () => {
-      window.removeEventListener("dragend", reset);
-      window.removeEventListener("drop", reset);
-    };
-  }, [slotDragOver]);
 
   // 防呆：不能把節點拖進自己或自己的子孫底下（例如把一個 Layout 拖進它自己
   // children 裡包的某個子節點）。用 findBlockDeep 在被拖曳節點自己的子樹裡
@@ -587,17 +654,26 @@ function CanvasBlockRenderer({
     if (!canAcceptDrop || isDropOntoOwnDescendant) {
       // 這裡不能放（沒有 slot，或會形成循環嵌套）：不 preventDefault，
       // 維持瀏覽器預設的「不可放置」游標提示，也不顯示綠色 outline。
-      setSlotDragOver(false);
+      // 由於 stopPropagation 保證此刻只有這個（滑鼠正下方最內層的）節點會
+      // 收到 dragover，直接把共用的 hoverTarget 清成 null 即可正確反映
+      // 「現在懸停的位置不能放」，不需要、也不應該去猜測要不要保留給某個
+      // 祖先節點。
+      setHoverTarget(null);
       return;
     }
     e.preventDefault();
     e.dataTransfer.dropEffect = dragCurrent.kind === "new-component" ? "copy" : "move";
-    setSlotDragOver(true);
+    setHoverTarget(block.instanceId);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    // relatedTarget 仍在自己底下（包含移進自己的巢狀子節點）時，代表還沒
+    // 真的「離開」——但這不代表提示還該顯示在自己身上：如果移進的是一個
+    // 同樣能接受 drop 的子節點，該子節點自己的 dragover 早就已經把
+    // hoverTarget 覆蓋成它自己了。這裡只需要在「目前的 hoverTarget 仍然是
+    // 自己」時才清除，避免不小心把子節點剛設好的值蓋掉。
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-    setSlotDragOver(false);
+    if (hoverTarget === block.instanceId) setHoverTarget(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -605,11 +681,11 @@ function CanvasBlockRenderer({
     e.stopPropagation();
     if (!canAcceptDrop || !slotKey || isDropOntoOwnDescendant) {
       e.preventDefault();
-      setSlotDragOver(false);
+      setHoverTarget(null);
       return;
     }
     e.preventDefault();
-    setSlotDragOver(false);
+    setHoverTarget(null);
 
     if (dragCurrent.kind === "new-component") {
       const componentId = e.dataTransfer.getData(COMPONENT_DRAG_TYPE);
@@ -642,38 +718,6 @@ function CanvasBlockRenderer({
     opacity: isDraggingSelf ? 0.4 : 1,
     transition: "outline-color 0.08s ease, background 0.08s ease",
   };
-
-  // 握把本身純粹是「這個節點可以拖曳」的視覺提示（滑鼠移到節點上才浮現），
-  // 真正的 draggable / onDragStart / onDragEnd 掛在外層整個節點的 wrapper
-  // 上（見下方主要 return），這樣使用者不需要精準對準這個小圖示才能拖，
-  // 點在組件本體任何地方按住拖曳都可以。
-  const dragHandle = (
-    <span
-      onClick={(e) => e.stopPropagation()}
-      title="拖曳搬移此組件（可拖進其他含插槽的組件裡巢狀嵌套，或放到節點之間調整順序）"
-      style={{
-        position: "absolute",
-        top: -9,
-        left: -9,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        background: "#1f1f1f",
-        border: "1px solid #3a3a3a",
-        color: "#999",
-        cursor: "grab",
-        pointerEvents: "none",
-        zIndex: 5,
-        opacity: selected ? 1 : 0,
-      }}
-      className="wb-canvas-drag-handle"
-    >
-      <GripVertical size={11} />
-    </span>
-  );
 
   if (!component) {
     return (
@@ -733,7 +777,13 @@ function CanvasBlockRenderer({
   }
 
   const { plainProps, slotProps } = splitSlotProps(block);
-  const resolvedProps: Record<string, unknown> = { ...plainProps };
+  const resolvedProps: Record<string, unknown> = {};
+  const propsFieldType = component ? componentPropsRegistry[component.id]?.propsType : undefined;
+  for (const [key, rawValue] of Object.entries(plainProps)) {
+    const fieldType: FieldType | undefined =
+      propsFieldType?.kind === "object" ? propsFieldType.fields[key] : undefined;
+    resolvedProps[key] = resolvePlainPropValue(rawValue, fieldType, store);
+  }
   for (const [key, children] of Object.entries(slotProps)) {
     resolvedProps[key] =
       children.length === 0 ? null : (
@@ -786,8 +836,8 @@ function CanvasBlockRenderer({
     <div
       draggable
       onDragStart={(e) => {
-        // 整個節點都能拖曳搬移（不再限定只能點小握把）。跟外層可能存在的
-        // onClickCapture 選取邏輯不衝突：dragstart 是拖曳手勢專屬事件，
+        // 整個節點都能拖曳搬移（不再限定只能點小握把）。跟下方的 onClick
+        // 選取邏輯不衝突：dragstart 是拖曳手勢專屬事件，
         // 只是「按住不放並移動」才會觸發，單純點擊不會誤觸拖曳。
         e.stopPropagation();
         e.dataTransfer.effectAllowed = "move";
@@ -803,9 +853,21 @@ function CanvasBlockRenderer({
         e.stopPropagation();
         setDragCurrent(null);
       }}
-      onClickCapture={(e) => {
-        // capture 階段攔截，確保「選取這個 block」優先於組件自身可能綁定的
-        // onClick（例如按鈕、連結），畫布是編輯模式，不應該真的觸發那些行為。
+      onClick={(e) => {
+        // 注意：這裡故意用 onClick（bubble 階段），不是 onClickCapture。
+        //
+        // capture 階段是由外而內傳遞——如果在 capture 階段就
+        // stopPropagation，事件根本還沒機會傳到滑鼠實際點擊的、更內層的
+        // 巢狀子節點，外層節點的 capture handler 就已經先攔截並選取了
+        // 自己，導致不管點畫布上哪個巢狀組件，選到的永遠是最外層那個
+        // block（這正是「選不到巢狀組件裡的組件」的根源）。
+        //
+        // 改成 bubble 階段（由內而外）就能修正：瀏覽器會先觸發滑鼠正下方
+        // 最內層節點的 onClick，該節點呼叫 onSelectBlock(自己的 id) 選取
+        // 自己，再 stopPropagation 擋掉事件，讓它不會繼續往外冒泡到父層
+        // 把選取結果覆蓋掉。preventDefault 仍然保留，避免真的觸發組件本身
+        // 綁定的 onClick（例如按鈕、連結）——畫布是編輯模式，不應該真的
+        // 觸發那些行為。
         e.preventDefault();
         e.stopPropagation();
         onSelectBlock(block.instanceId);
@@ -813,15 +875,6 @@ function CanvasBlockRenderer({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onMouseEnter={(e) => {
-        const handle = e.currentTarget.querySelector<HTMLElement>(".wb-canvas-drag-handle");
-        if (handle) handle.style.opacity = "1";
-      }}
-      onMouseLeave={(e) => {
-        if (selected) return;
-        const handle = e.currentTarget.querySelector<HTMLElement>(".wb-canvas-drag-handle");
-        if (handle) handle.style.opacity = "0";
-      }}
       style={{ ...wrapperStyle, cursor: "grab" }}
       title={
         canAcceptDrop
@@ -829,7 +882,6 @@ function CanvasBlockRenderer({
           : `${block.componentName}（可拖曳整個組件搬移）`
       }
     >
-      {dragHandle}
       <Component {...resolvedProps} />
       {canAcceptDrop && slotDragOver && (
         <div

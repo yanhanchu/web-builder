@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Trash2, ChevronDown, Plus, X, Search } from "lucide-react";
+import { Trash2, ChevronDown, Plus, X, Search, Type as TypeIcon, Blocks } from "lucide-react";
 import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, usePersistentState } from "../admin-ui";
 import { allComponents, allComponentTypes } from "@workspace/ui/lib/generator/component-registry";
 import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
@@ -380,7 +380,7 @@ function PropFieldControl({
     case "enum":
       return <EnumField options={fieldKind.options} value={value} defaultValue={defaultValue} onChange={onChange} />;
     case "reactNode":
-      return <ReactNodeField value={value} onChange={onChange} />;
+      return <ReactNodeField value={value} store={store} onChange={onChange} />;
     case "complex":
       return (
         <ComplexField
@@ -677,17 +677,87 @@ function EnumField({
   );
 }
 
+/** ReactNode（slot）prop 目前值所屬的編輯模式：放子組件，或直接填一個純值（可綁定）。 */
+type SlotFieldMode = "components" | "value";
+
+/** 依目前存的值判斷該用哪種模式：SlotValue → 組件；ValueNode（literal/bound）→ 純值；
+ *  其餘（undefined、尚未設定過）預設沿用組件模式，維持既有行為不強迫使用者重新選擇。 */
+function detectSlotFieldMode(value: unknown): SlotFieldMode {
+  if (isValueNodeLike(value)) return "value";
+  return "components";
+}
+
+/** 判斷一個值是不是 ValueNode 形狀（{ mode: 'literal' | 'bound' | ... }），
+ *  跟 toValueNode 開頭的判斷同一套規則，這裡獨立成小函式方便 ReactNodeField 沿用。 */
+function isValueNodeLike(value: unknown): value is ValueNode {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as { mode?: unknown }).mode === "string" &&
+    ["literal", "bound", "array", "object"].includes((value as { mode: string }).mode)
+  );
+}
+
 /**
- * reactNode => 組件可篩選下拉選單（可以有多個）。
- * 值以 SlotValue（{ __slot: true, blocks: PageBlock[] }）存在 block.props 裡，
- * 跟「組件樹狀結構」面板讀取 slot 的方式一致。新增的每個組件實例都是全新的
- * PageBlock（props 空物件，走組件自身預設值），只會寫進目前這個實例的 props，
- * 不會動到 allComponents 的組件定義本身。
+ * reactNode（slot）prop 的編輯控制項，支援兩種模式：
+ *
+ *   1. "components"（原本唯一支援的模式）：放一組子組件實例，值存
+ *      SlotValue（{ __slot: true, blocks: PageBlock[] }），跟「組件樹狀結構」
+ *      面板讀取 slot 的方式一致。新增的每個組件實例都是全新的 PageBlock
+ *      （props 空物件，走組件自身預設值），只會寫進目前這個實例的 props，
+ *      不會動到 allComponents 的組件定義本身。
+ *
+ *   2. "value"（新增）：很多情境下 ReactNode 型別的 prop（例如 children、
+ *      label）實際上只是想放一段文字或數字，不需要真的插入一個子組件。
+ *      這個模式直接沿用其他 bindable 欄位（見 BindableField）同一套
+ *      FieldEditor + ValueNode 機制：選「文字」或「數字」子模式後，值存
+ *      成 { mode: 'literal', value } 或 { mode: 'bound', sourceId }，
+ *      跟一般 string/number prop 完全同格式，也因此一樣能綁定「資料管理」
+ *      頁面維護的 i18n / 路由 / 檔案來源，不是只能填死值。
+ *
+ * 兩種模式互斥（畫布渲染端 splitSlotProps 只認 SlotValue 是「組件」，其餘
+ * 一律當純值直接傳給組件，兩者在 block.props 裡是同一個 key、不同形狀的
+ * 值，不需要另外新增欄位存「目前是哪個模式」——模式本身可以直接從值的
+ * 形狀反推，見 detectSlotFieldMode）。切換模式時會清空成該模式的初始值，
+ * 避免殘留另一種模式的資料形狀造成混淆或誤判。
+ *
+ * 這個设計刻意不去動 pages-store.ts 的 SlotValue / PageBlock 定義，也不用
+ * 新增任何新的核心資料型別：純值模式寫回的 ValueNode 走的是既有 bindable
+ * 欄位那條路（component-properties-panel.tsx 的 toValueNode + BindableField，
+ * canvas-panel.tsx 渲染時的 resolvePlainPropValue 已經會處理），組件模式
+ * 完全不變；影響範圍只有這個檔案。
  */
-function ReactNodeField({ value, onChange }: { value: unknown; onChange: (value: unknown) => void }) {
+function ReactNodeField({
+  value,
+  store,
+  onChange,
+}: {
+  value: unknown;
+  store: InMemoryDataStore;
+  onChange: (value: unknown) => void;
+}) {
   const [query, setQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const mode = detectSlotFieldMode(value);
   const slot: SlotValue = isSlotValue(value) ? value : makeSlotValue([]);
+
+  // 純值模式底下再分「文字」或「數字」子模式，決定 BindableField 用哪個
+  // FieldType 渲染（純粹影響輸入框種類與綁定候選是否含數值型 i18n 詞條，
+  // 不影響上面 SlotFieldMode 的判斷邏輯）。已存在的 literal 值依實際型別
+  // 判斷；bound 值或尚未填值時預設當文字處理。
+  const valueSubMode: "string" | "number" =
+    isValueNodeLike(value) && value.mode === "literal" && typeof value.value === "number" ? "number" : "string";
+
+  const switchToComponents = () => {
+    if (mode === "components") return;
+    onChange(makeSlotValue([]));
+  };
+
+  const switchToValue = (subMode: "string" | "number") => {
+    if (mode === "value" && valueSubMode === subMode) return;
+    onChange({ mode: "literal", value: subMode === "number" ? 0 : "" });
+  };
 
   const filteredGroups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -716,125 +786,176 @@ function ReactNodeField({ value, onChange }: { value: unknown; onChange: (value:
     onChange(makeSlotValue(next));
   };
 
+  const modeSwitcherStyle = (active: boolean): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 11,
+    padding: "3px 8px",
+    borderRadius: 4,
+    border: "1px solid " + (active ? "#2d9c74" : "#333"),
+    background: active ? "#18271f" : "transparent",
+    color: active ? "#8fe" : "#999",
+    cursor: "pointer",
+  });
+
   return (
     <div>
-      {slot.blocks.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
-          {slot.blocks.map((b, i) => (
-            <div
-              key={b.instanceId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 6,
-                border: "1px solid #333",
-                borderRadius: 4,
-                padding: "4px 8px",
-                background: "#0d0d0d",
-              }}
-            >
-              <span style={{ fontSize: 12, color: "#ccc" }}>{b.componentName}</span>
-              <button
-                style={{ ...iconBtnStyle, color: "#e77" }}
-                onClick={() => removeAt(i)}
-                title="從此插槽移除"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ position: "relative" }}>
+      {/* 模式切換：放子組件，或直接填一個可綁定的純值（文字/數字）。 */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+        <button type="button" style={modeSwitcherStyle(mode === "components")} onClick={switchToComponents} title="放入子組件">
+          <Blocks size={11} />
+          組件
+        </button>
         <button
           type="button"
-          style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-          onClick={() => setPickerOpen((v) => !v)}
+          style={modeSwitcherStyle(mode === "value" && valueSubMode === "string")}
+          onClick={() => switchToValue("string")}
+          title="直接填一段文字，可綁定 i18n / 路由 / 檔案來源"
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#999" }}>
-            <Plus size={12} />
-            加入組件…
-          </span>
-          <ChevronDown size={12} style={{ color: "#777" }} />
+          <TypeIcon size={11} />
+          文字
         </button>
+        <button
+          type="button"
+          style={modeSwitcherStyle(mode === "value" && valueSubMode === "number")}
+          onClick={() => switchToValue("number")}
+          title="直接填一個數字"
+        >
+          <TypeIcon size={11} />
+          數字
+        </button>
+      </div>
 
-        {pickerOpen && (
-          <div
-            style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              left: 0,
-              right: 0,
-              zIndex: 20,
-              background: "#171717",
-              border: "1px solid #333",
-              borderRadius: 6,
-              padding: 8,
-              maxHeight: 260,
-              overflowY: "auto",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div style={{ position: "relative", marginBottom: 6 }}>
-              <Search size={12} style={{ position: "absolute", left: 8, top: 8, color: "#777" }} />
-              <input
-                autoFocus
-                style={{ ...inputStyle, paddingLeft: 26, fontSize: 12 }}
-                placeholder="篩選組件名稱或描述…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-            {filteredGroups.length === 0 ? (
-              <p style={{ fontSize: 12, color: "#777", margin: 4 }}>找不到符合的組件。</p>
-            ) : (
-              filteredGroups.map((group) => (
-                <div key={group.label} style={{ marginBottom: 4 }}>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: "#999",
-                      textTransform: "uppercase",
-                      letterSpacing: 0.4,
-                      fontFamily: "monospace",
-                      padding: "6px 6px 2px",
-                    }}
+      {mode === "value" ? (
+        <BindableField
+          fieldType={{ kind: "primitive", type: valueSubMode }}
+          value={value}
+          defaultValue={null}
+          store={store}
+          onChange={onChange}
+        />
+      ) : (
+        <>
+          {slot.blocks.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
+              {slot.blocks.map((b, i) => (
+                <div
+                  key={b.instanceId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 6,
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    background: "#0d0d0d",
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: "#ccc" }}>{b.componentName}</span>
+                  <button
+                    style={{ ...iconBtnStyle, color: "#e77" }}
+                    onClick={() => removeAt(i)}
+                    title="從此插槽移除"
                   >
-                    {group.label}
-                  </div>
-                  {group.components.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => addComponent(c)}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        background: "transparent",
-                        border: "none",
-                        color: "#ccc",
-                        fontSize: 12,
-                        padding: "6px 6px",
-                        cursor: "pointer",
-                        borderRadius: 4,
-                      }}
-                      title={c.description}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      {c.componentName}
-                    </button>
-                  ))}
+                    <X size={12} />
+                  </button>
                 </div>
-              ))
+              ))}
+            </div>
+          )}
+
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+              onClick={() => setPickerOpen((v) => !v)}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#999" }}>
+                <Plus size={12} />
+                加入組件…
+              </span>
+              <ChevronDown size={12} style={{ color: "#777" }} />
+            </button>
+
+            {pickerOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  left: 0,
+                  right: 0,
+                  zIndex: 20,
+                  background: "#171717",
+                  border: "1px solid #333",
+                  borderRadius: 6,
+                  padding: 8,
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                }}
+              >
+                <div style={{ position: "relative", marginBottom: 6 }}>
+                  <Search size={12} style={{ position: "absolute", left: 8, top: 8, color: "#777" }} />
+                  <input
+                    autoFocus
+                    style={{ ...inputStyle, paddingLeft: 26, fontSize: 12 }}
+                    placeholder="篩選組件名稱或描述…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </div>
+                {filteredGroups.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "#777", margin: 4 }}>找不到符合的組件。</p>
+                ) : (
+                  filteredGroups.map((group) => (
+                    <div key={group.label} style={{ marginBottom: 4 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: "#999",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.4,
+                          fontFamily: "monospace",
+                          padding: "6px 6px 2px",
+                        }}
+                      >
+                        {group.label}
+                      </div>
+                      {group.components.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => addComponent(c)}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            background: "transparent",
+                            border: "none",
+                            color: "#ccc",
+                            fontSize: 12,
+                            padding: "6px 6px",
+                            cursor: "pointer",
+                            borderRadius: 4,
+                          }}
+                          title={c.description}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          {c.componentName}
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
