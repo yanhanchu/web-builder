@@ -35,6 +35,15 @@ apps/site-generator/
     generate.ts             主流程：走訪 locale x page，寫檔案
     cli.ts                   Node 進入點
     site.css          Tailwind CSS 建置入口（不被任何頁面 import，只給 generate.ts 用）
+
+    render-page-jsx.ts      單頁產出 .tsx 原始碼字串（見下方「.tsx 輸出流程」）
+    render-page-data.ts     單頁單 locale 產出 resolved 資料 JSON
+    generate-jsx.ts          主流程（.tsx 輸出版）：走訪 locale x page，寫 .tsx + JSON
+    cli-jsx.ts                Node 進入點（.tsx 輸出版）
+    jsx-codegen/
+      render-block-tree-to-jsx.ts  遞迴把 PageBlock 樹轉成 JSX 原始碼文字
+      stringify-literal.ts          純值 -> 合法 JS/JSX literal 原始碼字串
+      import-collector.ts           收集/去重/排序組件 import 語句
   package.json
   README.md（這份文件）
 
@@ -163,6 +172,69 @@ dist/
   en/about/index.html
   assets/site.css       # Tailwind 掃過 packages/ui/src 之後的單一 CSS 產物
 ```
+
+## `.tsx` 輸出流程（新，見 `roadmap.md`）
+
+上面「執行」一節的 `pnpm generate` 輸出的是**完整 HTML**（`renderToStaticMarkup`，
+不 hydrate）。另外提供一條平行的產出路徑，輸出的是**可以直接被其他專案 `import`
+的 `.tsx` 原始碼**，長得像 `apps/web-builder/src/pages/index.tsx` 手寫的樣子，
+差別是資料來自「攤平資料 + data-model resolve」，不是手寫 import 寫死物件。
+背景與設計考量見 `apps/roadmap.md`，這裡只說明現況範圍：
+
+- **locale 在產出當下就 resolve 死**：i18n 綁定欄位用 `resolveValue()`
+  解成純值，直接 dump 成 JSX attribute。輸出的 `.tsx` 是固定某個 locale 的
+  靜態內容，**不支援、也不做「瀏覽器裡動態切換 locale」**。
+- **`.tsx` 只產出一份（預設語系）**：跟 `roadmap.md` 的需求一致——`.tsx`
+  只做一份預設語系的即可。
+- **資料 JSON 每個 locale 各自一份**：`data/<locale>/<pageId>.json`，內容是
+  該 (page, locale) 底下每個 block 的 resolved 純值 props（攤平成
+  `instanceId -> { componentId, componentName, props, slots }`，`slots` 記錄
+  巢狀子 block 的 `instanceId` 清單，用來還原樹狀結構）。這份 JSON 純粹是
+  靜態產出物，方便檢視/比對某個 locale 的資料內容，不是給 `.tsx` 在瀏覽器
+  裡讀取、動態切換 locale 用的 runtime 資料。
+
+```bash
+cd apps/site-generator
+pnpm generate:jsx                                  # 讀 ../../data，輸出到 ./dist-jsx
+pnpm generate:jsx -- --data ../../data --out ./dist-jsx   # 明確指定路徑
+```
+
+輸出結構範例（`locales.json = ["zh-TW", "en"]`、`zh-TW` 為預設語系）：
+
+```
+dist-jsx/
+  pages/
+    HomePage.tsx     # 頁面 id "home" -> 元件名稱 HomePage，只用 zh-TW（預設語系）resolve
+    AboutPage.tsx
+  data/
+    zh-TW/
+      home.json       # { pageId, locale, blocks: { <instanceId>: {...} }, rootBlockIds, warnings }
+      about.json
+    en/
+      home.json
+      about.json
+```
+
+程式碼結構（`load-static-data.ts` / `resolve-route.ts` 完全沿用、不用動）：
+
+- `jsx-codegen/render-block-tree-to-jsx.ts`：對應
+  `@workspace/ui/lib/site-renderer/render-block-tree.tsx` 的
+  `renderBlockTreeSync`，但輸出 JSX 原始碼字串而不是渲染結果；遞迴處理巢狀
+  slot、正確縮排。
+- `jsx-codegen/stringify-literal.ts`：把 `resolveValue()` 解出的純值
+  pretty-print 成合法 JS/JSX literal 語法（不是 `JSON.stringify`——物件 key
+  不加引號、字串優先用雙引號等）。
+- `jsx-codegen/import-collector.ts`：收集這個頁面用到的所有組件 import，
+  去重、排序，避免同一個組件用了兩次卻 import 兩次。
+- `render-page-jsx.ts`：組出一份完整 `.tsx` 檔案（import 語句 + `export default`
+  組件），對應 `render-page.ts` 但輸出原始碼而非 HTML。
+- `render-page-data.ts`：把一個 (page, locale) 的每個 block resolved 成純值，
+  攤平成一份 JSON（不含元件邏輯，純資料）。
+- `generate-jsx.ts` / `cli-jsx.ts`：主流程與進入點，跟既有 `generate.ts` /
+  `cli.ts`（HTML 輸出）平行存在、互不影響，也不需要 `renderToStaticMarkup` /
+  `preloadBlockTreeComponents` / `buildCss` 這一整套「真的執行組件」的機制——
+  code generator 只需要 `ComponentDoc`（`componentId -> importPath/componentName`）
+  跟 `resolveValue`。
 
 ## 實作筆記 / 已知限制
 
