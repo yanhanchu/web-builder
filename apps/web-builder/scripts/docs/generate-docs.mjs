@@ -46,7 +46,7 @@ const UI_ROOT = path.join(MONOREPO_ROOT, 'packages', 'ui');
 
 const TSCONFIG_PATH = path.join(UI_ROOT, 'tsconfig.app.json');
 // src/components/**  → 文件系統要解析的範例組件本體（generator 的資料來源，位於 packages/ui）
-const COMPONENTS_GLOBS = ['src/components/demo/*.tsx','src/components/landing1/*.tsx'];
+const COMPONENTS_GLOBS = ['src/components/landing1/*.tsx'];
 // 每個組件目錄底下的 default.ts（預覽用的預設 demo props，見
 // apps/web-builder .../component-grouping.ts 的 loadDefaultProps）。
 // 這些檔案不是組件本體，不會被 react-docgen-typescript 解析進 components.json，

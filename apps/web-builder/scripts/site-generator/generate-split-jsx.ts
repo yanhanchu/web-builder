@@ -7,13 +7,14 @@
 // inline，而是拆成獨立資料檔案，頁面 .tsx 改用 `{...varName}` spread 引用
 // （見 render-page-split-jsx.ts 檔案開頭的範例對照）。
 //
-// 重要邊界：outDir 是「完全由這支程式擁有」的資料夾，每次執行都會整個
-// rm 掉重寫（見下方 rm(options.outDir)）。index.html / main.tsx / App.tsx
-// （BrowserRouter、layout 等殼層）不在這支程式的產出範圍內，交由外部手動
-// 維護——呼叫端請把 outDir 指到一個「專門放產生結果、不放任何手寫檔案」
-// 的獨立資料夾（例如 apps/web-builder/src/generated），不要直接指到
-// apps/web-builder/src 本身，否則 rm(options.outDir) 會把手寫的
-// index.html/main.tsx/App.tsx 一起刪掉。
+// 重要邊界：outDir 不會被整個清空，每次執行只會覆寫這次產出實際用到的
+// 檔案路徑（pages/*.tsx、data/<locale>/<pageId>/*.ts、routes.tsx、
+// index.css），outDir 底下其他既有檔案（含上一輪產出但這次沒再產生的
+// 檔案）會被保留。index.html / main.tsx / App.tsx（BrowserRouter、layout
+// 等殼層）不在這支程式的產出範圍內，交由外部手動維護——呼叫端仍建議把
+// outDir 指到一個「專門放產生結果」的獨立資料夾（例如
+// apps/web-builder/src/generated），避免跟手寫檔案混放時路徑剛好撞名
+// 而被覆寫。
 //
 // 輸出目錄配置（outDir 底下）：
 //   pages/<ComponentName>.tsx               頁面本身（語系無關，透過 data prop 接收資料，見
@@ -70,7 +71,7 @@
 // cli-split-jsx.ts 也已經支援 `--out <路徑>` 這個 CLI 參數。
 // ============================================================
 
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
@@ -90,9 +91,10 @@ export interface GenerateSplitJsxOptions {
   /** 攤平資料根目錄（含 sources/、pages.json、locales.json、style-sheets.json）。 */
   dataDir: string;
   /**
-   * 產出目錄，會被整個 rm + 重建（見檔案開頭說明）：請指到一個獨立、
-   * 專門放產生結果的資料夾（例如 apps/web-builder/src/generated），不要
-   * 指到放了手寫 index.html/main.tsx/App.tsx 的目錄本身。
+   * 產出目錄，不會被整個清空：只會覆寫這次產出實際用到的檔案路徑（見檔案
+   * 開頭說明），其他既有檔案會被保留。建議指到一個獨立、專門放產生結果的
+   * 資料夾（例如 apps/web-builder/src/generated），避免跟手寫
+   * index.html/main.tsx/App.tsx 混放時路徑撞名而被覆寫。
    *
    * 產出內容：`${outDir}/pages/*.tsx`、`${outDir}/data/<locale>/<pageId>/*.ts`、
    * `${outDir}/routes.tsx`、`${outDir}/index.css`。
@@ -216,9 +218,11 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
     });
     log(`共 ${plannedRoutes.length} 筆規劃路徑（預設語系：${defaultLocale}，資料分組策略：${groupingName}）`);
 
-    // outDir 是這支程式獨佔的資料夾，每次執行整個清掉重建（見檔案開頭
-    // 說明：呼叫端請把 outDir 指到獨立的子資料夾，不要跟手寫檔案混放）。
-    await rm(options.outDir, { recursive: true, force: true });
+    // outDir 不會被清空：只會覆寫這次產出會用到的檔案路徑（pages/*.tsx、
+    // data/<locale>/<pageId>/*.ts、routes.tsx、index.css），outDir 底下
+    // 其他既有檔案（含上一輪產出但這次沒再產生的檔案）會被保留下來，不會
+    // 被刪除。呼叫端仍建議把 outDir 指到獨立的子資料夾，避免跟手寫檔案
+    // 混放時路徑剛好撞名而被覆寫。
     const pagesDir = path.join(options.outDir, "pages");
     const dataRootDir = path.join(options.outDir, "data");
     await mkdir(pagesDir, { recursive: true });

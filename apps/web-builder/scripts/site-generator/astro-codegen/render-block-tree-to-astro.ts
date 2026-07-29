@@ -14,6 +14,16 @@
 //      這種佔位值，並在標籤正上方補一行 HTML 註解提醒「需要之後手動調整」，
 //      避免產生無效語法（Astro 標籤的屬性列本身不能塞 JSX 專屬的
 //      `{/* ... */}` 註解語法）。
+//   4. `children` 若被使用者塞成純值（例如數字、字串，不是子 block），會
+//      跟其他純值 props 一起被 spread 進 `{...button2}`（例如
+//      `<Button {...button2} />`），畫面上不會渲染出來——`children` prop
+//      跟真正的 JSX/Astro children（標籤之間的內容）是兩回事，組件多半是
+//      靠後者渲染。這裡改成把它從 spread 物件裡「顯式」拉出來，用
+//      `{button2.children}` 表達式當作標籤之間的 children 插入（見
+//      walkNode() 的 plainChildrenExpr），輸出成單行
+//      `<Button {...button2}>{button2.children}</Button>`（不像巢狀 block
+//      children 那樣換行展開）。資料本身仍只有一份（`button2.children`），
+//      不重複字面量。
 //
 // 跟 React 版一樣：resolvePlainProps() 已經把 i18n 綁定欄位 resolve 成純
 // 值，這裡不含任何 i18n/resolve 邏輯，純粹是 tree -> template 字串組裝。
@@ -153,6 +163,23 @@ function walkNode(block: PageBlock, options: RenderBlockTreeToAstroOptions, inde
     spreadVarName = dataExport.varName;
   }
 
+  // "children" 若被使用者塞成純值（例如數字、字串，而不是子 block），會
+  // 留在 resolvedProps 裡（見 render-block-tree-to-split-jsx.ts 同一段落
+  // 說明），因此也會被 spread 進 `{...button2}`。但 spread 只會把
+  // `children` 設成 prop（`<Button children={999} />` 等價的
+  // `React.createElement(Button, { children: 999 })`），组件實際上多半
+  // 是拿 JSX children（`props.children`）渲染，不是自己讀
+  // `props.children` 這個具名 prop（大部分寫法都直接解構
+  // `{ children }`，两者其實殊途同归，但 Astro/JSX 慣例上 children 應該
+  // 出現在標籤之間，不是 attribute），所以這裡改成把它從 spread 物件的
+  // 陰影裡「顯式」拉出來，用 `{${spreadVarName}.children}` 當作真正的
+  // JSX/Astro children 插入標籤之間——資料本身仍只有一份（`button2.children`），
+  // 這裡只是換了個位置引用，不重複字面量、不需要另外處理值的字串化。單一
+  // 表達式跟開合標籤同一行輸出即可，不像巢狀 block children 那樣需要換行
+  // 展開（見下方 childrenIsPlainInline）。
+  const hasPlainChildren = hasPlainProps && spreadVarName !== undefined && "children" in resolvedProps;
+  const plainChildrenExpr = hasPlainChildren ? `{${spreadVarName}.children}` : null;
+
   const { children: childrenSlot, ...namedSlotProps } = slotProps;
 
   const slotAttrLines: string[] = [];
@@ -186,10 +213,18 @@ function walkNode(block: PageBlock, options: RenderBlockTreeToAstroOptions, inde
   );
 
   let childrenTemplate: string | null = null;
+  let childrenIsPlainInline = false;
   if (childrenSlot && childrenSlot.length > 0) {
     const childResults = childrenSlot.map((child) => walkNode(child, options, indentLevel + 1));
     for (const r of childResults) dataExports.push(...r.dataExports);
     childrenTemplate = childResults.map((r) => r.template).join("\n");
+  } else if (plainChildrenExpr !== null) {
+    // 沒有真正的子 block（childrenSlot 為空），但 resolvedProps 裡有純值
+    // children，改用上面組好的 `{button2.children}` 表達式當 children——
+    // 跟巢狀 block 不同，這裡只是單一個表達式，不需要另起一行、也不需要
+    // 縮排，直接跟開合標籤同一行即可（`<Button {...button2}>{button2.children}</Button>`）。
+    childrenTemplate = plainChildrenExpr;
+    childrenIsPlainInline = true;
   }
 
   // 屬性能單行放下（只有 spread + client 指令、沒有具名 slot attribute）就
@@ -213,7 +248,9 @@ function walkNode(block: PageBlock, options: RenderBlockTreeToAstroOptions, inde
   const template =
     childrenTemplate === null
       ? `${pad}${selfClosingTag}`
-      : `${pad}${openTag}\n${childrenTemplate}\n${pad}</${component.componentName}>`;
+      : childrenIsPlainInline
+        ? `${pad}${openTag}${childrenTemplate}</${component.componentName}>`
+        : `${pad}${openTag}\n${childrenTemplate}\n${pad}</${component.componentName}>`;
 
   // client:media 目前只能給一個佔位 media query（見 clientDirectiveAttr()
   // 的說明），在標籤正上方補一行 HTML 註解提醒之後要手動調整——這裡用

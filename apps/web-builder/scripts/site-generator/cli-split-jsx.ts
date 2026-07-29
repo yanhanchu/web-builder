@@ -8,9 +8,9 @@
 // 預設值：
 //   --data   ../../../data/default   （相對於 apps/web-builder/scripts/site-generator，
 //                                       也就是 monorepo 根目錄的 data/default）
-//   --out    ../../dist              （產出目錄，會被整個清空重建——請指到獨立資料夾，
-//                                   不要跟手寫的 index.html/main.tsx/App.tsx 放在一起，
-//                                   例如 apps/web-builder/src/generated）
+//   --out    ../../dist              （產出目錄，不會被整個清空，只覆寫這次會產出的檔案——
+//                                   仍建議指到獨立資料夾，不要跟手寫的 index.html/main.tsx/App.tsx
+//                                   放在一起，例如 apps/web-builder/src/generated）
 //   --group  all-in-one           （整頁一份資料檔案；改成 by-component 則每個組件名稱各自一份）
 //
 // 只負責參數解析與 exit code，實際邏輯都在 generate-split-jsx.ts。

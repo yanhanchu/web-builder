@@ -1,0 +1,620 @@
+[
+  {
+    "id": "src/components/landing1/brand.tsx#Brand",
+    "componentName": "Brand",
+    "filePath": "src/components/landing1/brand.tsx",
+    "importPath": "components/landing1/brand",
+    "description": "Site logo + wordmark, linking back to the homepage.\nPure presentation — all strings and the logo image come from `data`.",
+    "props": [
+      {
+        "name": "data",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo image, fully i18n-ready"
+      },
+      {
+        "name": "className",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Additional class names merged onto the root anchor"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/brand.tsx#BrandProps",
+      "src/components/landing1/types.ts#BrandData"
+    ]
+  },
+  {
+    "id": "src/components/landing1/button.tsx#Button",
+    "componentName": "Button",
+    "filePath": "src/components/landing1/button.tsx",
+    "importPath": "components/landing1/button",
+    "description": "The primary interactive control for triggering actions.\nUse `variant=\"danger\"` for destructive actions like delete.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Button label / content"
+      },
+      {
+        "name": "fullWidth",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Stretches the button to fill its container width"
+      },
+      {
+        "name": "icon",
+        "required": false,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Icon element rendered before the label"
+      },
+      {
+        "name": "isLoading",
+        "required": false,
+        "type": "boolean",
+        "defaultValue": "false",
+        "description": "Shows a loading spinner and disables interaction"
+      },
+      {
+        "name": "size",
+        "required": false,
+        "type": "\"sm\" | \"md\" | \"lg\"",
+        "defaultValue": "md",
+        "description": "Size of the button"
+      },
+      {
+        "name": "variant",
+        "required": false,
+        "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\"",
+        "defaultValue": "primary",
+        "description": "Visual style of the button"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/button.tsx#ButtonProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/contact-card.tsx#ContactCard",
+    "componentName": "ContactCard",
+    "filePath": "src/components/landing1/contact-card.tsx",
+    "importPath": "components/landing1/contact-card",
+    "description": "Contact page's primary card: heading, intro, a prominent mailto CTA and\na bulleted list of suggested topics. All copy is supplied by the caller.",
+    "props": [
+      {
+        "name": "email",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Contact email shown as the CTA"
+      },
+      {
+        "name": "intro",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting intro paragraph"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Card heading"
+      },
+      {
+        "name": "topics",
+        "required": true,
+        "type": "string[]",
+        "defaultValue": null,
+        "description": "Bullet list of topics people can reach out about"
+      },
+      {
+        "name": "topicsTitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Heading above the topics list"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/contact-card.tsx#ContactCardProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/cta-banner.tsx#CtaBanner",
+    "componentName": "CtaBanner",
+    "filePath": "src/components/landing1/cta-banner.tsx",
+    "importPath": "components/landing1/cta-banner",
+    "description": "Full-width closing call-to-action banner with a decorative aurora\nbackground and a single mail button. All copy and the link are\nsupplied by the caller.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "ctaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button destination, e.g. \"mailto:hello@example.com\""
+      },
+      {
+        "name": "ctaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button label, e.g. \"Get in touch\""
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Banner heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/cta-banner.tsx#CtaBannerProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/flex.tsx#Flex",
+    "componentName": "Flex",
+    "filePath": "src/components/landing1/flex.tsx",
+    "importPath": "components/landing1/flex",
+    "description": "A configurable flexbox container for arranging its children, exposing the\nsame knobs as a typical flexbox playground: direction, wrap, main-axis\njustification (start / center / end / space-between / space-around /\nspace-evenly) and cross-axis alignment (start / center / end / stretch /\nbaseline).\n\nPurely a layout primitive — it renders no visual chrome of its own beyond\nspacing, so it composes with any children dropped into its `children` slot.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Child elements laid out by this flex container."
+      },
+      {
+        "name": "align",
+        "required": false,
+        "type": "\"start\" | \"center\" | \"end\" | \"stretch\" | \"baseline\"",
+        "defaultValue": "stretch",
+        "description": "Alignment along the cross axis (vertical for `row`, horizontal for\n`column`) — top / center / bottom / stretch / baseline.\nDefaults to `stretch`."
+      },
+      {
+        "name": "direction",
+        "required": false,
+        "type": "\"row\" | \"row-reverse\" | \"column\" | \"column-reverse\"",
+        "defaultValue": "row",
+        "description": "Flex-direction: which way the main axis runs. Defaults to `row`."
+      },
+      {
+        "name": "gap",
+        "required": false,
+        "type": "number",
+        "defaultValue": "12",
+        "description": "Gap between items in pixels. Defaults to `12`."
+      },
+      {
+        "name": "justify",
+        "required": false,
+        "type": "| \"start\" | \"center\" | \"end\" | \"space-between\" | \"space-around\" | \"space-evenly\"",
+        "defaultValue": "start",
+        "description": "Alignment along the main axis (horizontal for `row`, vertical for\n`column`) — left / center / right plus the distributed-spacing modes.\nDefaults to `start`."
+      },
+      {
+        "name": "minHeight",
+        "required": false,
+        "type": "number",
+        "defaultValue": null,
+        "description": "Minimum height in pixels, useful for previewing alignment on an otherwise short container."
+      },
+      {
+        "name": "wrap",
+        "required": false,
+        "type": "\"nowrap\" | \"wrap\" | \"wrap-reverse\"",
+        "defaultValue": "nowrap",
+        "description": "Whether items wrap onto additional lines. Defaults to `nowrap`."
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/flex.tsx#FlexProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/flex.tsx#FlexItem",
+    "componentName": "FlexItem",
+    "filePath": "src/components/landing1/flex.tsx",
+    "importPath": "components/landing1/flex",
+    "description": "An individual item inside a `Flex` container. Optional — plain elements\nwork as `Flex` children too — but `FlexItem` exposes per-item grow /\nshrink / basis / align-self, the same controls a flexbox playground gives\neach item alongside the container-level settings.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Content rendered inside this flex item, e.g. sample filler content."
+      },
+      {
+        "name": "alignSelf",
+        "required": false,
+        "type": "\"start\" | \"center\" | \"end\" | \"stretch\" | \"baseline\"",
+        "defaultValue": null,
+        "description": "Overrides the container's `align` for this item alone (CSS `align-self`)."
+      },
+      {
+        "name": "basis",
+        "required": false,
+        "type": "string | number",
+        "defaultValue": "auto",
+        "description": "Flex-basis: the item's starting size before growing/shrinking. Defaults to `auto`."
+      },
+      {
+        "name": "grow",
+        "required": false,
+        "type": "number",
+        "defaultValue": "0",
+        "description": "Flex-grow factor: how much this item grows to fill extra space. Defaults to `0`."
+      },
+      {
+        "name": "shrink",
+        "required": false,
+        "type": "number",
+        "defaultValue": "1",
+        "description": "Flex-shrink factor: how much this item shrinks when space is tight. Defaults to `1`."
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/flex.tsx#FlexItemProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/footer.tsx#Footer",
+    "componentName": "Footer",
+    "filePath": "src/components/landing1/footer.tsx",
+    "importPath": "components/landing1/footer",
+    "description": "Site footer with brand/tagline, contact email, grouped link columns and a\ncopyright bar. Purely presentational — no dates or strings are computed\ninternally, so the caller controls the copyright year and wording.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "columns",
+        "required": true,
+        "type": "NavColumn[]",
+        "defaultValue": null,
+        "description": "Grouped link columns, e.g. Product / Company"
+      },
+      {
+        "name": "copyright",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Copyright line, e.g. \"© 2026 OZSV. All rights reserved.\""
+      },
+      {
+        "name": "email",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Contact email shown as a mailto link"
+      },
+      {
+        "name": "emailAriaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the email link"
+      },
+      {
+        "name": "meta",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary meta line shown next to the copyright, e.g. \"Made in Australia\""
+      },
+      {
+        "name": "tagline",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Short tagline shown under the brand mark"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/footer.tsx#FooterProps",
+      "src/components/landing1/types.ts#BrandData",
+      "src/components/landing1/types.ts#NavColumn",
+      "src/components/landing1/types.ts#NavItem"
+    ]
+  },
+  {
+    "id": "src/components/landing1/header.tsx#Header",
+    "componentName": "Header",
+    "filePath": "src/components/landing1/header.tsx",
+    "importPath": "components/landing1/header",
+    "description": "Sticky site header with brand, primary navigation, theme toggle and a\ncollapsible mobile menu. Owns only its own open/closed UI state — all\ncopy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "brand",
+        "required": true,
+        "type": "BrandData",
+        "defaultValue": null,
+        "description": "Brand strings and logo, forwarded to <Brand />"
+      },
+      {
+        "name": "closeMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is open"
+      },
+      {
+        "name": "openMenuLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the mobile menu button when the menu is closed"
+      },
+      {
+        "name": "primaryNav",
+        "required": true,
+        "type": "NavItem[]",
+        "defaultValue": null,
+        "description": "Primary navigation links, shown inline on desktop and in the mobile sheet"
+      },
+      {
+        "name": "themeGroupLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the theme toggle radiogroup"
+      },
+      {
+        "name": "themeLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label shown next to the theme toggle in the mobile menu"
+      },
+      {
+        "name": "themeOptions",
+        "required": true,
+        "type": "ThemeOption[]",
+        "defaultValue": null,
+        "description": "Theme toggle options, forwarded to <ThemeToggle />"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/header.tsx#HeaderProps",
+      "src/components/landing1/types.ts#BrandData",
+      "src/components/landing1/types.ts#NavItem",
+      "src/components/landing1/types.ts#ThemeOption"
+    ]
+  },
+  {
+    "id": "src/components/landing1/hero.tsx#Hero",
+    "componentName": "Hero",
+    "filePath": "src/components/landing1/hero.tsx",
+    "importPath": "components/landing1/hero",
+    "description": "Full-width hero banner: eyebrow, headline, subtitle and a pair of CTAs.\nAll copy and links are supplied by the caller.",
+    "props": [
+      {
+        "name": "eyebrow",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small pill of text above the headline"
+      },
+      {
+        "name": "primaryCta",
+        "required": true,
+        "type": "{ label: string; to: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "secondaryCta",
+        "required": true,
+        "type": "{ label: string; to: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the headline"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "{ lead: string; accent: string; }",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultBooleans",
+        "required": false,
+        "type": "boolean[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultItems",
+        "required": false,
+        "type": "string[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultNavs",
+        "required": false,
+        "type": "{ label: string; to: string; }[]",
+        "defaultValue": null,
+        "description": ""
+      },
+      {
+        "name": "defaultNumbers",
+        "required": false,
+        "type": "number[]",
+        "defaultValue": null,
+        "description": ""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/hero.tsx#HeroProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/layout.tsx#Layout",
+    "componentName": "Layout",
+    "filePath": "src/components/landing1/layout.tsx",
+    "importPath": "components/landing1/layout",
+    "description": "Page chrome shared by every route: decorative aurora background, sticky\nheader, main content slot and footer.\n\nThis is a component like any other block — it takes no data from\ncontext, only from props — so it is generated into `components.json`\nand can itself be a `pages.json` node (e.g. the root node every page\nis nested inside). All copy/links come from `header`/`footer`.",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Page content rendered between the header and footer"
+      },
+      {
+        "name": "footer",
+        "required": true,
+        "type": "FooterProps",
+        "defaultValue": null,
+        "description": "Data for the footer, forwarded to <Footer />"
+      },
+      {
+        "name": "header",
+        "required": true,
+        "type": "HeaderProps",
+        "defaultValue": null,
+        "description": "Data for the sticky header, forwarded to <Header />"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/layout.tsx#LayoutProps",
+      "src/components/landing1/header.tsx#HeaderProps",
+      "src/components/landing1/types.ts#BrandData",
+      "src/components/landing1/types.ts#NavItem",
+      "src/components/landing1/types.ts#ThemeOption",
+      "src/components/landing1/footer.tsx#FooterProps",
+      "src/components/landing1/types.ts#NavColumn"
+    ]
+  },
+  {
+    "id": "src/components/landing1/page-intro.tsx#PageIntro",
+    "componentName": "PageIntro",
+    "filePath": "src/components/landing1/page-intro.tsx",
+    "importPath": "components/landing1/page-intro",
+    "description": "Simple centered page header used on content pages (About, legal\ndocuments, etc.): an optional eyebrow line, a large title and an\nintro paragraph inside a glass panel.",
+    "props": [
+      {
+        "name": "intro",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting intro paragraph under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Page heading"
+      },
+      {
+        "name": "eyebrow",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Optional small line above the title, e.g. \"Updated 1 July 2026\""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/page-intro.tsx#PageIntroProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/section-list.tsx#SectionList",
+    "componentName": "SectionList",
+    "filePath": "src/components/landing1/section-list.tsx",
+    "importPath": "components/landing1/section-list",
+    "description": "Stack of titled article cards, one per section. Used for the About\npage's \"what we do\" style sections and for legal document bodies.",
+    "props": [
+      {
+        "name": "sections",
+        "required": true,
+        "type": "Section[]",
+        "defaultValue": null,
+        "description": "Sections rendered as a vertical stack of cards, in order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/section-list.tsx#SectionListProps",
+      "src/components/landing1/section-list.tsx#Section"
+    ]
+  },
+  {
+    "id": "src/components/landing1/theme-toggle.tsx#ThemeToggle",
+    "componentName": "ThemeToggle",
+    "filePath": "src/components/landing1/theme-toggle.tsx",
+    "importPath": "components/landing1/theme-toggle",
+    "description": "Light / dark / system theme switcher.\n\nNo Context/provider: reads the persisted choice from `localStorage`\non mount (via `getStoredTheme`) and writes through `setTheme` from\n`@/lib/theme`, which updates `data-theme` on `<html>` directly. Local\n`useState` here is only for the button's own active-state highlight,\nnot shared app state — this component is the only thing that needs\nto re-render when the choice changes.\n\n【為什麼 onClick 要傳 e.currentTarget.ownerDocument】這個組件可能被畫布\n編輯器用 React portal 掛進一個獨立的 iframe document 裡預覽（見\napps/web-builder 的 CanvasFrame）。portal 只搬動 DOM 節點，這裡的 JS\n還是跑在外層 window 的 realm，如果 setTheme 內部寫死操作全域\n`document`，畫布裡點這顆按鈕改到的會是外層 admin 頁面的 `<html>`，不是\niframe 自己的、真正套用了預覽樣式的那個 `<html>`——畫面上會像完全沒反應。\n`e.currentTarget` 是這顆 `<button>` 自己，它的 `ownerDocument` 永遠正確\n指向它實際被 portal 進去的那個 document（一般情境下就是全域\n`document`，行為不變），不需要額外用 Context 或 prop 往下傳。",
+    "props": [
+      {
+        "name": "groupLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the radiogroup"
+      },
+      {
+        "name": "options",
+        "required": true,
+        "type": "ThemeOption[]",
+        "defaultValue": null,
+        "description": "Selectable theme options, in display order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/theme-toggle.tsx#ThemeToggleProps",
+      "src/components/landing1/types.ts#ThemeOption"
+    ]
+  },
+  {
+    "id": "src/components/landing1/value-props.tsx#ValueProps",
+    "componentName": "ValueProps",
+    "filePath": "src/components/landing1/value-props.tsx",
+    "importPath": "components/landing1/value-props",
+    "description": "Responsive grid of short value-proposition cards\n(3 columns on desktop, stacked on mobile).",
+    "props": [
+      {
+        "name": "items",
+        "required": true,
+        "type": "ValueProp[]",
+        "defaultValue": null,
+        "description": "Cards shown in the grid, in display order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/value-props.tsx#ValuePropsProps",
+      "src/components/landing1/value-props.tsx#ValueProp"
+    ]
+  }
+]

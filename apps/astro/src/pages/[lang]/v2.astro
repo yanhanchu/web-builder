@@ -1,0 +1,68 @@
+---
+// ============================================================
+// 此檔案由 site-generator（apps/site-generator/src/astro-codegen/render-page-astro.ts）
+// 自動產生，請勿手動編輯——重新執行產生器即會覆蓋這裡的內容。
+//
+// 來源頁面：page_1akvhp（Test）
+// 語系無關的動態路由檔案：不屬於任何單一語系，透過 getStaticPaths()
+// （Astro 官方 SSG 展開機制）在建置期為 ["zh-TW","en"] 各自展開
+// 成一個靜態頁面（例如 /en/page_1akvhp、
+// /zh-TW/page_1akvhp），[lang] 這個目錄名稱
+// 本身不代表任何實際語系，只是 Astro 動態路由片段的語法。
+// 資料來源：dataByLang 彙總自 data/page_1akvhp/_i18n.ts（見
+// renderPageI18nFile()），每個語系各自一份 data.ts 內容逐字沿用
+// render-page-split-jsx.ts 的 renderPageDataFiles()（跟 React split-jsx
+// 版輸出一模一樣）。getStaticPaths 邏輯共用自本目錄下的
+// lib/get-static-paths.ts 的 makeGetStaticPaths()。
+// client:* 指令依 page.blocks 各自的 clientDirective 欄位產生（見
+// astro-codegen/render-block-tree-to-astro.ts 的 clientDirectiveAttr()）。
+// 整份頁面內容包在 AstroLayoutShell（apps/astro/src/layouts/AstroLayoutShell.astro）
+// 底下，帶入 page.seo 作為 SEO 資料。
+// ============================================================
+
+import { Button } from "@workspace/ui/components/landing1/button";
+import { Flex, FlexItem } from "@workspace/ui/components/landing1/flex";
+import { Layout } from "@workspace/ui/components/landing1/layout";
+import { PageIntro } from "@workspace/ui/components/landing1/page-intro";
+import { ValueProps } from "@workspace/ui/components/landing1/value-props";
+
+import AstroLayoutShell from "../../layouts/AstroLayoutShell.astro";
+
+import type { SeoData } from "@workspace/ui/components/site/types";
+
+import { dataByLang } from "../../data/v2/_i18n";
+import { makeGetStaticPaths } from "../../lib/get-static-paths";
+
+export const getStaticPaths = makeGetStaticPaths(dataByLang);
+
+const { data } = Astro.props;
+const { layout, flex, flexItem, button, flexItem2, button2, pageIntro, valueProps } = data;
+
+const seo: SeoData = {
+  title: "Web Builder",
+  titleTemplate: "%s | Web Builder",
+  description: "使用 Web Builder 打造你的網站。",
+  keywords: "web, builder, cms",
+  ogImage: "/og-image.png",
+  ogType: "website",
+  twitterCard: "summary_large_image",
+  twitterSite: "@webbuilder",
+  canonicalUrl: "",
+  robots: "index, follow",
+};
+---
+
+<AstroLayoutShell seo={seo} lang={Astro.params.lang as string}>
+<Layout {...layout}>
+  <Flex {...flex}>
+    <FlexItem {...flexItem}>
+      <Button {...button}>{button.children}</Button>
+    </FlexItem>
+    <FlexItem {...flexItem2}>
+      <Button {...button2}>{button2.children}</Button>
+    </FlexItem>
+  </Flex>
+  <PageIntro {...pageIntro} />
+  <ValueProps {...valueProps} />
+</Layout>
+</AstroLayoutShell>

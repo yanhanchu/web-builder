@@ -50,7 +50,7 @@
 //     import ValueProps from "@workspace/ui/components/landing1/value-props";
 //     import CtaBanner from "@workspace/ui/components/landing1/cta-banner";
 //     import { dataByLang } from "../../data/home/_i18n";
-//     import { makeGetStaticPaths } from "../../../src/lib/astro-i18n/get-static-paths";
+//     import { makeGetStaticPaths } from "../../lib/get-static-paths";
 //
 //     export const getStaticPaths = makeGetStaticPaths(dataByLang);
 //
@@ -75,10 +75,12 @@
 // 不是慣例，不像 SvelteKit `+page.ts` 那種「同目錄檔案自動被框架抓走」的
 // 機制，沒辦法完全不出現這個 export），但「怎麼從 `{ [lang]: data }` 物件
 // 產生 getStaticPaths 回傳值」這段純邏輯（迴圈 + params/props 組裝）跟頁面
-// 內容完全無關，抽成 `../../lib/astro-i18n/get-static-paths.ts` 的
-// `makeGetStaticPaths()` 共用（回傳「已經是函式」的高階函式，見該檔案），
-// `.astro` 只需要 `export const getStaticPaths = makeGetStaticPaths(dataByLang);`
-// 一行。
+// 內容完全無關，抽成共用函式 `makeGetStaticPaths()`。這份函式的原始碼由
+// renderGetStaticPathsLibFile() 產生，直接寫進產出目錄底下的
+// `lib/get-static-paths.ts`（不再讓生成的 `.astro` 檔案 import 回
+// `apps/web-builder/src/lib/astro-i18n/get-static-paths.ts`——避免產出結果
+// 依賴 web-builder 原始碼目錄的相對路徑），`.astro` 只需要
+// `export const getStaticPaths = makeGetStaticPaths(dataByLang);` 一行。
 //
 // 連 import + dataByLang 組裝也一併搬到 data.ts 旁邊的一份共用檔案：每個
 // page 除了 `data/<locale>/<page>/data.ts`（逐語系），還多產生一份
@@ -90,9 +92,11 @@
 
 import type { DataStore } from "../../../src/lib/data-model/schema";
 import type { PageItem } from "../../../src/lib/page-model";
+import type { SeoData } from "../../../../../packages/ui/src/components/site/types";
 import { ImportCollector } from "../jsx-codegen/import-collector";
 import { VarNameAllocator } from "../jsx-codegen/var-naming";
 import { renderPageDataFiles, type RenderedDataFile } from "../render-page-split-jsx.ts";
+import { stringifyLiteralValue } from "../jsx-codegen/stringify-literal.ts";
 import { walkBlockListToAstro } from "./render-block-tree-to-astro";
 
 export interface RenderPageAstroOptions {
@@ -109,7 +113,36 @@ export interface RenderPageAstroOptions {
   locales: string[];
   /** 站台的預設語系，見 render-block-tree-to-split-jsx.ts 同名欄位說明。 */
   defaultLocale: string;
+  /**
+   * 全站預設 SEO（`typedData:seo:default`，App 設定頁綁定的那份），由呼叫端
+   * （generate-astro.ts）resolve 好、以純值傳進來——跟 `page.seo` 合併時
+   * 「頁面值優先」，頁面沒填（空字串）的欄位才落回這份預設值（見
+   * mergeSeoData()、readme.md「PageItem.seo 是純值……全站預設 SEO 才是綁定」
+   * 說明）。
+   */
+  siteDefaultSeo: SeoData;
   store: DataStore;
+}
+
+/**
+ * 合併「頁面自己的 SEO」跟「全站預設 SEO」——頁面值優先，頁面沒填（空字串）
+ * 的欄位才落回全站預設值。`ogType` 是 `"website" | "article"` 的必填聯合型
+ * 別，schema 層一定會給預設值、不會是「空字串代表未填」，所以直接用頁面值，
+ * 不用做「是否為空」的判斷。
+ */
+function mergeSeoData(pageSeo: SeoData, siteDefaultSeo: SeoData): SeoData {
+  return {
+    title: pageSeo.title || siteDefaultSeo.title,
+    titleTemplate: pageSeo.titleTemplate || siteDefaultSeo.titleTemplate,
+    description: pageSeo.description || siteDefaultSeo.description,
+    keywords: pageSeo.keywords || siteDefaultSeo.keywords,
+    ogImage: pageSeo.ogImage || siteDefaultSeo.ogImage,
+    ogType: pageSeo.ogType || siteDefaultSeo.ogType,
+    twitterCard: pageSeo.twitterCard || siteDefaultSeo.twitterCard,
+    twitterSite: pageSeo.twitterSite || siteDefaultSeo.twitterSite,
+    canonicalUrl: pageSeo.canonicalUrl || siteDefaultSeo.canonicalUrl,
+    robots: pageSeo.robots || siteDefaultSeo.robots,
+  };
 }
 
 export interface RenderPageAstroFileOptions extends RenderPageAstroOptions {
@@ -120,6 +153,21 @@ export interface RenderPageAstroFileOptions extends RenderPageAstroOptions {
    * 不是這個函式的職責。
    */
   dataI18nImportPath: string;
+  /**
+   * `.astro` 檔案要用什麼相對路徑 import `makeGetStaticPaths`（不含副檔名）。
+   * 這份檔案本身由 renderGetStaticPathsLibFile() 產生，寫到 outDir 底下
+   * （建議 `lib/get-static-paths`，見 generate-astro.ts）——不再指回
+   * web-builder 原始碼目錄（`apps/web-builder/src/lib/astro-i18n/...`），
+   * 讓產出結果自成一體，不依賴產生器本身的原始碼位置。
+   */
+  getStaticPathsImportPath: string;
+  /**
+   * `.astro` 檔案要用什麼相對路徑 import `AstroLayoutShell`（含副檔名
+   * `.astro`）。這份 layout 是手寫的、固定放在
+   * `apps/astro/src/layouts/AstroLayoutShell.astro`，由呼叫端
+   * （generate-astro.ts）依產出檔案實際的巢狀深度算出相對路徑。
+   */
+  layoutImportPath: string;
 }
 
 export interface RenderedPageAstro {
@@ -130,7 +178,51 @@ export interface RenderedPageAstro {
   warnings: string[];
 }
 
-/** `data/<pageId>/_i18n.ts` 彙總檔案的內容——import 全部語系的 data.ts、export 組好的 dataByLang 物件（見 renderPageI18nFile()）。 */
+/**
+ * 產出 `lib/get-static-paths.ts`——`makeGetStaticPaths()` 的原始碼，直接寫進
+ * 產出目錄（outDir）底下，不再讓生成的 `.astro` 檔案 import 回
+ * `apps/web-builder/src/lib/astro-i18n/get-static-paths.ts`（避免生成結果依賴
+ * web-builder 原始碼目錄、跨專案相對路徑）。內容跟該檔案完全一致，只是換了
+ * 存放位置；呼叫端（generate-astro.ts）負責把這份內容寫到
+ * `${outDir}/lib/get-static-paths.ts`，並讓各 `.astro` 改用相對路徑 import
+ * 這份產出結果。
+ */
+export function renderGetStaticPathsLibFile(): { fileName: string; code: string } {
+  const code = `// ============================================================
+// get-static-paths —— 給 site-generator 產出的 `+ "`pages/[lang]/{page}.astro`" + `
+// 共用的 `+ "`getStaticPaths`" + ` 工廠函式。
+//
+// 此檔案由 site-generator（apps/web-builder/scripts/site-generator/astro-codegen/render-page-astro.ts
+// 的 renderGetStaticPathsLibFile()）自動產生，請勿手動編輯——重新執行產生器
+// 即會覆蓋這裡的內容。
+//
+// 背景：Astro 的動態路由規則要求每個 `+ "`.astro`" + ` 檔案自己 export 一個
+// `+ "`getStaticPaths`" + ` 函式（這是 Astro 編譯器寫死的規則，不是慣例，沒有像
+// SvelteKit `+ "`+page.ts`" + ` 那種「同目錄檔案自動被框架抓走」的機制），所以
+// 沒辦法讓 `+ "`.astro`" + ` 檔案完全不出現這個 export。
+//
+// 這裡把「怎麼從 `+ "`{ [lang]: data }`" + ` 物件產生 getStaticPaths 回傳值」這段
+// 純邏輯（跟任何一個頁面的實際內容都無關）抽成共用函式，每個生成頁面只
+// 需要：
+//
+//   export const getStaticPaths = makeGetStaticPaths(dataByLang);
+//
+// 一行就完成，不用在每個 `+ "`.astro`" + ` 裡重複寫 `+ "`Object.keys(...).map(...)`" + `
+// 那段迴圈邏輯。
+// ============================================================
+
+export function makeGetStaticPaths<T extends Record<string, unknown>>(dataByLang: T) {
+  return function getStaticPaths() {
+    return (Object.keys(dataByLang) as (keyof T)[]).map((lang) => ({
+      params: { lang },
+      props: { data: dataByLang[lang] },
+    }));
+  };
+}
+`;
+  return { fileName: "get-static-paths.ts", code };
+}
+
 export interface RenderedPageI18nFile {
   /** 檔名，固定 "_i18n.ts"。 */
   fileName: string;
@@ -255,20 +347,23 @@ ${dataByLangEntries}
 }
 
 export function renderPageAstro(options: RenderPageAstroFileOptions): RenderedPageAstro {
-  const { page, locales, dataI18nImportPath } = options;
+  const { page, locales, dataI18nImportPath, getStaticPathsImportPath, layoutImportPath, siteDefaultSeo } = options;
   const { componentImportsSource, dataVarNames, bodyOut, dataFilesByLocale, warnings } = renderPageShape(options);
 
   // ---- getStaticPaths：不再自己寫 Object.keys(...).map(...) 那段迴圈，
   // 改成 import 現成的 dataByLang（來自同一批 renderPageI18nFile() 產出的
   // `_i18n.ts`）+ 呼叫共用的 makeGetStaticPaths()（見檔案開頭「getStaticPaths
-  // 樣板精簡（方向 C）」說明、../../lib/astro-i18n/get-static-paths.ts）。
-  // 每個生成頁面的樣板現在只剩「import dataByLang + import
+  // 樣板精簡（方向 C）」說明）。makeGetStaticPaths 本身由
+  // renderGetStaticPathsLibFile() 產生、寫到 outDir 底下（見
+  // generate-astro.ts），這裡改成用呼叫端算好的相對路徑
+  // （getStaticPathsImportPath）import，不再寫死指回 web-builder 原始碼
+  // 目錄。每個生成頁面的樣板現在只剩「import dataByLang + import
   // makeGetStaticPaths + 呼叫」三行，不再重複那段迴圈邏輯。----
   const hasData = dataFilesByLocale.length > 0;
 
   const getStaticPathsSource = hasData
     ? `import { dataByLang } from "${dataI18nImportPath}";
-import { makeGetStaticPaths } from "../../../src/lib/astro-i18n/get-static-paths";
+import { makeGetStaticPaths } from "${getStaticPathsImportPath}";
 
 export const getStaticPaths = makeGetStaticPaths(dataByLang);
 
@@ -278,7 +373,29 @@ const { ${dataVarNames.join(", ")} } = data;`
   return ${JSON.stringify(locales)}.map((lang) => ({ params: { lang } }));
 }`;
 
-  const frontmatterLines = [componentImportsSource, getStaticPathsSource].filter(Boolean).join("\n\n");
+  // ---- layout：整個 body 用手寫的 AstroLayoutShell 包一層，負責輸出
+  // `<html>`/`<head>`（SEO、OG、Twitter meta 標籤）+ `<body><slot /></body>`，
+  // seo 資料直接來自 page.seo（PageItem 上的純值 SeoData，不透過綁定機制
+  // 解析，見 apps/web-builder/src/lib/page-model/index.ts、readme.md
+  // 「PageItem.seo 是純值」說明）。這個 [lang] 版檔案跟語系無關，html lang
+  // 用執行期的 Astro.params.lang（getStaticPaths 展開時帶入的路由參數）。----
+  const layoutImportLine = `import AstroLayoutShell from "${layoutImportPath}";`;
+  const seoTypeImportLine = `import type { SeoData } from "@workspace/ui/components/site/types";`;
+  const seoConstLine = `const seo: SeoData = ${stringifyLiteralValue(mergeSeoData(page.seo, siteDefaultSeo))};`;
+
+  const frontmatterLines = [
+    componentImportsSource,
+    layoutImportLine,
+    seoTypeImportLine,
+    getStaticPathsSource,
+    seoConstLine,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const wrappedBodyOut = `<AstroLayoutShell seo={seo} lang={Astro.params.lang as string}>
+${bodyOut}
+</AstroLayoutShell>`;
 
   const astroCode = `---
 // ============================================================
@@ -294,16 +411,18 @@ const { ${dataVarNames.join(", ")} } = data;`
 // 資料來源：dataByLang 彙總自 data/${page.id}/_i18n.ts（見
 // renderPageI18nFile()），每個語系各自一份 data.ts 內容逐字沿用
 // render-page-split-jsx.ts 的 renderPageDataFiles()（跟 React split-jsx
-// 版輸出一模一樣）。getStaticPaths 邏輯共用自
-// ../../lib/astro-i18n/get-static-paths.ts 的 makeGetStaticPaths()。
+// 版輸出一模一樣）。getStaticPaths 邏輯共用自本目錄下的
+// lib/get-static-paths.ts 的 makeGetStaticPaths()。
 // client:* 指令依 page.blocks 各自的 clientDirective 欄位產生（見
 // astro-codegen/render-block-tree-to-astro.ts 的 clientDirectiveAttr()）。
+// 整份頁面內容包在 AstroLayoutShell（apps/astro/src/layouts/AstroLayoutShell.astro）
+// 底下，帶入 page.seo 作為 SEO 資料。
 // ============================================================
 
 ${frontmatterLines}
 ---
 
-${bodyOut}
+${wrappedBodyOut}
 `;
 
   return { astroCode, dataFilesByLocale, warnings };
@@ -312,6 +431,12 @@ ${bodyOut}
 export interface RenderPageAstroRootOptions extends Omit<RenderPageAstroOptions, "locales"> {
   /** defaultLocale 的 data.ts import 路徑（不含副檔名），由呼叫端決定實際落在哪裡。 */
   dataImportPath: string;
+  /**
+   * `.astro` 檔案要用什麼相對路徑 import `AstroLayoutShell`（含副檔名
+   * `.astro`），意義同 RenderPageAstroFileOptions.layoutImportPath，只是
+   * 這裡檔案巢狀深度少一層（root 版沒有 `[lang]/` 這層目錄）。
+   */
+  layoutImportPath: string;
 }
 
 /**
@@ -324,7 +449,7 @@ export interface RenderPageAstroRootOptions extends Omit<RenderPageAstroOptions,
  * resolve-route.ts 的 withLocalePrefix()）。
  */
 export function renderPageAstroRoot(options: RenderPageAstroRootOptions): RenderedPageAstro {
-  const { page, defaultLocale, dataImportPath } = options;
+  const { page, defaultLocale, dataImportPath, layoutImportPath, siteDefaultSeo } = options;
   const { componentImportsSource, dataVarNames, bodyOut, dataFilesByLocale, warnings } = renderPageShape({
     ...options,
     locales: [defaultLocale],
@@ -338,7 +463,28 @@ export function renderPageAstroRoot(options: RenderPageAstroRootOptions): Render
   const dataImportLine = hasData ? `import * as data from "${dataImportPath}";` : "";
   const destructure = hasData ? `const { ${dataVarNames.join(", ")} } = data;` : "";
 
-  const frontmatterLines = [componentImportsSource, dataImportLine, destructure].filter(Boolean).join("\n\n");
+  // ---- layout：跟 renderPageAstro() 一樣用 AstroLayoutShell 包一層、帶入
+  // page.seo 跟全站預設 SEO 合併後的結果（見 mergeSeoData()）；差別是這裡是
+  // 根路徑版本，固定用 defaultLocale，html lang 是產生期就已知的字面值，
+  // 不用讀 Astro.params.lang。----
+  const layoutImportLine = `import AstroLayoutShell from "${layoutImportPath}";`;
+  const seoTypeImportLine = `import type { SeoData } from "@workspace/ui/components/site/types";`;
+  const seoConstLine = `const seo: SeoData = ${stringifyLiteralValue(mergeSeoData(page.seo, siteDefaultSeo))};`;
+
+  const frontmatterLines = [
+    componentImportsSource,
+    layoutImportLine,
+    seoTypeImportLine,
+    dataImportLine,
+    destructure,
+    seoConstLine,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const wrappedBodyOut = `<AstroLayoutShell seo={seo} lang="${defaultLocale}">
+${bodyOut}
+</AstroLayoutShell>`;
 
   const astroCode = `---
 // ============================================================
@@ -355,12 +501,14 @@ export function renderPageAstroRoot(options: RenderPageAstroRootOptions): Render
 // renderPageDataFiles()（跟 React split-jsx 版輸出一模一樣）。
 // client:* 指令依 page.blocks 各自的 clientDirective 欄位產生（見
 // astro-codegen/render-block-tree-to-astro.ts 的 clientDirectiveAttr()）。
+// 整份頁面內容包在 AstroLayoutShell（apps/astro/src/layouts/AstroLayoutShell.astro）
+// 底下，帶入 page.seo 作為 SEO 資料。
 // ============================================================
 
 ${frontmatterLines}
 ---
 
-${bodyOut}
+${wrappedBodyOut}
 `;
 
   return { astroCode, dataFilesByLocale, warnings };

@@ -4,13 +4,6 @@
 export type ComponentLoader = () => Promise<Record<string, unknown>>;
 
 export const componentMap: Record<string, ComponentLoader> = {
-  'components/demo/avatar': () => import('@workspace/ui/components/demo/avatar.tsx'),
-  'components/demo/badge': () => import('@workspace/ui/components/demo/badge.tsx'),
-  'components/demo/brand': () => import('@workspace/ui/components/demo/brand.tsx'),
-  'components/demo/button': () => import('@workspace/ui/components/demo/button.tsx'),
-  'components/demo/card': () => import('@workspace/ui/components/demo/card.tsx'),
-  'components/demo/header': () => import('@workspace/ui/components/demo/header.tsx'),
-  'components/demo/input': () => import('@workspace/ui/components/demo/input.tsx'),
   'components/landing1/brand': () => import('@workspace/ui/components/landing1/brand.tsx'),
   'components/landing1/button': () => import('@workspace/ui/components/landing1/button.tsx'),
   'components/landing1/contact-card': () => import('@workspace/ui/components/landing1/contact-card.tsx'),
@@ -24,7 +17,6 @@ export const componentMap: Record<string, ComponentLoader> = {
   'components/landing1/section-list': () => import('@workspace/ui/components/landing1/section-list.tsx'),
   'components/landing1/theme-toggle': () => import('@workspace/ui/components/landing1/theme-toggle.tsx'),
   'components/landing1/value-props': () => import('@workspace/ui/components/landing1/value-props.tsx'),
-  'components/demo/default': () => import('@workspace/ui/components/demo/default.ts'),
   'components/landing1/default': () => import('@workspace/ui/components/landing1/default.ts'),
   'components/site/default': () => import('@workspace/ui/components/site/default.ts'),
 };

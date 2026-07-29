@@ -1,0 +1,36 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { ReactCounter } from "../components/ReactCounter";
+
+const greeting: string = "Hello, Astro + React + TypeScript!";
+---
+
+<Layout title="astro-app">
+  <main class="card">
+    <h1>{greeting}</h1>
+    <p>Vite（Astro 內建）+ Astro + React + TypeScript 的簡單起始專案，已接上 @workspace/ui。</p>
+    <ReactCounter start={0} client:load />
+  </main>
+</Layout>
+
+<style>
+  .card {
+    max-width: 28rem;
+    padding: 2rem;
+    border: 1px solid color-mix(in oklab, currentColor 15%, transparent);
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  p {
+    margin: 0;
+    opacity: 0.8;
+  }
+</style>

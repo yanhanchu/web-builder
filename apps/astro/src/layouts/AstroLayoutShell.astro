@@ -1,0 +1,71 @@
+---
+// ============================================================
+// AstroLayoutShell —— 給 site-generator 產出的 `pages/**/*.astro` 共用的
+// 外層 shell layout：負責輸出 `<html>` / `<head>`（SEO、Open Graph、
+// Twitter card meta 標籤）+ `<body><slot /></body>`，頁面本身的 block tree
+// 內容透過 `<slot />` 帶入。
+//
+// 每個由 generate-astro.ts / render-page-astro.ts 產生的頁面（root 版
+// `pages/{page}.astro` 跟 `[lang]` 版 `pages/[lang]/{page}.astro`）都會用
+// `<AstroLayoutShell seo={seo} lang={...}>{bodyOut}</AstroLayoutShell>`
+// 包一層，`seo` 直接來自 `PageItem.seo`（純值 `SeoData`，見
+// apps/web-builder/src/lib/page-model/index.ts），不透過綁定機制解析。
+// ============================================================
+import "../styles/global.css";
+import type { SeoData } from "@workspace/ui/components/site/types";
+
+interface Props {
+  /** 這個頁面的 SEO 資料（`PageItem.seo`，純值，逐頁面各自一份）。 */
+  seo: SeoData;
+  /** 目前這份靜態頁面對應的語系，用來設定 `<html lang>`。 */
+  lang?: string;
+}
+
+const { seo, lang } = Astro.props;
+const {
+  title,
+  titleTemplate,
+  description,
+  keywords,
+  ogImage,
+  ogType,
+  twitterCard,
+  twitterSite,
+  canonicalUrl,
+  robots,
+} = seo;
+
+// titleTemplate 用 "%s" 代表頁面 title 本身要出現的位置，例如
+// "%s | Web Builder"；沒有 titleTemplate 或不含 "%s" 時，直接用頁面 title。
+const pageTitle = titleTemplate && titleTemplate.includes("%s") ? titleTemplate.replace("%s", title) : title;
+---
+
+<!doctype html>
+<html lang={lang ?? "zh-Hant"}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <title>{pageTitle}</title>
+    {description && <meta name="description" content={description} />}
+    {keywords && <meta name="keywords" content={keywords} />}
+    {robots && <meta name="robots" content={robots} />}
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+    <meta property="og:title" content={pageTitle} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:type" content={ogType} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+
+    <meta name="twitter:card" content={twitterCard} />
+    {twitterSite && <meta name="twitter:site" content={twitterSite} />}
+    <meta name="twitter:title" content={pageTitle} />
+    {description && <meta name="twitter:description" content={description} />}
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

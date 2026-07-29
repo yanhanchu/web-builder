@@ -1,13 +1,13 @@
 {
-  "new-1": {
-    "label": "新路由",
+  "route1": {
+    "label": "route1",
     "target": "page",
     "value": "/test",
     "noindex": false,
     "pageId": "home"
   },
-  "new-2": {
-    "label": "新路由",
+  "route2": {
+    "label": "route2",
     "target": "page",
     "value": "/v2",
     "noindex": false,

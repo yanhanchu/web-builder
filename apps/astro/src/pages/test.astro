@@ -1,0 +1,54 @@
+---
+// ============================================================
+// 此檔案由 site-generator（apps/site-generator/src/astro-codegen/render-page-astro.ts）
+// 自動產生，請勿手動編輯——重新執行產生器即會覆蓋這裡的內容。
+//
+// 來源頁面：home（首頁）
+// 固定用預設語系（zh-TW）的資料，不帶語系前綴的根路徑頁面，跟
+// 'pages/[lang]/index.astro'（透過
+// getStaticPaths() 展開所有語系）搭配使用，對應 i18n 路由慣例：
+// defaultLocale 不加前綴（見 render-page-astro.ts 開頭「第一層（無前綴）
+// 預設語系頁面」說明）。
+// 資料來源：data.ts 內容逐字沿用 render-page-split-jsx.ts 的
+// renderPageDataFiles()（跟 React split-jsx 版輸出一模一樣）。
+// client:* 指令依 page.blocks 各自的 clientDirective 欄位產生（見
+// astro-codegen/render-block-tree-to-astro.ts 的 clientDirectiveAttr()）。
+// 整份頁面內容包在 AstroLayoutShell（apps/astro/src/layouts/AstroLayoutShell.astro）
+// 底下，帶入 page.seo 作為 SEO 資料。
+// ============================================================
+
+import { ContactCard } from "@workspace/ui/components/landing1/contact-card";
+import { CtaBanner } from "@workspace/ui/components/landing1/cta-banner";
+import { Hero } from "@workspace/ui/components/landing1/hero";
+import { Layout } from "@workspace/ui/components/landing1/layout";
+
+import AstroLayoutShell from "../layouts/AstroLayoutShell.astro";
+
+import * as data from "../data/zh-TW/test/data";
+
+const { layout, hero, ctaBanner, contactCard, ctaBanner2 } = data;
+
+import type { SeoData } from "@workspace/ui/components/site/types";
+
+const seo: SeoData = {
+  title: "首頁",
+  titleTemplate: "%s | Web Builder",
+  description: "網站首頁",
+  keywords: "web, builder, cms",
+  ogImage: "/og-image.png",
+  ogType: "website",
+  twitterCard: "summary_large_image",
+  twitterSite: "@webbuilder",
+  canonicalUrl: "",
+  robots: "index, follow",
+};
+---
+
+<AstroLayoutShell seo={seo} lang="zh-TW">
+<Layout {...layout} client:only="react">
+  <Hero {...hero} />
+  <CtaBanner {...ctaBanner} client:only="react" />
+  <ContactCard {...contactCard} />
+  <CtaBanner {...ctaBanner2} />
+</Layout>
+</AstroLayoutShell>

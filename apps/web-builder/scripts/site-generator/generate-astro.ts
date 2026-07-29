@@ -53,6 +53,10 @@
 //   data/en/about/data.ts                    檔案，內容跟 React split-jsx 版一模一樣，放在
 //   data/zh-TW/index/data.ts                 `pages/` 之外，避免被 Astro 誤認成路由。
 //   data/zh-TW/about/data.ts
+//   lib/get-static-paths.ts                  `makeGetStaticPaths()` 工廠函式，供 `pages/[lang]/*.astro`
+//                                             的 getStaticPaths import（見 render-page-astro.ts
+//                                             renderGetStaticPathsLibFile()）；產出結果自成一體，
+//                                             不再指回 web-builder 原始碼目錄。
 //   index.css                                全站合併套用所有樣式表（跟 React 版一致）
 //
 // 這裡的 outDir 建議指到 Astro 專案的 `src/` 目錄（例如
@@ -92,7 +96,8 @@ export interface GenerateAstroOptions {
    * 不要指到放了手寫 astro.config.mjs / layouts 等檔案的目錄本身。
    *
    * 產出內容：`${outDir}/pages/**\/*.astro`（含 root 版跟 `[lang]/` 版）、
-   * `${outDir}/data/<locale>/**\/data.ts`、`${outDir}/index.css`。
+   * `${outDir}/data/<locale>/**\/data.ts`、`${outDir}/lib/get-static-paths.ts`、
+   * `${outDir}/index.css`。
    */
   outDir: string;
   /** monorepo 根目錄，預設從 apps/site-generator 往上兩層推。 */
@@ -156,23 +161,25 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
     const { InMemoryDataStore, resolveValue } = (await server.ssrLoadModule(
       "@/lib/data-model/schema",
     )) as typeof import("../../src/lib/data-model/schema");
-    const { typeRegistry, SiteInfoDataTypeId } = (await server.ssrLoadModule(
+    const { typeRegistry, SiteInfoDataTypeId, SeoDataTypeId } = (await server.ssrLoadModule(
       "@/lib/data-model/sample-data",
     )) as typeof import("../../src/lib/data-model/sample-data");
-    const { defaultSiteInfo } = (await server.ssrLoadModule(
+    const { defaultSiteInfo, defaultSeo } = (await server.ssrLoadModule(
       "@/lib/data-model",
     )) as typeof import("../../src/lib/data-model");
-    const { renderPageAstro, renderPageAstroRoot, renderPageI18nFile } = (await server.ssrLoadModule(
-      path.join(workspaceRoot, "apps/web-builder/scripts/site-generator/astro-codegen/render-page-astro.ts"),
-    )) as {
-      renderPageAstro: (opts: RenderPageAstroFileOptions) => RenderedPageAstro;
-      renderPageAstroRoot: (opts: RenderPageAstroRootOptions) => RenderedPageAstro;
-      renderPageI18nFile: (opts: {
-        page: (typeof data.pages)[number];
-        locales: string[];
-        dataImportPathForLocale: (locale: string) => string;
-      }) => RenderedPageI18nFile;
-    };
+    const { renderPageAstro, renderPageAstroRoot, renderPageI18nFile, renderGetStaticPathsLibFile } =
+      (await server.ssrLoadModule(
+        path.join(workspaceRoot, "apps/web-builder/scripts/site-generator/astro-codegen/render-page-astro.ts"),
+      )) as {
+        renderPageAstro: (opts: RenderPageAstroFileOptions) => RenderedPageAstro;
+        renderPageAstroRoot: (opts: RenderPageAstroRootOptions) => RenderedPageAstro;
+        renderPageI18nFile: (opts: {
+          page: (typeof data.pages)[number];
+          locales: string[];
+          dataImportPathForLocale: (locale: string) => string;
+        }) => RenderedPageI18nFile;
+        renderGetStaticPathsLibFile: () => { fileName: string; code: string };
+      };
 
     const store = new InMemoryDataStore(data.sources, typeRegistry);
 
@@ -190,6 +197,21 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
       }
     } else {
       defaultLocale = defaultSiteInfo.defaultLocale || defaultLocale;
+    }
+
+    // 全站預設 SEO（typedData:seo:default）：跟上面 defaultLocale 判斷同一個
+    // 權威來源模式——有綁定就用 resolveValue() 解出目前的值，沒有就落回
+    // sample-data.ts 裡的 defaultSeo。用 defaultLocale 當 resolve 的 locale
+    // （這份預設 SEO 在同一次產生器執行裡對所有頁面、所有語系都共用同一份，
+    // 跟 page.seo「頁面純值」的合併只發生一次，不會每個語系各自 resolve
+    // 一次不同的全站預設值——因為它本來就是「純值」欄位混合綁定文字時的
+    // shape，這裡採跟 shapeLocale 一致的簡化：只 resolve 一次）。
+    const seoDefaultSource = store.getSource("typedData:seo:default");
+    let siteDefaultSeo = defaultSeo;
+    if (seoDefaultSource?.kind === "typedData") {
+      siteDefaultSeo = resolveValue(typeRegistry[SeoDataTypeId], seoDefaultSource.value, store, {
+        locale: defaultLocale,
+      }) as typeof defaultSeo;
     }
 
     // render-routes-astro.ts 決定「每個已發佈頁面要落地到 pages/[lang]/
@@ -211,8 +233,18 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
     const pagesDir = path.join(options.outDir, "pages");
     const langDir = path.join(pagesDir, "[lang]");
     const dataRootDir = path.join(options.outDir, "data");
+    const libDir = path.join(options.outDir, "lib");
     await mkdir(pagesDir, { recursive: true });
     await mkdir(langDir, { recursive: true });
+    await mkdir(libDir, { recursive: true });
+
+    // ---- lib/get-static-paths.ts：makeGetStaticPaths() 的原始碼，直接寫進
+    // outDir 底下，不再讓生成的 [lang] 版 .astro import 回 web-builder 原始碼
+    // 目錄（見 render-page-astro.ts renderGetStaticPathsLibFile() 說明）。----
+    const getStaticPathsLibFile = renderGetStaticPathsLibFile();
+    const getStaticPathsLibFilePath = path.join(libDir, getStaticPathsLibFile.fileName);
+    await writeFile(getStaticPathsLibFilePath, getStaticPathsLibFile.code, "utf-8");
+    log(`✓ lib/${getStaticPathsLibFile.fileName}`);
 
     // ---- 頁面：每個 AstroPageRouteFile 落地兩份 .astro：
     //   pages/${pagesRelativePath}.astro          （root，固定 defaultLocale，見檔案開頭說明）
@@ -245,6 +277,19 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
       const rootDataImportPath = (locale: string) => `${rootUpDirs}data/${locale}/${pagesRelativePath}/data`;
       const i18nDataImportPath = (locale: string) => `${i18nUpDirs}${locale}/${pagesRelativePath}/data`;
       const dataI18nImportPath = `${langUpDirs}data/${pagesRelativePath}/_i18n`;
+      // [lang] 版 .astro 落在 `pages/[lang]/${pagesRelativePath}.astro`，跟
+      // dataI18nImportPath 同樣要跳出 `pages/[lang]/` 回到 outDir（langUpDirs），
+      // 再進 `lib/`，取得 renderGetStaticPathsLibFile() 寫入的
+      // `lib/get-static-paths.ts`。
+      const getStaticPathsImportPath = `${langUpDirs}lib/get-static-paths`;
+      // AstroLayoutShell.astro 是手寫檔案，固定放在
+      // `apps/astro/src/layouts/AstroLayoutShell.astro`——也就是 outDir
+      // 底下的 `layouts/AstroLayoutShell.astro`（outDir 建議指到
+      // apps/astro/src，見檔案開頭 GenerateAstroOptions.outDir 說明）。
+      // root 版 .astro 跳 rootUpDirs 層回到 outDir，[lang] 版跳 langUpDirs
+      // 層，理由跟 dataI18nImportPath / getStaticPathsImportPath 一致。
+      const rootLayoutImportPath = `${rootUpDirs}layouts/AstroLayoutShell.astro`;
+      const langLayoutImportPath = `${langUpDirs}layouts/AstroLayoutShell.astro`;
 
       // -- root 版（pages/${pagesRelativePath}.astro，固定 defaultLocale）--
       const rootResult = renderPageAstroRoot({
@@ -253,6 +298,8 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
         defaultLocale,
         store,
         dataImportPath: rootDataImportPath(defaultLocale),
+        layoutImportPath: rootLayoutImportPath,
+        siteDefaultSeo,
       });
       for (const w of rootResult.warnings) {
         warnings.push(w);
@@ -273,6 +320,9 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
         defaultLocale,
         store,
         dataI18nImportPath,
+        getStaticPathsImportPath,
+        layoutImportPath: langLayoutImportPath,
+        siteDefaultSeo,
       });
       for (const w of langResult.warnings) {
         warnings.push(w);

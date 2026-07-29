@@ -1,0 +1,96 @@
+---
+// ============================================================
+// AstroLayoutShell —— 給 site-generator 產出頁面用的「真正的 Astro 頁面外殼」。
+//
+// 背景：site-generator 產出的 .astro 頁面（apps/web-builder/scripts/
+// site-generator/astro-codegen/render-page-astro.ts）目前直接把
+// page.blocks 的最外層節點（通常是 @workspace/ui 的
+// `components/landing1/layout` React Layout）當作整份 template 輸出，
+// 完全沒有包 <html>/<head>/<body>。那個 React Layout 只是視覺骨架
+// （aurora 背景、Header、Footer），不是文件外殼，所以：
+//   1. 全域 CSS（Tailwind 編譯結果）沒有 <head> 可以注入，樣式整個消失。
+//   2. 沒有 <title>/<meta>/OG/Twitter/favicon 等 SEO 與 head 資訊。
+//
+// AstroLayoutShell 補上這一層「文件外殼」，職責跟 @workspace/ui 的
+// React Layout 完全分工、不重疊：
+//   - AstroLayoutShell：<!doctype html> ~ <html><head>...</head><body>
+//     ~ <slot /> ~ </body></html>，處理 SEO meta + 全域 CSS import。
+//   - @workspace/ui Layout（React）：body 內的視覺骨架（aurora 背景、
+//     Header、main、Footer），繼續放在 <slot /> 裡面，寫法不需要變。
+//
+// 之後 site-generator 那邊只需要把每個產生頁面的 template 包一層：
+//
+//   <AstroLayoutShell seo={seo} siteInfo={siteInfo}>
+//     <Layout header={header} footer={footer}>
+//       ...原本的 block tree...
+//     </Layout>
+//   </AstroLayoutShell>
+//
+// 這一版只處理 Shell 本身（純 UI + props 型別），seo/siteInfo 資料要怎麼
+// 從攤平資料算出來（含「頁面 SEO 繼承全域預設 SEO」的合併邏輯）留到下一步
+// 在 site-generator 那端處理，這裡先用寬鬆的 Partial + 預設值頂著，確保
+// 呼叫端不需要一次補齊全部欄位也能動。
+// ============================================================
+
+import "../styles/global.css";
+import type { SeoData, SiteInfoData } from "@workspace/ui/components/site/types";
+
+export interface AstroLayoutShellProps {
+  /**
+   * 這個頁面的 SEO 資料。呼叫端應該先把「頁面自己的 SeoData」跟「全域
+   * 預設 SeoData」合併好（頁面有填的欄位覆蓋預設值，沒填的欄位落回預設
+   * 值）再傳進來——合併邏輯之後會放在 site-generator 端，Shell 本身不
+   * 內建任何合併規則，只負責把已經決定好的最終值渲染成 <head> 標籤。
+   */
+  seo: SeoData;
+  /** 全站基本資訊（siteName、favicon、manifest、themeColor、defaultLocale 等）。 */
+  siteInfo: SiteInfoData;
+  /** 這個 <html> 標籤的 lang 屬性，通常等於目前頁面的語系（例如 "zh-TW"）。 */
+  lang: string;
+}
+
+const { seo, siteInfo, lang } = Astro.props as AstroLayoutShellProps;
+
+// titleTemplate 裡的 %s 替換成頁面 title；沒有 titleTemplate 就直接用
+// title 本身（見 SeoData.titleTemplate 型別註解）。
+const resolvedTitle = seo.titleTemplate ? seo.titleTemplate.replace("%s", seo.title) : seo.title;
+
+const faviconUrl = siteInfo.faviconUrl || "/favicon.svg";
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>{resolvedTitle}</title>
+    {seo.description && <meta name="description" content={seo.description} />}
+    {seo.keywords && <meta name="keywords" content={seo.keywords} />}
+    {seo.canonicalUrl && <link rel="canonical" href={seo.canonicalUrl} />}
+    {seo.robots && <meta name="robots" content={seo.robots} />}
+
+    {/* Open Graph */}
+    <meta property="og:title" content={resolvedTitle} />
+    {seo.description && <meta property="og:description" content={seo.description} />}
+    <meta property="og:type" content={seo.ogType || "website"} />
+    {seo.ogImage && <meta property="og:image" content={seo.ogImage} />}
+    {siteInfo.siteUrl && <meta property="og:url" content={siteInfo.siteUrl} />}
+    {siteInfo.siteName && <meta property="og:site_name" content={siteInfo.siteName} />}
+
+    {/* Twitter */}
+    {seo.twitterCard && <meta name="twitter:card" content={seo.twitterCard} />}
+    {seo.twitterSite && <meta name="twitter:site" content={seo.twitterSite} />}
+    <meta name="twitter:title" content={resolvedTitle} />
+    {seo.description && <meta name="twitter:description" content={seo.description} />}
+    {seo.ogImage && <meta name="twitter:image" content={seo.ogImage} />}
+
+    {/* 站台基本資訊 */}
+    <link rel="icon" href={faviconUrl} />
+    {siteInfo.manifestUrl && <link rel="manifest" href={siteInfo.manifestUrl} />}
+    {siteInfo.themeColor && <meta name="theme-color" content={siteInfo.themeColor} />}
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
