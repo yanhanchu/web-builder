@@ -4,12 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "predev": "pnpm --filter @workspace/ui run docs:generate && pnpm --filter @workspace/ui run functions:generate",
-    "prebuild": "pnpm --filter @workspace/ui run docs:generate && pnpm --filter @workspace/ui run functions:generate",
+    "predev": "pnpm run docs:generate && pnpm run functions:generate",
+    "prebuild": "pnpm run docs:generate && pnpm run functions:generate",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docs:generate": "node scripts/docs/generate-docs.mjs",
+    "functions:generate": "node scripts/docs/generate-functions-docs.mjs",
+    "generate:split-jsx": "vite-node ./scripts/site-generator/cli-split-jsx.ts",
+    "generate:astro": "vite-node ./scripts/site-generator/cli-astro.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -34,8 +38,12 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "glob": "^13.0.6",
     "oxlint": "^1.71.0",
+    "react-docgen-typescript": "^2.4.0",
+    "ts-morph": "^25.0.1",
     "typescript": "~6",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vite-node": "^3.0.0"
   }
 }

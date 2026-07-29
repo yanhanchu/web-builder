@@ -5,7 +5,7 @@ import {
   DataSourceManager,
   type DataSource,
   type DataSourceKind,
-} from "@workspace/ui/lib/data-model";
+} from "@/lib/data-model";
 import {
   sources as initialSources,
   typeRegistry,
@@ -13,7 +13,7 @@ import {
   footerPropsType,
   initialHeaderProps,
   initialFooterProps,
-} from "@workspace/ui/lib/data-model/sample-data";
+} from "@/lib/data-model/sample-data";
 import { AdminLayout, panelStyle, panelTitleStyle, usePersistentState } from "./admin/admin-ui";
 import {
   FileSyncRefreshButton,

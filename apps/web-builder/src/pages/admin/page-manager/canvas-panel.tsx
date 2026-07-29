@@ -24,10 +24,10 @@ import {
   ghostBtnStyle,
   usePersistentState,
 } from "../admin-ui";
-import { allComponents } from "@workspace/ui/lib/generator/component-registry";
-import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
-import { InMemoryDataStore, typeRegistry, componentPropsRegistry, type DataSource } from "@workspace/ui/lib/data-model";
-import { resolvePlainProps, useComponentModule } from "@workspace/ui/lib/site-renderer";
+import { allComponents } from "@/lib/generator/component-registry";
+import type { ComponentDoc } from "@/types/generator/component-types";
+import { InMemoryDataStore, typeRegistry, componentPropsRegistry, type DataSource } from "@/lib/data-model";
+import { resolvePlainProps, useComponentModule } from "@/lib/site-renderer";
 import { findBlockDeep, splitSlotProps, type PageItem, type PageBlock } from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
@@ -1149,7 +1149,7 @@ function CanvasBlockRenderer({
   const propsFieldType = component
     ? componentPropsRegistry[component.id]?.propsType
     : undefined;
-  // resolvePlainProps 是框架無關的共用核心（@workspace/ui/lib/site-renderer），
+  // resolvePlainProps 是框架無關的共用核心（@/lib/site-renderer），
   // 靜態產生器與畫布都呼叫同一份邏輯，保證「畫布看到的」跟「最終產出的靜態頁面」
   // 對同一份資料 resolve 出一樣的結果。locale 沿用 data-manager.tsx /
   // data-model-demo.tsx 的預設值（畫布目前沒有 locale 切換 UI）。

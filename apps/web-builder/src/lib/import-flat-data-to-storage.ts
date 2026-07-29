@@ -22,8 +22,8 @@ import {
   type FlatKind,
   type I18nPrimitiveValue,
   type PrimitiveType,
-} from "@workspace/ui/lib/data-model";
-import { PAGES_STORAGE_KEY, type PageItem } from "@workspace/ui/lib/page-model";
+} from "@/lib/data-model";
+import { PAGES_STORAGE_KEY, type PageItem } from "@/lib/page-model";
 import type { StyleSheet } from "../pages/admin/style-manager";
 import { STYLE_SHEETS_KEY } from "../pages/admin/style-manager";
 

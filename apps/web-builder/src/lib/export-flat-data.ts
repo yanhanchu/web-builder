@@ -16,8 +16,8 @@ import {
   sourcesToFlatKind,
   sourcesToFlatI18n,
   type DataSource,
-} from "@workspace/ui/lib/data-model";
-import type { PageItem } from "@workspace/ui/lib/page-model";
+} from "@/lib/data-model";
+import type { PageItem } from "@/lib/page-model";
 import type { StyleSheet } from "../pages/admin/style-manager";
 
 export interface ExportFlatDataInput {

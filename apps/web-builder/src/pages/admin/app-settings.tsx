@@ -18,13 +18,13 @@ import {
   defaultSiteInfo,
   type SeoData,
   type SiteInfoData,
-} from "@workspace/ui/lib/data-model";
+} from "@/lib/data-model";
 import {
   SeoDataTypeId,
   SiteInfoDataTypeId,
   sources as initialSources,
-} from "@workspace/ui/lib/data-model/sample-data";
-import type { DataSource } from "@workspace/ui/lib/data-model";
+} from "@/lib/data-model/sample-data";
+import type { DataSource } from "@/lib/data-model";
 import {
   UPLOAD_DESTS_KEY,
   DEFAULT_UPLOAD_DESTS,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { RefreshCw, Cloud, HardDrive, UploadCloud, RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import type { DataSource, FileDataSource } from "@workspace/ui/lib/data-model";
+import type { DataSource, FileDataSource } from "@/lib/data-model";
 import { readUploadDestinations } from "../../lib/upload-destinations";
 import {
   syncFileToDestination,

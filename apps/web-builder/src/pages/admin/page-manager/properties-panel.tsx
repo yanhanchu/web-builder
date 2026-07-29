@@ -10,8 +10,8 @@ import {
   ghostBtnStyle,
   usePersistentState,
 } from "../admin-ui";
-import type { SeoData } from "@workspace/ui/lib/data-model";
-import { SeoDataTypeId } from "@workspace/ui/lib/data-model/sample-data";
+import type { SeoData } from "@/lib/data-model";
+import { SeoDataTypeId } from "@/lib/data-model/sample-data";
 import type { PageItem } from "@/lib/pages-store";
 import { SEO_KEY_PREFIX, typeBadgeStyle, iconBtnStyle } from "./shared";
 import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "../style-manager";

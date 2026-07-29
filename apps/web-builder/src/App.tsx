@@ -9,11 +9,6 @@ import DataManagerPage from "./pages/data-manager";
 import AppSettingsPage from "./pages/admin/app-settings";
 import PageManagerPage from "./pages/admin/page-manager";
 import StyleManagerPage from "./pages/admin/style-manager";
-
-import { Home } from "@workspace/ui/pages/generator/home";
-import { ComponentDetail } from "@workspace/ui/pages/generator/component-detail";
-import { FunctionsHome } from "@workspace/ui/pages/generator/functions-home";
-import { FunctionDetail } from "@workspace/ui/pages/generator/function-detail";
 import { Toaster } from "./components/ui/sonner";
 
 export function App() {
@@ -31,12 +26,6 @@ export function App() {
         <Route path="/admin/settings" element={<AppSettingsPage />} />
         <Route path="/admin/pages" element={<PageManagerPage />} />
         <Route path="/admin/styles" element={<StyleManagerPage />} />
-
-        {/* ignore below links */}
-        <Route path="/c" element={(<Home />)} />
-        <Route path="/c/:id" element={<ComponentDetail />} />
-        <Route path="/f" element={<FunctionsHome />} />
-        <Route path="/f/:id" element={<FunctionDetail />} />
       </Routes>
     </div>
   );

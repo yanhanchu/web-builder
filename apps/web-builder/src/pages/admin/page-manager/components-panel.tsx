@@ -9,9 +9,9 @@ import {
   Eye,
 } from "lucide-react";
 import { panelTitleStyle, inputStyle, labelStyle } from "../admin-ui";
-import { LivePreview } from "@workspace/ui/components/generator/live-preview";
-import { allComponents } from "@workspace/ui/lib/generator/component-registry";
-import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
+import { LivePreview } from "@/components/generator/live-preview";
+import { allComponents } from "@/lib/generator/component-registry";
+import type { ComponentDoc } from "@/types/generator/component-types";
 import { groupComponents, loadDefaultProps } from "./component-grouping";
 import { iconBtnStyle } from "./shared";
 

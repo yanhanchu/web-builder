@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Trash2, ChevronDown, Plus, X, Search, Type as TypeIcon, Blocks } from "lucide-react";
 import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, usePersistentState } from "../admin-ui";
-import { allComponents, allComponentTypes } from "@workspace/ui/lib/generator/component-registry";
-import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
+import { allComponents, allComponentTypes } from "@/lib/generator/component-registry";
+import type { ComponentDoc } from "@/types/generator/component-types";
 import {
   InMemoryDataStore,
   typeRegistry,
@@ -14,7 +14,7 @@ import {
   type FieldType,
   type ValueNode,
   type BindingPolicy,
-} from "@workspace/ui/lib/data-model";
+} from "@/lib/data-model";
 import type { PageBlock, SlotValue, ClientDirective } from "@/lib/pages-store";
 import { isSlotValue, makeSlotValue, makeBlockId } from "@/lib/pages-store";
 import { typeBadgeStyle, iconBtnStyle } from "./shared";

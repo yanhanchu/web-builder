@@ -3,7 +3,7 @@ import {
   resolveValue,
   FieldEditor,
   type ValueNode,
-} from "@workspace/ui/lib/data-model";
+} from "@/lib/data-model";
 import {
   sources,
   typeRegistry,
@@ -14,7 +14,7 @@ import {
   initialHeaderProps,
   initialFooterProps,
   createSampleStore,
-} from "@workspace/ui/lib/data-model/sample-data";
+} from "@/lib/data-model/sample-data";
 
 export default function DataModelDemoPage() {
   const store = useMemo(() => createSampleStore(), []);
@@ -36,7 +36,7 @@ export default function DataModelDemoPage() {
       <header style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, margin: 0 }}>資料管理核心 — 示範頁面</h1>
         <p style={{ color: "#888", fontSize: 13, marginTop: 4, lineHeight: 1.6 }}>
-          型別直接來自 <code>packages/ui/data/components.json</code> /{" "}
+          型別直接來自 <code>/data/components.json</code> /{" "}
           <code>component-types.json</code>（generate-docs.mjs 產生，完全不動）。
           <br />
           對照 <code>components/landing1/default.ts</code>：那裡 <code>header</code> 和{" "}

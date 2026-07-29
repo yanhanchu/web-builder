@@ -4,14 +4,14 @@
   "tasks": {
     "docs:generate": {
       "cache": false,
-      "outputs": ["data/**", "src/lib/generator/component-map.ts", "src/types/generator/function-types.ts"]
+      "outputs": ["../../data/**", "src/lib/generator/component-map.ts"]
     },
     "functions:generate": {
       "cache": false,
-      "outputs": ["data/**", "src/lib/generator/component-map.ts", "src/types/generator/function-types.ts"]
+      "outputs": ["../../data/**", "src/types/generator/function-types.ts"]
     },
     "build": {
-      "dependsOn": ["^build", "^docs:generate", "^functions:generate"],
+      "dependsOn": ["^build", "docs:generate", "functions:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },

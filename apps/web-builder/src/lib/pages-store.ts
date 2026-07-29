@@ -1,5 +1,5 @@
 import { usePersistentState } from "../pages/admin/admin-ui";
-import { INITIAL_PAGES, PAGES_STORAGE_KEY, normalizePage, type PageItem } from "@workspace/ui/lib/page-model";
+import { INITIAL_PAGES, PAGES_STORAGE_KEY, normalizePage, type PageItem } from "@/lib/page-model";
 
 // ------------------------------------------------------------
 // 頁面清單的共用來源（app 端：localStorage 讀寫）
@@ -22,10 +22,10 @@ import { INITIAL_PAGES, PAGES_STORAGE_KEY, normalizePage, type PageItem } from "
 // ------------------------------------------------------------
 
 // re-export：維持既有 import 路徑（"@/lib/pages-store"）相容，呼叫端不需要
-// 全部改成從 @workspace/ui/lib/page-model 匯入。之後若要漸進遷移，新程式碼
-// 可以直接改成從 @workspace/ui/lib/page-model 匯入，這裡的 re-export 保留
+// 全部改成從 @/lib/page-model 匯入。之後若要漸進遷移，新程式碼
+// 可以直接改成從 @/lib/page-model 匯入，這裡的 re-export 保留
 // 給既有程式碼過渡期使用。
-export * from "@workspace/ui/lib/page-model";
+export * from "@/lib/page-model";
 
 /** 完整讀寫頁面清單（頁面管理用）。讀入時自動補齊缺少的 blocks 欄位。 */
 export function usePagesState() {

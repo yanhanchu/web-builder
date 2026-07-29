@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminLayout, panelStyle } from "./admin-ui";
-import { defaultSeo, type SeoData } from "@workspace/ui/lib/data-model";
-import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
+import { defaultSeo, type SeoData } from "@/lib/data-model";
+import type { ComponentDoc } from "@/types/generator/component-types";
 import {
   usePagesState,
   makePageId,

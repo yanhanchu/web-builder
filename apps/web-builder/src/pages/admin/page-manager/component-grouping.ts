@@ -1,11 +1,11 @@
-import type { ComponentDoc } from "@workspace/ui/types/generator/component-types";
-import { allComponents, loadComponentModule } from "@workspace/ui/lib/generator/component-registry";
+import type { ComponentDoc } from "@/types/generator/component-types";
+import { allComponents, loadComponentModule } from "@/lib/generator/component-registry";
 import { isSlotValue, isSlotPropType } from "@/lib/pages-store";
 
 // 「現有組件」分組邏輯 + 預覽用的預設 props 讀取。
 //
 // filePath 長相固定是 `src/components/<group...>/<file>.tsx`
-// （見 packages/ui/data/components.json）。分組時把開頭的
+// （見 /data/components.json）。分組時把開頭的
 // `src/components/` 去掉、把檔名去掉，剩下的目錄路徑當成分組 key；
 // 就算之後目錄變多層（例如 demo/forms/inputs），也會攤平成同一組
 // 顯示成 "demo/forms/inputs" 這樣的單一標籤，而不是巢狀樹狀結構。
