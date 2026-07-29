@@ -29,6 +29,12 @@ import { VarNameAllocator } from "./var-naming";
 
 export interface RenderBlockTreeToSplitJsxOptions {
   locale: string;
+  /**
+   * 站台的預設語系，透過 resolvePlainProps -> resolveValue 傳給
+   * ResolveContext.defaultLocale，用來決定「綁定到站內頁面（route
+   * target=page）的值」要不要加上 locale 前綴（見 schema.ts 說明）。
+   */
+  defaultLocale: string;
   store: DataStore;
   /** 收集這個 block 樹用到的所有「組件」import（`@workspace/ui/...`）。 */
   componentImports: ImportCollector;
@@ -135,7 +141,14 @@ function walkNode(
 
   const { plainProps, slotProps } = splitSlotProps(block);
   const propsFieldType = componentPropsRegistry[component.id]?.propsType;
-  const resolvedProps = resolvePlainProps(plainProps, propsFieldType, options.store, options.locale);
+  const resolvedProps = resolvePlainProps(
+    plainProps,
+    propsFieldType,
+    options.store,
+    options.locale,
+    {},
+    options.defaultLocale,
+  );
 
   const dataExports: DataExport[] = [];
   // 沒有任何純值 props（例如純容器組件，全部都是 slot）時，不需要產生一筆

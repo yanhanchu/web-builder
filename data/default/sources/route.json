@@ -1,0 +1,16 @@
+{
+  "new-1": {
+    "label": "新路由",
+    "target": "page",
+    "value": "/test",
+    "noindex": false,
+    "pageId": "home"
+  },
+  "new-2": {
+    "label": "新路由",
+    "target": "page",
+    "value": "/v2",
+    "noindex": false,
+    "pageId": "page_1akvhp"
+  }
+}

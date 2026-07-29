@@ -184,6 +184,18 @@ export class InMemoryDataStore implements DataStore {
 
 export interface ResolveContext {
   locale: string;
+  /**
+   * 當前站台的預設語系。只有在解析 `kind: "route", target: "page"` 的綁定
+   * 值時才用到：locale !== defaultLocale 時，會在 route path 前面加上
+   * `/${locale}` 前綴（跟 resolve-route.ts resolveRoute() 對頁面本身路由
+   * 套用的前綴規則一致，見該檔案 withLocalePrefix()）。
+   *
+   * 可選：省略時視同「不知道 defaultLocale」，route 值原樣輸出、不加前綴
+   * （沿用改動前的行為）——避免這個欄位變成所有呼叫點的必填負擔，只有真的
+   * 需要「route 值也要跟著 locale 走」的呼叫端（目前是 site-generator 產生
+   * 頁面資料檔案那條路徑）才需要提供。
+   */
+  defaultLocale?: string;
 }
 
 export function resolveValue(
@@ -255,6 +267,32 @@ function resolveTypedDataTypeDef(store: DataStore, typeId: string): FieldType | 
   return fieldType;
 }
 
+/**
+ * 把 route path 加上 locale 前綴（defaultLocale 不加前綴），跟
+ * resolve-route.ts resolveRoute() 對頁面本身路由套用的規則一致：
+ *   - "/" 根路徑 -> "/{locale}"
+ *   - 其餘路徑 -> "/{locale}{path}"
+ * 這裡不 import resolve-route.ts（那是 apps/site-generator 的內部模組，
+ * packages/ui 不該反向依賴 app 層），規則本身很短，直接重寫一份；兩處各自
+ * 維護但邏輯必須保持一致，改動時記得同步。
+ */
+function withLocalePrefix(routePath: string, locale: string): string {
+  return routePath === "/" ? `/${locale}` : `/${locale}${routePath}`;
+}
+
+/**
+ * 綁定到 `kind: "route"` 的值——只有 target === "page"（連到站內某個頁面，
+ * 而不是外部 URL）且 ctx.defaultLocale 有提供、locale 不是 defaultLocale
+ * 時，才在 value 前面加上 `/${locale}` 前綴（見 ResolveContext.defaultLocale
+ * 的說明）。target === "url" 是使用者手動輸入的外部連結，不該被套用站內的
+ * locale 路由規則，一律原樣輸出。
+ */
+function resolveRouteSourceValue(source: RouteDataSource, ctx: ResolveContext): string {
+  if (source.target !== "page") return source.value;
+  if (!ctx.defaultLocale || ctx.locale === ctx.defaultLocale) return source.value;
+  return withLocalePrefix(source.value, ctx.locale);
+}
+
 function resolveSourceRoot(
   source: DataSource,
   store: DataStore,
@@ -268,7 +306,7 @@ function resolveSourceRoot(
     case "file":
       return source.url;
     case "route":
-      return source.value;
+      return resolveRouteSourceValue(source, ctx);
     case "typedData": {
       const typeDef = resolveTypedDataTypeDef(store, source.typeId);
       if (!typeDef) return `⚠️ unknown type: ${source.typeId}`;

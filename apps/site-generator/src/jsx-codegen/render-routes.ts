@@ -29,7 +29,16 @@
 
 import type { PlannedRoute } from "../plan-routes";
 
-/** 單一 (page, locale) 需要 import 的一份資料檔案：具名 export 對應到某個 import 路徑。 */
+/**
+ * 單一 (page, locale) 需要 import 的一份資料檔案：具名 export 對應到某個
+ * import 路徑。對應 data-file-writer.ts 的 renderDataFileContent()（多個
+ * 具名 export 版本，例如 groupByComponentName 拆成 hero.ts / footer.ts）。
+ *
+ * 目前 render-routes.ts 預設走的是 RouteEntry.dataImportPath（單一 default
+ * export，見下方），這個型別本身沒被拿掉——保留給未來如果需要「逐檔具名
+ * import」的消費端使用（例如給人工瀏覽/比對用的輸出、或改用
+ * groupByComponentName 分組策略時）。
+ */
 export interface RouteDataImport {
   /** import 路徑（不含副檔名），例如 "./data/en/home/data"。 */
   importPath: string;
@@ -47,12 +56,29 @@ export interface RouteEntry {
   dataTypeName?: string;
   /** 型別所在模組的 import 路徑（跟頁面元件同一個檔案）。與 dataTypeName 同時提供或同時省略。 */
   dataTypeImportPath?: string;
-  /** 這個 (page, locale) 要 import 的資料檔案清單，用來組成傳給頁面元件的 data 物件。空陣列代表這頁沒有任何純值 props（純容器頁，元件不吃 data prop）。 */
-  dataImports: RouteDataImport[];
+  /**
+   * 這個 (page, locale) 的資料檔案 import 路徑（不含副檔名），例如
+   * "./data/en/home/data"。資料檔案本身具名 export 都保留（見
+   * render-page-split-jsx.ts renderPageDataFiles() / data-file-writer.ts
+   * renderDataFileNamedAndDefaultExport()），另外多了一個彙總所有欄位的
+   * default export，routes.tsx 這裡一行 default import 就能拿到整包資料，
+   * 不用逐欄位具名 import 再手動組回物件。undefined 代表這頁
+   * 沒有任何純值 props（純容器頁，元件不吃 data prop）。
+   */
+  dataImportPath?: string;
+  /**
+   * 具名 export 版本（跟 dataImportPath 二選一，目前 renderRoutes() 只消費
+   * dataImportPath；這個欄位保留給未來需要「逐欄位具名 import」的呼叫端，
+   * 對應 renderDataFileContent() 產生的資料檔案）。
+   */
+  dataImports?: RouteDataImport[];
 }
 
-/** 幫每個 route 產生獨一無二的變數字尾，避免不同語系/頁面的資料 import 撞名（例如 hero_en_home vs hero_zh_home）。 */
-function routeSuffix(entry: RouteEntry): string {
+/**
+ * 幫每個 (page, locale) 產生獨一無二的資料變數名，同時作為 default import
+ * 的識別名本身（例如 "home_zh_TW"），避免不同語系/頁面的資料 import 撞名。
+ */
+function routeDataVarName(entry: RouteEntry): string {
   return `${entry.planned.resolved.page.id}_${entry.planned.resolved.locale}`.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
@@ -62,14 +88,14 @@ function routeSuffix(entry: RouteEntry): string {
  *   import { Route, Routes } from "react-router-dom";
  *   import HomePage from "./pages/HomePage";
  *   import type { HomePageData } from "./pages/HomePage";
- *   import { hero as hero_home_zh_TW, ctaBanner as ctaBanner_home_zh_TW } from "./data/zh-TW/home/data";
- *   import { hero as hero_home_en, ctaBanner as ctaBanner_home_en } from "./data/en/home/data";
+ *   import home_zh_TW from "./data/zh-TW/home/data";
+ *   import home_en from "./data/en/home/data";
  *
  *   export function GeneratedRoutes() {
  *     return (
  *       <Routes>
- *         <Route path="/" element={<HomePage data={{ hero: hero_home_zh_TW, ctaBanner: ctaBanner_home_zh_TW } satisfies HomePageData} />} />
- *         <Route path="/en" element={<HomePage data={{ hero: hero_home_en, ctaBanner: ctaBanner_home_en } satisfies HomePageData} />} />
+ *         <Route path="/" element={<HomePage data={(home_zh_TW satisfies HomePageData)} />} />
+ *         <Route path="/en" element={<HomePage data={(home_en satisfies HomePageData)} />} />
  *       </Routes>
  *     );
  *   }
@@ -107,23 +133,22 @@ export function renderRoutes(entries: RouteEntry[]): string {
   }
   const typeImportsSource = typeImportLines.join("\n");
 
-  // 每個 route 各自 import 自己語系的資料檔案，具名 export 加上獨一無二的
-  // 字尾別名（見 routeSuffix），避免多個 route 撞名。依 (page, locale) 去
-  // 重：plan-routes.ts 的規則 2 會讓同一個 (page, locale) 出現在多筆
-  // PlannedRoute 裡（例如 defaultLocale 的不帶前綴版本 + 帶前綴版本），
-  // 資料檔案本身跟前綴無關，import 只需要一次，不然會重複 import 同一批
-  // 具名 export（重複的變數宣告）。
+  // 每個 route 各自 import 自己語系的資料檔案的彙總 default export（見
+  // data-file-writer.ts renderDataFileNamedAndDefaultExport；該檔案本身
+  // 具名 export 也都保留，但 routes.tsx 這裡只需要拿整包），變數名用
+  // routeDataVarName 產生（例如 "home_zh_TW"），避免不同語系/頁面撞名。
+  // 依 dataImportPath 去重：plan-routes.ts 的規則 2 會讓同一個
+  // (page, locale) 出現在多筆 PlannedRoute 裡（例如 defaultLocale 的不帶
+  // 前綴版本 + 帶前綴版本），資料檔案本身跟前綴無關，import 只需要一次，
+  // 不然會重複 import 同一份 default export（重複的變數宣告）。
   const seenDataImports = new Set<string>();
   const dataImportLines: string[] = [];
   for (const entry of entries) {
-    const suffix = routeSuffix(entry);
-    for (const dataImport of entry.dataImports) {
-      const key = `${dataImport.importPath}#${suffix}`;
-      if (seenDataImports.has(key)) continue;
-      seenDataImports.add(key);
-      const specifiers = dataImport.exportNames.map((name) => `${name} as ${name}_${suffix}`).join(", ");
-      dataImportLines.push(`import { ${specifiers} } from "${dataImport.importPath}";`);
-    }
+    if (!entry.dataImportPath) continue;
+    if (seenDataImports.has(entry.dataImportPath)) continue;
+    seenDataImports.add(entry.dataImportPath);
+    const varName = routeDataVarName(entry);
+    dataImportLines.push(`import ${varName} from "${entry.dataImportPath}";`);
   }
   const dataImportsSource = dataImportLines.join("\n");
 
@@ -134,20 +159,15 @@ export function renderRoutes(entries: RouteEntry[]): string {
   const routesSource = entries
     .map((entry) => {
       const path = JSON.stringify(entry.planned.resolved.urlPath);
-      if (entry.dataImports.length === 0) {
+      if (!entry.dataImportPath) {
         // 純容器頁（沒有任何純值 props）：不需要 data prop。
         return `        <Route path=${path} element={<${entry.componentName} />} />`;
       }
-      const suffix = routeSuffix(entry);
-      const fields = entry.dataImports
-        .flatMap((di) => di.exportNames.map((name) => `${name}: ${name}_${suffix}`))
-        .join(", ");
-      // 這裡只組「物件字面量本身」（一層 `{ ... }`），data={...} 的外層
-      // 大括號是 JSX attribute expression 語法本身就有的，不能再多包一層，
-      // 否則會變成 `data={{{ ... }}}` 這種多餘的巢狀大括號。
-      const dataExpr = entry.dataTypeName
-        ? `{ ${fields} } satisfies ${entry.dataTypeName}`
-        : `{ ${fields} }`;
+      const varName = routeDataVarName(entry);
+      // 直接引用 default import 的整包資料，`satisfies` 表達式外層要多包一層
+      // 括號（`(varName satisfies Type)`），否則 JSX attribute expression
+      // 裡的 `satisfies` 會被解析成型別註記而非值表達式。
+      const dataExpr = entry.dataTypeName ? `(${varName} satisfies ${entry.dataTypeName})` : varName;
       return `        <Route path=${path} element={<${entry.componentName} data={${dataExpr}} />} />`;
     })
     .join("\n");

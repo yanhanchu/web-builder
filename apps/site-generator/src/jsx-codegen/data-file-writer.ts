@@ -54,6 +54,126 @@ export const groupByComponentName: DataFileGroupingStrategy = (dataExports) => {
 };
 
 /**
+ * 把一組 DataExport 組成一份 `.ts` 資料檔案內容字串——**具名 export +
+ * 彙總 default export** 版本：
+ *
+ *   import type { HeroProps } from "@workspace/ui/components/landing1/hero";
+ *   import type { HomePageData } from "../../pages/HomePage";
+ *
+ *   export const hero: HeroProps = { ... };
+ *   export const ctaBanner: CtaBannerProps = { ... };
+ *
+ *   export default {
+ *     hero,
+ *     ctaBanner,
+ *   } satisfies HomePageData;
+ *
+ * 具名 export 沿用 renderDataFileContent() 的邏輯（保留給其他地方單獨
+ * import 某個區塊用，例如 hero 這個變數），額外多加一個 default export，
+ * 直接引用上面已經宣告好的具名變數組成物件（不重新 stringify 一次資料），
+ * 讓 routes.tsx 可以 `import home_zh_TW from "./data/zh-TW/home/data"`
+ * 一行拿到整包，同時具名 export 還在，之後有其他地方要單獨引用某個區塊
+ * 也不受影響。
+ *
+ * dataTypeName / dataTypeImportPath 由呼叫端提供（對應
+ * render-page-split-jsx.ts 產生的 `HomePageData` type）；沒有提供時
+ * （例如純容器頁，理論上不會呼叫到這個函式，因為沒有任何 export）就不加
+ * default export、也不標型別。
+ */
+export function renderDataFileNamedAndDefaultExport(
+  group: DataFileGroup,
+  headerComment: string,
+  options: { dataTypeName?: string; dataTypeImportPath?: string },
+): string {
+  const typeImports = new ImportCollector();
+  for (const exp of group.exports) {
+    if (exp.propsTypeName) {
+      typeImports.add(exp.propsTypeImportPath, exp.propsTypeName);
+    }
+  }
+  if (options.dataTypeName && options.dataTypeImportPath) {
+    typeImports.add(options.dataTypeImportPath, options.dataTypeName);
+  }
+  const typeImportsSource = typeImports.render({ typeOnly: true });
+
+  const namedExportsSource = group.exports
+    .map((exp) => {
+      // slot props（例如 "children"、"header"）不會出現在 exp.value 裡，
+      // 直接標 `: XxxProps` 會因為缺少這些必填欄位而型別錯誤，所以用
+      // `Omit<XxxProps, "key1" | "key2">` 排除掉，型別上只保留這裡真的有
+      // 值的純值 props（跟 render-page-split-jsx.ts 產生的 JSX 對得起來：
+      // slot 部分改用巢狀 JSX 表示，不透過這份資料檔案）。
+      const typeAnnotation = exp.propsTypeName
+        ? exp.omittedPropKeys.length > 0
+          ? `: Omit<${exp.propsTypeName}, ${exp.omittedPropKeys.map((k) => JSON.stringify(k)).join(" | ")}>`
+          : `: ${exp.propsTypeName}`
+        : "";
+      const valueSource = stringifyLiteralValue(exp.value, 0);
+      return `export const ${exp.varName}${typeAnnotation} = ${valueSource};`;
+    })
+    .join("\n\n");
+
+  // default export 直接引用上面宣告好的具名變數（object shorthand），不
+  // 重新 stringify 資料本身，避免同一包資料在檔案裡出現兩份字面量。
+  const defaultExportSource = options.dataTypeName
+    ? `\n\nexport default {\n${group.exports
+        .map((exp) => `  ${exp.varName},`)
+        .join("\n")}\n} satisfies ${options.dataTypeName};\n`
+    : "";
+
+  const importsBlock = typeImportsSource ? `${typeImportsSource}\n\n` : "";
+
+  return `${headerComment}\n\n${importsBlock}${namedExportsSource}${defaultExportSource}`;
+}
+
+/**
+ * 把一組 DataExport 組成一份 `.ts` 資料檔案內容字串（單一 default export
+ * 版本）：
+ *
+ *   import type { HomePageData } from "../../pages/HomePage";
+ *
+ *   export default {
+ *     hero: { ... },
+ *     ctaBanner: { ... },
+ *   } satisfies HomePageData;
+ *
+ * 跟 renderDataFileContent()（多個具名 export）的差異：這裡固定只產生
+ * 一個 default export，物件的每個 key 就是 varName，型別用
+ * `satisfies HomePageData` 一次標注整包（而不是每個欄位各自標
+ * `: HeroProps`）。
+ *
+ * 目前實際使用的是 renderDataFileNamedAndDefaultExport()（具名 export +
+ * 彙總 default export 都要），這個純 default-only 版本保留著，供未來若
+ * 只需要 default export、不需要具名 export 的情境使用。
+ *
+ * dataTypeName / dataTypeImportPath 由呼叫端提供（對應
+ * render-page-split-jsx.ts 產生的 `HomePageData` type），因為型別定義
+ * 本身在頁面元件檔案裡，不在這裡；沒有提供時（例如純容器頁，理論上不會
+ * 呼叫到這個函式，因為沒有任何 export）就不標型別。
+ */
+export function renderDataFileDefaultExport(
+  group: DataFileGroup,
+  headerComment: string,
+  options: { dataTypeName?: string; dataTypeImportPath?: string },
+): string {
+  const typeImportsSource =
+    options.dataTypeName && options.dataTypeImportPath
+      ? `import type { ${options.dataTypeName} } from "${options.dataTypeImportPath}";`
+      : "";
+
+  const fields = group.exports
+    .map((exp) => `  ${exp.varName}: ${stringifyLiteralValue(exp.value, 1)},`)
+    .join("\n");
+
+  const typeSuffix = options.dataTypeName ? ` satisfies ${options.dataTypeName}` : "";
+  const body = `export default {\n${fields}\n}${typeSuffix};\n`;
+
+  const importsBlock = typeImportsSource ? `${typeImportsSource}\n\n` : "";
+
+  return `${headerComment}\n\n${importsBlock}${body}`;
+}
+
+/**
  * 把一組 DataExport 組成一份 `.ts` 檔案內容字串：
  *   import type { HeroProps } from "@workspace/ui/components/landing1/hero";
  *   import type { FooterProps } from "@workspace/ui/components/landing1/footer";
@@ -64,6 +184,11 @@ export const groupByComponentName: DataFileGroupingStrategy = (dataExports) => {
  * 型別 import 會自動收集、去重、排序（用 ImportCollector 的 typeOnly 模式），
  * 確保每個標了型別註記的 export 都對應一筆真的 import 進來的型別，不會出現
  * 「型別名稱有寫但沒 import」的無效程式碼。
+ *
+ * 這是「多個具名 export、不含彙總 default export」版本，保留給
+ * groupByComponentName 這種想拆成多檔、給人工瀏覽/比對用的情境；routes.tsx
+ * 實際消費的頁面資料檔案改用 renderDataFileNamedAndDefaultExport()（見
+ * 上方，具名 export 都保留 + 多一個彙總 default export）。
  */
 export function renderDataFileContent(group: DataFileGroup, headerComment: string): string {
   const typeImports = new ImportCollector();

@@ -56,7 +56,7 @@ import { VarNameAllocator } from "./jsx-codegen/var-naming";
 import {
   groupAllInOneFile,
   groupByComponentName,
-  renderDataFileContent,
+  renderDataFileNamedAndDefaultExport,
   type DataFileGroup,
 } from "./jsx-codegen/data-file-writer";
 
@@ -94,12 +94,36 @@ export interface RenderedDataFile {
   code: string;
 }
 
-/** 產生資料檔案用的 (page, locale) 選項，跟頁面元件本身（locale 無關）分開。 */
+/**
+ * 產生資料檔案用的 (page, locale) 選項，跟頁面元件本身（locale 無關）分開。
+ *
+ * 這裡固定輸出「具名 export 全部保留 + 多一個彙總 default export」的資料
+ * 檔案（見 renderPageDataFiles() 內部固定用 groupAllInOneFile +
+ * renderDataFileNamedAndDefaultExport，不吃 dataFileGrouping 選項）——因為
+ * 這批資料檔案有兩種消費端：routes.tsx 需要「一行 import 拿到整包」
+ * （`import home_zh_TW from "./data/zh-TW/home/data"`），同時具名 export
+ * （例如 `hero`）保留給其他可能單獨引用某個區塊的地方用。
+ *
+ * 如果之後真的需要「拆成多檔給人工瀏覽/比對」的版本，那是另一個獨立的輸出
+ * 目的，data-file-writer.ts 的 groupByComponentName / renderDataFileContent
+ * 兩個函式還留著（見該檔案），可以另外接一條路徑產生，不影響這裡。
+ */
 export interface RenderPageDataFilesOptions {
   page: PageItem;
   locale: string;
+  /**
+   * 站台的預設語系。傳給底層 resolveValue() 的 ResolveContext.defaultLocale，
+   * 用來判斷「綁定到站內頁面（route target=page）的值」要不要加上 locale
+   * 前綴（見 schema.ts ResolveContext / resolveRouteSourceValue 的說明）：
+   * locale === defaultLocale 時不加前綴，其餘語系會變成 "/{locale}{path}"，
+   * 跟這個頁面自己的路由前綴規則（resolve-route.ts）保持一致。
+   */
+  defaultLocale: string;
   store: DataStore;
-  dataFileGrouping?: "all-in-one" | "by-component";
+  /** HomePageData 型別名稱（來自 renderPageSplitJsx() 的回傳值），用來幫 default export 標 `satisfies HomePageData`。省略時不標型別。 */
+  dataTypeName?: string;
+  /** HomePageData 型別所在模組的 import 路徑（頁面元件檔案，例如 "../../pages/HomePage"）。與 dataTypeName 同時提供或同時省略。 */
+  dataTypeImportPath?: string;
 }
 
 export interface RenderedPageSplitJsx {
@@ -164,6 +188,13 @@ export function renderPageSplitJsx(options: RenderPageSplitJsxOptions): Rendered
     page.blocks,
     {
       locale: shapeLocale,
+      // 這裡只是為了 resolve 出「用了哪些組件、資料形狀長什麼樣」，不是
+      // 真正要輸出的值，所以 defaultLocale 直接傳 shapeLocale 本身即可——
+      // locale === defaultLocale 時 route 綁定值不會被加上 locale 前綴
+      // （見 schema.ts resolveRouteSourceValue），形狀判斷不受影響。呼叫端
+      // 傳進來的 shapeLocale 慣例上本來就是站台的 defaultLocale（見
+      // RenderPageSplitJsxOptions.shapeLocale 的說明）。
+      defaultLocale: shapeLocale,
       store,
       componentImports,
       varNames,
@@ -247,16 +278,19 @@ ${destructure}  return (
  * 各自的資料檔案內容；再由 routes.tsx 依 locale 匯入對應版本、傳給
  * （locale 無關的）頁面元件。
  *
- * 用跟 renderPageSplitJsx() 相同的 dataFileGrouping 分組策略，兩者對同一個
- * page 呼叫時，分檔方式與變數名稱（varName）保證一致——data.ts 裡的
- * `export const hero = {...}` 對應元件解構出來的 `hero` 變數，不會對不起來。
+ * 固定用 groupAllInOneFile（一個 page + 一個 locale = 一個檔案）+
+ * renderDataFileNamedAndDefaultExport（具名 export 全部保留 + 多一個彙總
+ * default export），不吃 dataFileGrouping 選項——原因見
+ * RenderPageDataFilesOptions 上的說明。varName（具名 export 的變數名，也是
+ * default export 物件的 key）沿用 walkBlockListToSplitJsx 配好的名稱，跟
+ * renderPageSplitJsx() 產生的 `const { hero, ctaBanner } = data;` 解構
+ * 對得起來。
  */
 export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
   dataFiles: RenderedDataFile[];
   warnings: string[];
 } {
-  const { page, locale, store } = options;
-  const dataFileGrouping = options.dataFileGrouping === "by-component" ? groupByComponentName : groupAllInOneFile;
+  const { page, locale, defaultLocale, store, dataTypeName, dataTypeImportPath } = options;
   const warnings: string[] = [];
   const componentImports = new ImportCollector();
   const varNames = new VarNameAllocator();
@@ -265,6 +299,7 @@ export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
     page.blocks,
     {
       locale,
+      defaultLocale,
       store,
       componentImports,
       varNames,
@@ -273,7 +308,7 @@ export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
     2,
   );
 
-  const groups: DataFileGroup[] = dataFileGrouping(dataExports);
+  const groups: DataFileGroup[] = groupAllInOneFile(dataExports);
 
   const dataHeaderComment = (fileBaseName: string) => `// ============================================================
 // 此檔案由 site-generator（apps/site-generator/src/render-page-split-jsx.ts）
@@ -281,11 +316,16 @@ export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
 //
 // 來源頁面：${page.id}（${page.name}） · 分組：${fileBaseName}
 // 語系：${locale}（resolved 純值，此檔案不含任何 i18n/resolve 邏輯）
+// 具名 export 逐一保留（給其他地方單獨引用），額外多一個彙總 default
+// export：routes.tsx 一行 import 整包（見 render-routes.ts）。
 // ============================================================`;
 
   const dataFiles: RenderedDataFile[] = groups.map((group) => ({
     fileName: `${group.fileBaseName}.ts`,
-    code: renderDataFileContent(group, dataHeaderComment(group.fileBaseName)),
+    code: renderDataFileNamedAndDefaultExport(group, dataHeaderComment(group.fileBaseName), {
+      dataTypeName,
+      dataTypeImportPath,
+    }),
   }));
 
   return { dataFiles, warnings };

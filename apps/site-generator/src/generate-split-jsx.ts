@@ -83,7 +83,7 @@ import type {
   RenderPageDataFilesOptions,
   RenderedPageSplitJsx,
 } from "./render-page-split-jsx.ts";
-import { renderRoutes, type RouteEntry, type RouteDataImport } from "./jsx-codegen/render-routes.ts";
+import { renderRoutes, type RouteEntry } from "./jsx-codegen/render-routes.ts";
 import { renderGlobalCss } from "./jsx-codegen/render-global-css.ts";
 
 export interface GenerateSplitJsxOptions {
@@ -269,7 +269,22 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
       if (seenPageLocale.has(key)) continue;
       seenPageLocale.add(key);
 
-      const result = renderPageDataFiles({ page, locale, store, dataFileGrouping: groupingName });
+      const dataTypeName = dataTypeNameByPageId.get(page.id);
+      const componentName = componentNameByPageId.get(page.id);
+      // 資料檔案在 data/<locale>/<pageId>/data.ts，頁面元件在
+      // pages/<Component>.tsx，往回三層（<pageId>/ -> <locale>/ -> data/）
+      // 再進 pages/ 才能找到型別定義。
+      const dataTypeImportPath =
+        dataTypeName && componentName ? `../../../pages/${componentName}` : undefined;
+
+      const result = renderPageDataFiles({
+        page,
+        locale,
+        defaultLocale,
+        store,
+        dataTypeName,
+        dataTypeImportPath,
+      });
       for (const w of result.warnings) {
         warnings.push(w);
         log(`⚠️  ${w}`);
@@ -297,20 +312,22 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
         const componentName = componentNameByPageId.get(page.id)!;
         const dataTypeName = dataTypeNameByPageId.get(page.id);
         const dataShape = dataShapeByPageId.get(page.id) ?? [];
-        const dataImports: RouteDataImport[] = dataShape.map((group) => ({
-          // 頁面元件固定在 pages/<Component>.tsx，資料檔案固定在
-          // data/<locale>/<pageId>/<group>.ts，routes.tsx 跟 pages/ 同一層
-          // 目錄，所以相對路徑是 "./data/<locale>/<pageId>/<group>"。
-          importPath: `./data/${locale}/${page.id}/${group.fileBaseName}`,
-          exportNames: group.exports.map((e) => e.varName),
-        }));
+        // renderPageDataFiles() 內部固定用 groupAllInOneFile + 單一 default
+        // export（見 render-page-split-jsx.ts 開頭說明），所以每個
+        // (page, locale) 最多只有一份資料檔案，固定檔名 "data"。空陣列
+        // （純容器頁，沒有任何純值 props）就不產生 dataImportPath。
+        // 頁面元件固定在 pages/<Component>.tsx，資料檔案固定在
+        // data/<locale>/<pageId>/data.ts，routes.tsx 跟 pages/ 同一層
+        // 目錄，所以相對路徑是 "./data/<locale>/<pageId>/data"。
+        const dataImportPath =
+          dataShape.length > 0 ? `./data/${locale}/${page.id}/${dataShape[0].fileBaseName}` : undefined;
         return {
           planned,
           componentName,
           componentImportPath: `./pages/${componentName}`,
           dataTypeName,
           dataTypeImportPath: dataTypeName ? `./pages/${componentName}` : undefined,
-          dataImports,
+          dataImportPath,
         };
       });
 

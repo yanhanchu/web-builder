@@ -66,6 +66,20 @@ export function isSlotPropType(type: string): boolean {
   return false;
 }
 
+/**
+ * Astro island hydration 指令（`client:*` directive），決定這個組件實例在
+ * Astro 產出時要不要、以及何時被 hydrate 成互動元件。對應 Astro 內建的五種
+ * client directive：
+ *   - "only"    ：client:only（完全跳過 SSR，只在瀏覽器端渲染）
+ *   - "visible" ：client:visible（進入可視範圍才 hydrate）
+ *   - "idle"    ：client:idle（瀏覽器 idle 時 hydrate）
+ *   - "load"    ：client:load（頁面載入後立即 hydrate）
+ *   - "media"   ：client:media（符合指定 media query 時 hydrate）
+ * undefined／欄位不存在＝這個組件實例維持靜態（不加任何 client:* 指令），
+ * 是目前所有既有頁面資料的隱含狀態，不需要遷移。
+ */
+export type ClientDirective = "only" | "visible" | "idle" | "load" | "media";
+
 /** 一個被放進頁面內容區的組件實例（組合用）。 */
 export interface PageBlock {
   /** 亂數產生的實例 id，用於排序 / 刪除。 */
@@ -80,6 +94,21 @@ export interface PageBlock {
    * 讓「組件樹狀結構」可以照實際頁面組合遞迴顯示，而不只是攤平的一層清單。
    */
   props: Record<string, unknown>;
+  /**
+   * 這個組件實例的 Astro client directive（見 ClientDirective 說明），跟
+   * `props` 刻意分開存放、不塞進 props 物件裡：
+   *   - props 是「這個組件實際會收到的 React props」，1:1 對應組件定義
+   *     的 props 型別（componentPropsRegistry），把 hydration 設定混進去
+   *     會讓 props 出現一個組件本身完全不認得的 key，往下傳給
+   *     resolvePlainProps / 實際組件時也得額外過濾，徒增一層「這個 key
+   *     是不是真的 prop」的判斷。
+   *   - clientDirective 是「這個組件實例在 Astro 產出時怎麼 hydrate」，屬於
+   *     產生器層面的中繼資料，跟組件本身的 props 定義無關，獨立存放才不會
+   *     污染 props、也讓之後 Astro codegen 要讀取這個欄位時一路徑就能拿到，
+   *     不用先排除掉一堆真正的 props key。
+   * undefined＝不加任何 client:* 指令（維持純靜態渲染），是預設狀態。
+   */
+  clientDirective?: ClientDirective;
 }
 
 export interface PageItem {
@@ -269,6 +298,41 @@ export function patchBlockPropsDeep(
     let changedProps: Record<string, unknown> | null = null;
     for (const [key, children] of slotEntries(b)) {
       const nextChildren = patchBlockPropsDeep(children, instanceId, patch);
+      if (nextChildren !== children) {
+        changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(nextChildren) };
+      }
+    }
+    return changedProps ? { ...b, props: changedProps } : b;
+  });
+}
+
+/**
+ * 在整棵樹（含巢狀 slot）中找到 instanceId 對應的 block，設定（或清除）它的
+ * `clientDirective`。跟 patchBlockPropsDeep 是同一套「遞迴找 instanceId、
+ * 沿路重建有變動的節點」邏輯，差別只在改寫的是 clientDirective 這個獨立欄位
+ * 而不是 props——維持 clientDirective 跟 props 分開存放、分開更新，呼叫端
+ * （面板的 client:* 下拉選單）不會、也不需要透過 onUpdateProp 寫入。
+ *
+ * directive 傳 undefined 代表清除（下拉選單選回「無」），欄位整個從 patch
+ * 後的物件上移除（而不是留著 `clientDirective: undefined`），避免序列化成
+ * localStorage JSON 時留下一個沒有意義的 key。
+ */
+export function patchBlockClientDirectiveDeep(
+  blocks: PageBlock[],
+  instanceId: string,
+  directive: ClientDirective | undefined
+): PageBlock[] {
+  return blocks.map((b) => {
+    if (b.instanceId === instanceId) {
+      if (directive === undefined) {
+        const { clientDirective: _drop, ...rest } = b;
+        return rest;
+      }
+      return { ...b, clientDirective: directive };
+    }
+    let changedProps: Record<string, unknown> | null = null;
+    for (const [key, children] of slotEntries(b)) {
+      const nextChildren = patchBlockClientDirectiveDeep(children, instanceId, directive);
       if (nextChildren !== children) {
         changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(nextChildren) };
       }

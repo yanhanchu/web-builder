@@ -11,8 +11,10 @@ import {
   insertIntoSlotDeep,
   insertAtRoot,
   patchBlockPropsDeep,
+  patchBlockClientDirectiveDeep,
   type PageItem,
   type PageBlock,
+  type ClientDirective,
 } from "../../lib/pages-store";
 import { BuilderToolbar, ResizeHandle, PageSwitcher } from "./page-manager/toolbar";
 import { ComponentsPanel } from "./page-manager/components-panel";
@@ -313,6 +315,12 @@ export default function PageManagerPage() {
     updateDraft({ blocks: patchBlockPropsDeep(base.blocks, instanceId, { [key]: value }) });
   };
 
+  const updateBlockClientDirective = (instanceId: string, directive: ClientDirective | undefined) => {
+    if (!selected) return;
+    const base = drafts[selected.id] ?? selected;
+    updateDraft({ blocks: patchBlockClientDirectiveDeep(base.blocks, instanceId, directive) });
+  };
+
   const saveSelected = () => {
     if (!selected || !dirty) return;
     const next = drafts[selected.id];
@@ -469,6 +477,9 @@ export default function PageManagerPage() {
               <ComponentPropertiesPanel
                 block={selectedBlock}
                 onUpdateProp={(key, value) => updateBlockProp(selectedBlock.instanceId, key, value)}
+                onUpdateClientDirective={(directive) =>
+                  updateBlockClientDirective(selectedBlock.instanceId, directive)
+                }
                 onRemove={() => removeBlock(selectedBlock.instanceId)}
               />
             ) : (

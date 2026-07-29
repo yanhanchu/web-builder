@@ -15,7 +15,7 @@ import {
   type ValueNode,
   type BindingPolicy,
 } from "@workspace/ui/lib/data-model";
-import type { PageBlock, SlotValue } from "@/lib/pages-store";
+import type { PageBlock, SlotValue, ClientDirective } from "@/lib/pages-store";
 import { isSlotValue, makeSlotValue, makeBlockId } from "@/lib/pages-store";
 import { typeBadgeStyle, iconBtnStyle } from "./shared";
 import { groupComponents } from "./component-grouping";
@@ -228,10 +228,12 @@ function classifyField(propType: string, componentId: string, propName: string):
 export function ComponentPropertiesPanel({
   block,
   onUpdateProp,
+  onUpdateClientDirective,
   onRemove,
 }: {
   block: PageBlock;
   onUpdateProp: (key: string, value: unknown) => void;
+  onUpdateClientDirective: (directive: ClientDirective | undefined) => void;
   onRemove: () => void;
 }) {
   const component = allComponents.find((c) => c.id === block.componentId);
@@ -286,12 +288,39 @@ export function ComponentPropertiesPanel({
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: 8,
+          gap: 6,
         }}
       >
         <h2 style={{ ...panelTitleStyle, margin: 0 }}>組件屬性</h2>
-        <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除此組件">
-          <Trash2 size={14} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <select
+            value={block.clientDirective ?? ""}
+            onChange={(e) =>
+              onUpdateClientDirective(e.target.value === "" ? undefined : (e.target.value as ClientDirective))
+            }
+            title="Astro client directive（此組件實例在 Astro 產出時的 hydration 策略；不選則維持純靜態渲染，不會寫入組件 props，只影響 Astro codegen）"
+            style={{
+              background: "#0d0d0d",
+              color: "#eee",
+              border: "1px solid #333",
+              borderRadius: 4,
+              padding: "4px 6px",
+              fontSize: 11,
+              fontFamily: "monospace",
+              boxSizing: "border-box",
+            }}
+          >
+            <option value="">client:（無）</option>
+            <option value="only">client:only</option>
+            <option value="visible">client:visible</option>
+            <option value="idle">client:idle</option>
+            <option value="load">client:load</option>
+            <option value="media">client:media</option>
+          </select>
+          <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除此組件">
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       <div style={{ marginBottom: 12 }}>

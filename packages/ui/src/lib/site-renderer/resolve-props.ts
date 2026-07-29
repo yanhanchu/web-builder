@@ -51,11 +51,12 @@ export function resolvePlainPropValue(
   store: DataStore,
   locale: string,
   options: ResolvePropOptions = {},
+  defaultLocale?: string,
 ): unknown {
   if (!isValueNodeShape(rawValue) || !fieldType) return rawValue;
 
   try {
-    return resolveValue(fieldType, rawValue, store, { locale });
+    return resolveValue(fieldType, rawValue, store, { locale, defaultLocale });
   } catch (err) {
     if (options.strict) throw err;
     // 解析失敗也不該讓呼叫端整個炸掉，退回原始值（跟畫布原本行為一致）。
@@ -76,12 +77,13 @@ export function resolvePlainProps(
   store: DataStore,
   locale: string,
   options: ResolvePropOptions = {},
+  defaultLocale?: string,
 ): Record<string, unknown> {
   const resolved: Record<string, unknown> = {};
   for (const [key, rawValue] of Object.entries(plainProps)) {
     const fieldType: FieldType | undefined =
       propsFieldType?.kind === "object" ? propsFieldType.fields[key] : undefined;
-    resolved[key] = resolvePlainPropValue(rawValue, fieldType, store, locale, options);
+    resolved[key] = resolvePlainPropValue(rawValue, fieldType, store, locale, options, defaultLocale);
   }
   return resolved;
 }

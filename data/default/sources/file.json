@@ -1,0 +1,28 @@
+{
+  "logo-main": {
+    "label": "檔案: 主要 Logo",
+    "url": "http://localhost:5173/uploads/default/1785119475961-0025d516290c.webp",
+    "mimeType": "image/webp",
+    "size": 294486,
+    "uploadedAt": "2026-07-27T02:31:16.056Z",
+    "caption": "test",
+    "description": "test",
+    "fileName": "1785119475947-7a6aad09.webp"
+  },
+  "new-1": {
+    "label": "新檔案",
+    "url": "http://localhost:5173/uploads/default/1785118198852-89c68ffc2684.png",
+    "mimeType": "image/png",
+    "size": 442202,
+    "uploadedAt": "2026-07-27T02:09:59.165Z",
+    "fileName": "1785118198807-b649daf5.png"
+  },
+  "new-2": {
+    "label": "新檔案",
+    "url": "http://localhost:5173/uploads/default/1785121533214-97ee1484abf4.png",
+    "mimeType": "image/png",
+    "size": 442202,
+    "uploadedAt": "2026-07-27T03:05:33.306Z",
+    "fileName": "1785121533200-f47e13bd.png"
+  }
+}
