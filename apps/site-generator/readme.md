@@ -371,3 +371,114 @@ dist-split-jsx/
   上述模組之間的呼叫關係已對照 `packages/ui/src` 現有原始碼逐一核對過
   函式簽章與資料形狀，但實際跑起來前建議先 `pnpm install` 後
   `pnpm --filter site-generator typecheck` 過一次。
+## Astro 版產生器（`astro-codegen/` + `generate-astro.ts` / `cli-astro.ts`）
+
+跟上面的「.tsx + 拆分資料」版（split-jsx）平行存在、互不影響，共用同一份
+`load-static-data.ts` / `resolve-route.ts` / `plan-routes.ts`。
+
+用法：
+
+```
+npm run generate:astro -- --data ../../data/default --out ../astro-site/src
+```
+
+`--out` 建議指到 Astro 專案的 `src/` 目錄，這樣 `${out}/pages/**/*.astro`
+會落在 Astro 慣例的 `src/pages/` 底下，直接被 Astro 的 file-based routing
+吃到。
+
+### 輸出結構
+
+Astro 只有 file route，沒有 react-router 那種「一份元件 + 多筆 `<Route>`
+各自傳 data prop」的做法，所以跟 split-jsx 版最大的差異是：**每個
+(page, locale) 都各自落地一份完整的 `.astro` 檔案**，不是「頁面元件語系
+無關、由路由層分流」。
+
+```
+pages/index.astro              單語系首頁；或多語系時 defaultLocale 不帶前綴那層
+pages/about.astro
+pages/en/index.astro           多語系：所有語系都帶前綴的那層（見 plan-routes.ts 規則 2）
+pages/en/about.astro
+pages/_data/index/data.ts      跟每份 .astro 一一對應的資料檔案，放在平行的
+pages/_data/about/data.ts      _data/ 子目錄底下（不能跟 .astro 檔案同名放在
+pages/_data/en/index/data.ts   pages/ 同一層，否則會被 Astro 誤認成另一個路由）
+pages/_data/en/about/data.ts
+index.css                      跟 split-jsx 版共用同一顆 render-global-css.ts
+```
+
+單一 `.astro` 檔案長相（精要版，對照需求的參考結構）：
+
+```astro
+---
+import { Layout } from "@workspace/ui/components/landing1/layout";
+import { Hero } from "@workspace/ui/components/landing1/hero";
+import { ValueProps } from "@workspace/ui/components/landing1/value-props";
+import { CtaBanner } from "@workspace/ui/components/landing1/cta-banner";
+import { header, footer, hero, valueProps, ctaBanner } from "../_data/index/data";
+---
+
+<Layout header={header} footer={footer}>
+  <Hero {...hero} />
+  <ValueProps {...valueProps} />
+  <CtaBanner {...ctaBanner} />
+</Layout>
+```
+
+### client:* 指令
+
+`PageBlock.clientDirective`（`page-model/index.ts`，資料來源
+`data/default/pages.json` 每個 block 上的 `clientDirective` 欄位）決定這個
+組件實例要不要、以及何時被 hydrate：
+
+| `clientDirective` 值 | 產出的 Astro 屬性 |
+|---|---|
+| `undefined`（未設定） | 不加任何屬性（純 SSR，零 JS） |
+| `"only"` | `client:only="react"` |
+| `"visible"` | `client:visible` |
+| `"idle"` | `client:idle` |
+| `"load"` | `client:load` |
+| `"media"` | `client:media="(min-width: 768px)"` + 行內 TODO 註解（型別目前只存種類、沒存實際 media query 字串，先給常見斷點佔位） |
+
+對照邏輯在 `astro-codegen/render-block-tree-to-astro.ts` 的
+`clientDirectiveAttr()`。
+
+### 跟 split-jsx 版共用 / 各自獨立的模組
+
+```
+load-static-data.ts   ─┐
+resolve-route.ts       ├─ 完全共用，不用改
+plan-routes.ts        ─┘
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+   render-page-split-jsx.ts   astro-codegen/render-page-astro.ts
+   render-routes.ts           astro-codegen/render-routes-astro.ts
+   generate-split-jsx.ts      generate-astro.ts
+   cli-split-jsx.ts           cli-astro.ts
+```
+
+- `astro-codegen/render-block-tree-to-astro.ts`：對照
+  `jsx-codegen/render-block-tree-to-split-jsx.ts`，走訪 `PageBlock` 樹產出
+  Astro template 片段 + `DataExport[]`；額外處理 `client:*` 屬性。
+- `astro-codegen/render-page-astro.ts`：單一 (page, locale) 產出
+  `.astro` + `data.ts`（做法 B：每個語系各自一份完整檔案，見檔案開頭
+  「做法 A / B」比較說明）。
+- `astro-codegen/render-routes-astro.ts`：把 `plan-routes.ts` 的
+  `PlannedRoute[]` 轉成「每一筆要落地到哪個 `.astro` 檔案路徑」的清單
+  （`pagesRelativePath`），不產生程式碼，只是路徑計算。
+- `generate-astro.ts` / `cli-astro.ts`：主流程與進入點，架構對照
+  `generate-split-jsx.ts` / `cli-split-jsx.ts`。
+
+### 已知限制 / 下一版
+
+- **i18n 值怎麼塞**：這一版每個語系各自 resolve 成純值、各自一份
+  `.astro` + `data.ts`（結構重複但單純）。下一版如果要改成「同一份
+  `.astro` 搭配 Astro i18n routing + 執行期切換字典」，只需要換掉
+  `render-page-astro.ts` 跟 `generate-astro.ts` 的產出邏輯，
+  `plan-routes.ts` / `resolve-route.ts` / `load-static-data.ts` 完全不用動。
+- 沒有做任何型別編譯檢查、沒有安裝依賴、沒有跑 build 或測試（依需求），
+  也沒有實際起一個 Astro 專案驗證產出的 `.astro` 檔案能不能被
+  `astro build` 吃下去；上述模組之間的呼叫關係已對照
+  `packages/ui/src` 現有原始碼與 split-jsx 版逐一核對過函式簽章與資料
+  形狀，實際使用前建議先在一個真的 Astro 專案（`npm create astro@latest`）
+  裡把 `--out` 指過去跑一次、視結果調整 `astro.config.mjs`（例如
+  `@workspace/ui` alias、Tailwind 設定）。
