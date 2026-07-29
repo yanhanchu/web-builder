@@ -11,19 +11,5 @@
   "menu.close": "Close menu",
   "footer.tagline": "Building better software, together.",
   "footer.copyright": "© 2026 OZSV. All rights reserved.",
-  "hero.eyebrow": "New: v2.0 is here",
-  "hero.title.lead": "Build faster with ",
-  "hero.title.accent": "OZSV",
-  "hero.subtitle": "A modern toolkit for shipping polished web experiences.",
-  "hero.primaryCta.label": "Get started",
-  "hero.secondaryCta.label": "Learn more",
-  "valueProps.fast.title": "Fast",
-  "valueProps.fast.body": "Ship in minutes, not weeks.",
-  "valueProps.flexible.title": "Flexible",
-  "valueProps.flexible.body": "Adapts to your workflow, not the other way around.",
-  "valueProps.reliable.title": "Reliable",
-  "valueProps.reliable.body": "Built on tools you already trust.",
-  "cta.title": "Ready to get started?",
-  "cta.body": "Reach out and we'll get back to you within one business day.",
-  "cta.label": "Get in touch"
+  "nubmer1": 100
 }

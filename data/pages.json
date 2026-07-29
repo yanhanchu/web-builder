@@ -3,124 +3,174 @@
     "id": "home",
     "name": "首頁",
     "status": "published",
-    "styleSheetIds": ["global"],
     "seo": {
       "title": "首頁",
-      "titleTemplate": "%s | OZSV",
-      "description": "OZSV 官方網站首頁。",
-      "keywords": "",
-      "ogImage": "",
+      "titleTemplate": "%s | Web Builder",
+      "description": "網站首頁",
+      "keywords": "web, builder, cms",
+      "ogImage": "/og-image.png",
       "ogType": "website",
-      "twitterCard": "",
-      "twitterSite": "",
+      "twitterCard": "summary_large_image",
+      "twitterSite": "@webbuilder",
       "canonicalUrl": "",
       "robots": "index, follow"
     },
     "blocks": [
       {
-        "instanceId": "blk_layout_home",
+        "instanceId": "blk_wyfojbu0",
         "componentId": "src/components/landing1/layout.tsx#Layout",
         "componentName": "Layout",
         "props": {
           "header": {
-            "mode": "object",
-            "fields": {
-              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-              "primaryNav": { "mode": "bound", "sourceId": "typedData:nav:primary" },
-              "themeOptions": { "mode": "bound", "sourceId": "typedData:theme:options" },
-              "themeGroupLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
-              "themeLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
-              "openMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.open" },
-              "closeMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.close" }
-            }
+            "brand": {
+              "toHome": "/",
+              "ariaLabel": "OZSV home",
+              "mark": "OZSV",
+              "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+              "wordmark": {
+                "lead": "OZ",
+                "accent": "SV"
+              }
+            },
+            "primaryNav": [
+              {
+                "label": "Product",
+                "to": "/product"
+              },
+              {
+                "label": "About",
+                "to": "/about"
+              },
+              {
+                "label": "Contact",
+                "to": "/contact"
+              }
+            ],
+            "themeOptions": [
+              {
+                "value": "light",
+                "label": "Light"
+              },
+              {
+                "value": "dark",
+                "label": "Dark"
+              },
+              {
+                "value": "system",
+                "label": "System"
+              }
+            ],
+            "themeGroupLabel": "Theme",
+            "themeLabel": "Theme",
+            "openMenuLabel": "Open menu",
+            "closeMenuLabel": "Close menu"
           },
           "footer": {
-            "mode": "object",
-            "fields": {
-              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-              "tagline": { "mode": "bound", "sourceId": "i18n:footer.tagline" },
-              "email": { "mode": "literal", "value": "hello@example.com" },
-              "emailAriaLabel": { "mode": "literal", "value": "Email us at hello@example.com" },
-              "columns": { "mode": "bound", "sourceId": "typedData:nav:footerColumns" },
-              "copyright": { "mode": "bound", "sourceId": "i18n:footer.copyright" },
-              "meta": { "mode": "literal", "value": "Made in Australia" }
-            }
+            "brand": {
+              "toHome": "/",
+              "ariaLabel": "OZSV home",
+              "mark": "OZSV",
+              "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+              "wordmark": {
+                "lead": "OZ",
+                "accent": "SV"
+              }
+            },
+            "tagline": "Building better software, together.",
+            "email": "hello@example.com",
+            "emailAriaLabel": "Email us at hello@example.com",
+            "columns": [
+              {
+                "title": "Product",
+                "items": [
+                  {
+                    "label": "Features",
+                    "to": "/features"
+                  },
+                  {
+                    "label": "Pricing",
+                    "to": "/pricing"
+                  }
+                ]
+              },
+              {
+                "title": "Company",
+                "items": [
+                  {
+                    "label": "About",
+                    "to": "/about"
+                  },
+                  {
+                    "label": "Contact",
+                    "to": "/contact"
+                  }
+                ]
+              }
+            ],
+            "copyright": "© 2026 OZSV. All rights reserved.",
+            "meta": "Made in Australia"
           },
           "children": {
             "__slot": true,
             "blocks": [
               {
-                "instanceId": "blk_hero_home",
+                "instanceId": "blk_nw1jx377",
                 "componentId": "src/components/landing1/hero.tsx#Hero",
                 "componentName": "Hero",
                 "props": {
-                  "eyebrow": { "mode": "bound", "sourceId": "i18n:hero.eyebrow" },
+                  "eyebrow": "New: v2.0 is here",
                   "title": {
-                    "mode": "object",
-                    "fields": {
-                      "lead": { "mode": "bound", "sourceId": "i18n:hero.title.lead" },
-                      "accent": { "mode": "bound", "sourceId": "i18n:hero.title.accent" }
-                    }
+                    "lead": "Build faster with ",
+                    "accent": "OZSV"
                   },
-                  "subtitle": { "mode": "bound", "sourceId": "i18n:hero.subtitle" },
+                  "subtitle": "A modern toolkit for shipping polished web experiences.",
                   "primaryCta": {
-                    "mode": "object",
-                    "fields": {
-                      "label": { "mode": "bound", "sourceId": "i18n:hero.primaryCta.label" },
-                      "to": { "mode": "literal", "value": "/product" }
-                    }
+                    "label": "Get started",
+                    "to": "/product"
                   },
                   "secondaryCta": {
-                    "mode": "object",
-                    "fields": {
-                      "label": { "mode": "bound", "sourceId": "i18n:hero.secondaryCta.label" },
-                      "to": { "mode": "literal", "value": "/about" }
-                    }
+                    "label": "Learn more",
+                    "to": "/about"
                   }
                 }
               },
               {
-                "instanceId": "blk_valueprops_home",
-                "componentId": "src/components/landing1/value-props.tsx#ValueProps",
-                "componentName": "ValueProps",
-                "props": {
-                  "items": {
-                    "mode": "array",
-                    "items": [
-                      {
-                        "mode": "object",
-                        "fields": {
-                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.fast.title" },
-                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.fast.body" }
-                        }
-                      },
-                      {
-                        "mode": "object",
-                        "fields": {
-                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.flexible.title" },
-                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.flexible.body" }
-                        }
-                      },
-                      {
-                        "mode": "object",
-                        "fields": {
-                          "title": { "mode": "bound", "sourceId": "i18n:valueProps.reliable.title" },
-                          "body": { "mode": "bound", "sourceId": "i18n:valueProps.reliable.body" }
-                        }
-                      }
-                    ]
-                  }
-                }
-              },
-              {
-                "instanceId": "blk_ctabanner_home",
+                "instanceId": "blk_62ldx8vd",
                 "componentId": "src/components/landing1/cta-banner.tsx#CtaBanner",
                 "componentName": "CtaBanner",
                 "props": {
-                  "title": { "mode": "bound", "sourceId": "i18n:cta.title" },
-                  "body": { "mode": "bound", "sourceId": "i18n:cta.body" },
-                  "ctaLabel": { "mode": "bound", "sourceId": "i18n:cta.label" },
-                  "ctaHref": { "mode": "literal", "value": "mailto:hello@example.com" }
+                  "title": "Ready to get started?",
+                  "body": "Reach out and we'll get back to you within one business day.",
+                  "ctaLabel": "Get in touch",
+                  "ctaHref": "mailto:hello@example.com"
+                }
+              },
+              {
+                "instanceId": "blk_tlhasdzp",
+                "componentId": "src/components/landing1/contact-card.tsx#ContactCard",
+                "componentName": "ContactCard",
+                "props": {
+                  "title": "Get in touch",
+                  "intro": "Have a question or a project in mind? We'd love to hear from you.",
+                  "email": "hello@example.com",
+                  "topicsTitle": "What can we help with?",
+                  "topics": [
+                    "Sales",
+                    "Support",
+                    "Partnerships",
+                    "Press"
+                  ]
+                }
+              },
+              {
+                "instanceId": "blk_ojs9j4ud",
+                "componentId": "src/components/landing1/cta-banner.tsx#CtaBanner",
+                "componentName": "CtaBanner",
+                "props": {
+                  "title": "Ready to get started?",
+                  "body": "Reach out and we'll get back to you within one business day.",
+                  "ctaLabel": "Get in touch",
+                  "ctaHref": "mailto:hello@example.com"
                 }
               }
             ]
@@ -133,52 +183,243 @@
     "id": "about",
     "name": "關於我們",
     "status": "published",
-    "styleSheetIds": ["global"],
     "seo": {
       "title": "關於我們",
-      "titleTemplate": "%s | OZSV",
-      "description": "認識 OZSV 團隊與我們的理念。",
-      "keywords": "",
-      "ogImage": "",
+      "titleTemplate": "%s | Web Builder",
+      "description": "使用 Web Builder 打造你的網站。",
+      "keywords": "web, builder, cms",
+      "ogImage": "/og-image.png",
       "ogType": "website",
-      "twitterCard": "",
-      "twitterSite": "",
+      "twitterCard": "summary_large_image",
+      "twitterSite": "@webbuilder",
+      "canonicalUrl": "",
+      "robots": "index, follow"
+    },
+    "blocks": []
+  },
+  {
+    "id": "page_1akvhp",
+    "name": "Test",
+    "status": "published",
+    "seo": {
+      "title": "Web Builder",
+      "titleTemplate": "%s | Web Builder",
+      "description": "使用 Web Builder 打造你的網站。",
+      "keywords": "web, builder, cms",
+      "ogImage": "/og-image.png",
+      "ogType": "website",
+      "twitterCard": "summary_large_image",
+      "twitterSite": "@webbuilder",
       "canonicalUrl": "",
       "robots": "index, follow"
     },
     "blocks": [
       {
-        "instanceId": "blk_layout_about",
+        "instanceId": "blk_ql0ilvjb",
         "componentId": "src/components/landing1/layout.tsx#Layout",
         "componentName": "Layout",
         "props": {
           "header": {
-            "mode": "object",
-            "fields": {
-              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-              "primaryNav": { "mode": "bound", "sourceId": "typedData:nav:primary" },
-              "themeOptions": { "mode": "bound", "sourceId": "typedData:theme:options" },
-              "themeGroupLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
-              "themeLabel": { "mode": "bound", "sourceId": "i18n:theme.groupLabel" },
-              "openMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.open" },
-              "closeMenuLabel": { "mode": "bound", "sourceId": "i18n:menu.close" }
-            }
+            "brand": {
+              "toHome": "/",
+              "ariaLabel": "OZSV home",
+              "mark": "OZSV",
+              "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+              "wordmark": {
+                "lead": "OZ",
+                "accent": "SV"
+              }
+            },
+            "primaryNav": [
+              {
+                "label": "Product",
+                "to": "/product"
+              },
+              {
+                "label": "About",
+                "to": "/about"
+              },
+              {
+                "label": "Contact",
+                "to": "/contact"
+              }
+            ],
+            "themeOptions": [
+              {
+                "value": "light",
+                "label": "Light"
+              },
+              {
+                "value": "dark",
+                "label": "Dark"
+              },
+              {
+                "value": "system",
+                "label": "System"
+              }
+            ],
+            "themeGroupLabel": "Theme",
+            "themeLabel": "Theme",
+            "openMenuLabel": "Open menu",
+            "closeMenuLabel": "Close menu"
           },
           "footer": {
-            "mode": "object",
-            "fields": {
-              "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-              "tagline": { "mode": "bound", "sourceId": "i18n:footer.tagline" },
-              "email": { "mode": "literal", "value": "hello@example.com" },
-              "emailAriaLabel": { "mode": "literal", "value": "Email us at hello@example.com" },
-              "columns": { "mode": "bound", "sourceId": "typedData:nav:footerColumns" },
-              "copyright": { "mode": "bound", "sourceId": "i18n:footer.copyright" },
-              "meta": { "mode": "literal", "value": "Made in Australia" }
-            }
+            "brand": {
+              "toHome": "/",
+              "ariaLabel": "OZSV home",
+              "mark": "OZSV",
+              "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+              "wordmark": {
+                "lead": "OZ",
+                "accent": "SV"
+              }
+            },
+            "tagline": "Building better software, together.",
+            "email": "hello@example.com",
+            "emailAriaLabel": "Email us at hello@example.com",
+            "columns": [
+              {
+                "title": "Product",
+                "items": [
+                  {
+                    "label": "Features",
+                    "to": "/features"
+                  },
+                  {
+                    "label": "Pricing",
+                    "to": "/pricing"
+                  }
+                ]
+              },
+              {
+                "title": "Company",
+                "items": [
+                  {
+                    "label": "About",
+                    "to": "/about"
+                  },
+                  {
+                    "label": "Contact",
+                    "to": "/contact"
+                  }
+                ]
+              }
+            ],
+            "copyright": "© 2026 OZSV. All rights reserved.",
+            "meta": "Made in Australia"
           },
           "children": {
             "__slot": true,
-            "blocks": []
+            "blocks": [
+              {
+                "instanceId": "blk_pizuhur3",
+                "componentId": "src/components/landing1/flex.tsx#Flex",
+                "componentName": "Flex",
+                "props": {
+                  "direction": "row",
+                  "justify": "start",
+                  "align": "stretch",
+                  "wrap": "nowrap",
+                  "gap": 12,
+                  "minHeight": {
+                    "mode": "literal",
+                    "value": 100
+                  },
+                  "children": {
+                    "__slot": true,
+                    "blocks": [
+                      {
+                        "instanceId": "blk_xuob21h4",
+                        "componentId": "src/components/landing1/flex.tsx#FlexItem",
+                        "componentName": "FlexItem",
+                        "props": {
+                          "grow": 0,
+                          "shrink": 1,
+                          "basis": "auto",
+                          "children": {
+                            "__slot": true,
+                            "blocks": [
+                              {
+                                "instanceId": "blk_j6br1twm",
+                                "componentId": "src/components/landing1/button.tsx#Button",
+                                "componentName": "Button",
+                                "props": {
+                                  "variant": "primary",
+                                  "size": "md",
+                                  "children": {
+                                    "mode": "literal",
+                                    "value": "test"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "instanceId": "blk_mclbtgo2",
+                        "componentId": "src/components/landing1/flex.tsx#FlexItem",
+                        "componentName": "FlexItem",
+                        "props": {
+                          "grow": 0,
+                          "shrink": 1,
+                          "basis": "auto",
+                          "children": {
+                            "__slot": true,
+                            "blocks": [
+                              {
+                                "instanceId": "blk_0a17jghu",
+                                "componentId": "src/components/landing1/button.tsx#Button",
+                                "componentName": "Button",
+                                "props": {
+                                  "variant": "primary",
+                                  "size": "md",
+                                  "children": {
+                                    "mode": "literal",
+                                    "value": 999
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "instanceId": "blk_rtsv65sv",
+                "componentId": "src/components/landing1/page-intro.tsx#PageIntro",
+                "componentName": "PageIntro",
+                "props": {
+                  "title": "About us",
+                  "intro": "We build tools that help teams ship better software, faster.",
+                  "eyebrow": "Updated 1 July 2026"
+                }
+              },
+              {
+                "instanceId": "blk_26bg8ksi",
+                "componentId": "src/components/landing1/value-props.tsx#ValueProps",
+                "componentName": "ValueProps",
+                "props": {
+                  "items": [
+                    {
+                      "title": "Fast",
+                      "body": "Ship in minutes, not weeks."
+                    },
+                    {
+                      "title": "Flexible",
+                      "body": "Adapts to your workflow, not the other way around."
+                    },
+                    {
+                      "title": "Reliable",
+                      "body": "Built on tools you already trust."
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
       }

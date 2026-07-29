@@ -186,6 +186,9 @@ dist/
   靜態內容，**不支援、也不做「瀏覽器裡動態切換 locale」**。
 - **`.tsx` 只產出一份（預設語系）**：跟 `roadmap.md` 的需求一致——`.tsx`
   只做一份預設語系的即可。
+- **只有一個節點時不多包一層 `<>...</>`**：不管是頁面內容區最外層，還是
+  slot 底下的子節點，只有「多個 sibling 節點」才會用 `<>...</>` 包起來，
+  單一節點直接輸出，跟真人手寫 JSX 的習慣一致。
 - **資料 JSON 每個 locale 各自一份**：`data/<locale>/<pageId>.json`，內容是
   該 (page, locale) 底下每個 block 的 resolved 純值 props（攤平成
   `instanceId -> { componentId, componentName, props, slots }`，`slots` 記錄
@@ -220,14 +223,16 @@ dist-jsx/
 - `jsx-codegen/render-block-tree-to-jsx.ts`：對應
   `@workspace/ui/lib/site-renderer/render-block-tree.tsx` 的
   `renderBlockTreeSync`，但輸出 JSX 原始碼字串而不是渲染結果；遞迴處理巢狀
-  slot、正確縮排。
+  slot、正確縮排，單一子節點不多包 `<>...</>`。
 - `jsx-codegen/stringify-literal.ts`：把 `resolveValue()` 解出的純值
   pretty-print 成合法 JS/JSX literal 語法（不是 `JSON.stringify`——物件 key
   不加引號、字串優先用雙引號等）。
 - `jsx-codegen/import-collector.ts`：收集這個頁面用到的所有組件 import，
-  去重、排序，避免同一個組件用了兩次卻 import 兩次。
+  去重、排序，避免同一個組件用了兩次卻 import 兩次；也支援 `import type`
+  （見下方拆分資料版）。
 - `render-page-jsx.ts`：組出一份完整 `.tsx` 檔案（import 語句 + `export default`
-  組件），對應 `render-page.ts` 但輸出原始碼而非 HTML。
+  組件），對應 `render-page.ts` 但輸出原始碼而非 HTML；頁面頂層只有一個
+  block 時不包 Fragment。
 - `render-page-data.ts`：把一個 (page, locale) 的每個 block resolved 成純值，
   攤平成一份 JSON（不含元件邏輯，純資料）。
 - `generate-jsx.ts` / `cli-jsx.ts`：主流程與進入點，跟既有 `generate.ts` /
@@ -235,6 +240,105 @@ dist-jsx/
   `preloadBlockTreeComponents` / `buildCss` 這一整套「真的執行組件」的機制——
   code generator 只需要 `ComponentDoc`（`componentId -> importPath/componentName`）
   跟 `resolveValue`。
+
+## `.tsx` + 拆分資料檔案輸出流程
+
+上面「`.tsx` 輸出流程」產出的頁面 `.tsx` 是把每個 block 的純值 props 直接
+inline 寫成 JSX attribute。這裡提供另一個變體：**把純值 props 抽成獨立的
+資料檔案**，頁面 `.tsx` 改成 import 資料變數、用 `{...變數}` spread 進組件，
+長得像 `apps/web-builder/src/pages/index.tsx` 手寫的樣子：
+
+```tsx
+import { Layout } from "@workspace/ui/components/landing1/layout";
+import { Hero } from "@workspace/ui/components/landing1/hero";
+import { ValueProps } from "@workspace/ui/components/landing1/value-props";
+import { CtaBanner } from "@workspace/ui/components/landing1/cta-banner";
+import { layout, hero, valueProps, ctaBanner } from "../data/zh-TW/home/data";
+
+export default function HomePage() {
+  return (
+    <Layout
+      {...layout}
+      children={
+        <>
+          <Hero {...hero} />
+          <ValueProps {...valueProps} />
+          <CtaBanner {...ctaBanner} />
+        </>
+      }
+    />
+  );
+}
+```
+
+（`Layout` 的 `children` 是 slot prop，仍然是活的巢狀 JSX 結構，不會被抽成
+資料；`header`/`footer` 是純值 object prop，會跟其他組件一樣被抽成
+`layout` 這筆資料。）
+
+資料檔案本身長得像 `packages/ui/src/components/landing1/default.ts`：
+
+```ts
+import type { HeroProps } from "@workspace/ui/components/landing1/hero";
+
+export const hero: HeroProps = {
+  eyebrow: "...",
+  title: { lead: "...", accent: "..." },
+  // ...
+};
+```
+
+**檔案怎麼分不是寫死的**——「可能 by 區塊或語系分開」用
+`DataFileGroupingStrategy`（`jsx-codegen/data-file-writer.ts`）決定：
+
+- `groupAllInOneFile`（預設）：整頁所有 block 的資料塞進同一份 `data.ts`。
+- `groupByComponentName`：每個組件名稱各自一份檔案（`hero.ts`、`footer.ts`
+  ……），同一頁用了兩次同組件時，兩筆 export 會落在同一個檔案裡。
+- 語系本身一律各自分開（`data/<locale>/<pageId>/...`），不會混在一起。
+
+```bash
+cd apps/site-generator
+pnpm generate:split-jsx                                    # 預設 groupAllInOneFile，輸出到 ./dist-split-jsx
+pnpm generate:split-jsx -- --group by-component             # 每個組件名稱各自一份資料檔案
+pnpm generate:split-jsx -- --data ../../data --out ./dist-split-jsx --group all-in-one
+```
+
+輸出結構範例（`locales.json = ["zh-TW", "en"]`、`zh-TW` 為預設語系、
+`--group all-in-one`）：
+
+```
+dist-split-jsx/
+  pages/
+    HomePage.tsx        # 只用 zh-TW（預設語系），import ../data/zh-TW/home/data
+    AboutPage.tsx
+  data/
+    zh-TW/
+      home/
+        data.ts          # 這個 (page, locale) 拆出的所有資料 export
+      about/
+        data.ts
+    en/
+      home/
+        data.ts          # 其餘 locale 只產資料檔案，不產 .tsx（頁面只需要一份）
+      about/
+        data.ts
+```
+
+程式碼結構（新增／取代的部分，其餘跟上面「`.tsx` 輸出流程」共用）：
+
+- `jsx-codegen/var-naming.ts`：`componentName`（PascalCase）轉資料變數名稱
+  （camelCase，例如 `Hero -> hero`），同檔案內撞名時自動加數字後綴
+  （`hero`、`hero2`……）。
+- `jsx-codegen/render-block-tree-to-split-jsx.ts`：取代
+  `render-block-tree-to-jsx.ts`，走訪 block 樹時把純值 props 抽成
+  `DataExport`（而不是直接 dump 成 JSX attribute），頁面 JSX 改輸出
+  `{...varName}` spread；slot 底下的巢狀組合關係仍是結構性的 JSX，不受影響。
+- `jsx-codegen/data-file-writer.ts`：把 `DataExport[]` 依
+  `DataFileGroupingStrategy` 分組、組成 `.ts` 資料檔案內容（含型別 import）。
+- `render-page-split-jsx.ts`：取代 `render-page-jsx.ts`，組出「頁面 `.tsx`
+  + 一組資料檔案」，呼叫端提供 `dataImportPath` 決定頁面 `.tsx` 要用什麼
+  相對路徑 import 資料檔案。
+- `generate-split-jsx.ts` / `cli-split-jsx.ts`：主流程與進入點，跟
+  `generate-jsx.ts` / `cli-jsx.ts` 平行存在、互不影響。
 
 ## 實作筆記 / 已知限制
 

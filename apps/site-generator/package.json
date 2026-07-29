@@ -5,9 +5,7 @@
   "private": true,
   "description": "讀取攤平匯出的資料（i18n / route / file / typedData / pages / locales / styleSheets），驅動 @workspace/ui 既有的 page-model + site-renderer，產出全靜態 React/TSX 網站（每個 locale x page 一份 HTML + 對應的水合腳本）。",
   "scripts": {
-    "generate": "vite-node ./src/cli.ts",
-    "generate:node": "node ./src/cli.ts",
-    "generate:jsx": "vite-node ./src/cli-jsx.ts",
+    "generate:split-jsx": "vite-node ./src/cli-split-jsx.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

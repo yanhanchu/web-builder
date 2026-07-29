@@ -1,14 +1,9 @@
 {
-  "home": {
+  "new-1": {
+    "label": "新路由",
     "target": "page",
-    "pageId": "home",
-    "value": "/",
-    "noindex": false
-  },
-  "about": {
-    "target": "page",
-    "pageId": "about",
-    "value": "/about",
-    "noindex": false
+    "value": "/test",
+    "noindex": false,
+    "pageId": "home"
   }
 }

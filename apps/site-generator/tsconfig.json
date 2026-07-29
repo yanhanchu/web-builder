@@ -18,8 +18,8 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"],
+      "@workspace/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["src", "../../data/**/*"]
+  "include": ["src", "dist", "../../data/**/*"]
 }

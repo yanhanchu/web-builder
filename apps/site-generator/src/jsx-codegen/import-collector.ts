@@ -34,13 +34,18 @@ export class ImportCollector {
   /**
    * 產生排序後的 import 語句原始碼（每行一個路徑，具名 export 依字母序排列）。
    * 路徑本身也排序，讓多次執行 code generator 產生的檔案內容穩定（方便 diff）。
+   *
+   * typeOnly 為 true 時輸出 `import type { ... }`（用於只需要型別、編譯後
+   * 會被完全移除的 import，例如資料檔案裡的 props 型別註記），預設 false
+   * （一般 value import，用於組件本身）。
    */
-  render(): string {
+  render(options: { typeOnly?: boolean } = {}): string {
+    const keyword = options.typeOnly ? "import type" : "import";
     const paths = Array.from(this.named.keys()).sort();
     return paths
       .map((importPath) => {
         const names = Array.from(this.named.get(importPath)!).sort();
-        return `import { ${names.join(", ")} } from "${importPath}";`;
+        return `${keyword} { ${names.join(", ")} } from "${importPath}";`;
       })
       .join("\n");
   }
