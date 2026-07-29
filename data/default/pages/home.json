@@ -1,0 +1,182 @@
+{
+  "id": "home",
+  "name": "首頁",
+  "status": "published",
+  "seo": {
+    "title": "首頁",
+    "titleTemplate": "%s | Web Builder",
+    "description": "網站首頁",
+    "keywords": "web, builder, cms",
+    "ogImage": "/og-image.png",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "@webbuilder",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "blocks": [
+    {
+      "instanceId": "blk_wyfojbu0",
+      "componentId": "src/components/landing1/layout.tsx#Layout",
+      "componentName": "Layout",
+      "props": {
+        "header": {
+          "brand": {
+            "toHome": "/",
+            "ariaLabel": "OZSV home",
+            "mark": "OZSV",
+            "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+            "wordmark": {
+              "lead": "OZ",
+              "accent": "SV"
+            }
+          },
+          "primaryNav": [
+            {
+              "label": "Product",
+              "to": "/product"
+            },
+            {
+              "label": "About",
+              "to": "/about"
+            },
+            {
+              "label": "Contact",
+              "to": "/contact"
+            }
+          ],
+          "themeOptions": [
+            {
+              "value": "light",
+              "label": "Light"
+            },
+            {
+              "value": "dark",
+              "label": "Dark"
+            },
+            {
+              "value": "system",
+              "label": "System"
+            }
+          ],
+          "themeGroupLabel": "Theme",
+          "themeLabel": "Theme",
+          "openMenuLabel": "Open menu",
+          "closeMenuLabel": "Close menu"
+        },
+        "footer": {
+          "brand": {
+            "toHome": "/",
+            "ariaLabel": "OZSV home",
+            "mark": "OZSV",
+            "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+            "wordmark": {
+              "lead": "OZ",
+              "accent": "SV"
+            }
+          },
+          "tagline": "Building better software, together.",
+          "email": "hello@example.com",
+          "emailAriaLabel": "Email us at hello@example.com",
+          "columns": [
+            {
+              "title": "Product",
+              "items": [
+                {
+                  "label": "Features",
+                  "to": "/features"
+                },
+                {
+                  "label": "Pricing",
+                  "to": "/pricing"
+                }
+              ]
+            },
+            {
+              "title": "Company",
+              "items": [
+                {
+                  "label": "About",
+                  "to": "/about"
+                },
+                {
+                  "label": "Contact",
+                  "to": "/contact"
+                }
+              ]
+            }
+          ],
+          "copyright": "© 2026 OZSV. All rights reserved.",
+          "meta": "Made in Australia"
+        },
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_nw1jx377",
+              "componentId": "src/components/landing1/hero.tsx#Hero",
+              "componentName": "Hero",
+              "props": {
+                "eyebrow": "New: v2.0 is here",
+                "title": {
+                  "lead": "Build faster with ",
+                  "accent": "OZSV"
+                },
+                "subtitle": "A modern toolkit for shipping polished web experiences.",
+                "primaryCta": {
+                  "label": "Get started",
+                  "to": "/product"
+                },
+                "secondaryCta": {
+                  "label": "Learn more",
+                  "to": "/about"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_62ldx8vd",
+              "componentId": "src/components/landing1/cta-banner.tsx#CtaBanner",
+              "componentName": "CtaBanner",
+              "props": {
+                "title": "Ready to get started?",
+                "body": "Reach out and we'll get back to you within one business day.",
+                "ctaLabel": "Get in touch",
+                "ctaHref": "mailto:hello@example.com"
+              },
+              "clientDirective": "only"
+            },
+            {
+              "instanceId": "blk_tlhasdzp",
+              "componentId": "src/components/landing1/contact-card.tsx#ContactCard",
+              "componentName": "ContactCard",
+              "props": {
+                "title": "Get in touch",
+                "intro": "Have a question or a project in mind? We'd love to hear from you.",
+                "email": "hello@example.com",
+                "topicsTitle": "What can we help with?",
+                "topics": [
+                  "Sales",
+                  "Support",
+                  "Partnerships",
+                  "Press"
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_ojs9j4ud",
+              "componentId": "src/components/landing1/cta-banner.tsx#CtaBanner",
+              "componentName": "CtaBanner",
+              "props": {
+                "title": "Ready to get started?",
+                "body": "Reach out and we'll get back to you within one business day.",
+                "ctaLabel": "Get in touch",
+                "ctaHref": "mailto:hello@example.com"
+              }
+            }
+          ]
+        }
+      },
+      "clientDirective": "only"
+    }
+  ]
+}

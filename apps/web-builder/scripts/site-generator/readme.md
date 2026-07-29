@@ -54,7 +54,9 @@ data/                       範例攤平資料（可直接替換成你自己匯�
     route.json
     file.json
     typedData.json
-  pages.json
+  pages/
+    home.json
+    about.json
   locales.json
   style-sheets.json
 ```
@@ -95,9 +97,12 @@ id 分別是 `file:<key>` / `typedData:<key>`。
 用 `sourceId` 引用其他 source（i18n / file / typedData 皆可），沒有限制引用
 深度。
 
-### `data/pages.json`
+### `data/pages/{pageId}.json`
 
-`PageItem[]`，直接對應 `packages/ui/src/lib/page-model/index.ts` 的形狀。
+每個頁面各自一份檔案，內容是單一 `PageItem`（直接對應
+`packages/ui/src/lib/page-model/index.ts` 的形狀），檔名即 `page.id`。
+讀取時掃描 `pages/` 目錄、依檔名排序組回 `PageItem[]`（見
+`load-static-data.ts` 的 `findPageFiles()`）。
 每個 `PageBlock.props` 的每個 **top-level prop** 各自可以是：
 
 - 一般純值（string / number / boolean / plain object/array）
@@ -110,7 +115,7 @@ id 分別是 `file:<key>` / `typedData:<key>`。
 `{ mode: "object", fields: { brand: {...}, primaryNav: {...}, ... } }`，
 逐欄位展開、對齊 `HeaderProps` 的每個欄位，而不是 `{ mode: "bound",
 sourceId: "..." }` 指向單一 typedData（除非那個 typedData 剛好整包就是
-`HeaderProps` 型別）。可以參考 `data/pages.json` 裡完整的範例。
+`HeaderProps` 型別）。可以參考 `data/pages/` 底下任一份檔案的完整範例。
 
 `ReactNode` / slot 型別的 prop（例如 `Layout.children`）用
 `{ "__slot": true, "blocks": [...] }`（`SlotValue` 的 JSON 形狀），裡面是
@@ -426,7 +431,7 @@ import { header, footer, hero, valueProps, ctaBanner } from "../_data/index/data
 ### client:* 指令
 
 `PageBlock.clientDirective`（`page-model/index.ts`，資料來源
-`data/default/pages.json` 每個 block 上的 `clientDirective` 欄位）決定這個
+`data/default/pages/{pageId}.json` 每個 block 上的 `clientDirective` 欄位）決定這個
 組件實例要不要、以及何時被 hydrate：
 
 | `clientDirective` 值 | 產出的 Astro 屬性 |

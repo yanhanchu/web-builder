@@ -87,7 +87,7 @@ import { planAstroPageRouteFiles } from "./astro-codegen/render-routes-astro.ts"
 import { renderGlobalCss } from "./jsx-codegen/render-global-css.ts";
 
 export interface GenerateAstroOptions {
-  /** 攤平資料根目錄（含 sources/、pages.json、locales.json、style-sheets.json）。 */
+  /** 攤平資料根目錄（含 sources/、pages/、locales.json、style-sheets.json）。 */
   dataDir: string;
   /**
    * 產出目錄，採「覆蓋」寫入：只會建立/覆寫這次產出涵蓋到的檔案，不會

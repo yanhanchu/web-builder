@@ -1,0 +1,150 @@
+{
+  "id": "about",
+  "name": "關於我們",
+  "status": "published",
+  "seo": {
+    "title": "關於我們",
+    "titleTemplate": "%s | Web Builder",
+    "description": "使用 Web Builder 打造你的網站。",
+    "keywords": "web, builder, cms",
+    "ogImage": "/og-image.png",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "@webbuilder",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "blocks": [
+    {
+      "instanceId": "blk_a2wuikil",
+      "componentId": "src/components/landing1/flex.tsx#Flex",
+      "componentName": "Flex",
+      "props": {
+        "direction": "column",
+        "justify": "start",
+        "align": "stretch",
+        "wrap": "nowrap",
+        "gap": 12,
+        "minHeight": 160,
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_mhc8cn3w",
+              "componentId": "src/components/landing1/flex.tsx#FlexItem",
+              "componentName": "FlexItem",
+              "props": {
+                "grow": 0,
+                "shrink": 1,
+                "basis": "auto",
+                "children": {
+                  "__slot": true,
+                  "blocks": [
+                    {
+                      "instanceId": "blk_b7brihi1",
+                      "componentId": "src/components/landing1/value-props.tsx#ValueProps",
+                      "componentName": "ValueProps",
+                      "props": {
+                        "items": [
+                          {
+                            "title": "Fast",
+                            "body": "Ship in minutes, not weeks."
+                          },
+                          {
+                            "title": "Flexible",
+                            "body": "Adapts to your workflow, not the other way around."
+                          },
+                          {
+                            "title": "Reliable",
+                            "body": "Built on tools you already trust."
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "instanceId": "blk_5giezv19",
+              "componentId": "src/components/landing1/flex.tsx#FlexItem",
+              "componentName": "FlexItem",
+              "props": {
+                "grow": 0,
+                "shrink": 1,
+                "basis": "auto",
+                "children": {
+                  "mode": "bound",
+                  "sourceId": "i18n:brand.ariaLabel"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_c4f7447h",
+              "componentId": "src/components/landing1/flex.tsx#FlexItem",
+              "componentName": "FlexItem",
+              "props": {
+                "grow": 0,
+                "shrink": 1,
+                "basis": "auto",
+                "children": {
+                  "__slot": true,
+                  "blocks": [
+                    {
+                      "instanceId": "blk_wnm6eg4u",
+                      "componentId": "src/components/landing1/button.tsx#Button",
+                      "componentName": "Button",
+                      "props": {
+                        "variant": "primary",
+                        "size": "md",
+                        "children": {
+                          "mode": "bound",
+                          "sourceId": "i18n:nubmer1"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "instanceId": "blk_481cokzx",
+              "componentId": "src/components/landing1/flex.tsx#FlexItem",
+              "componentName": "FlexItem",
+              "props": {
+                "grow": 0,
+                "shrink": 1,
+                "basis": "auto",
+                "children": {
+                  "__slot": true,
+                  "blocks": [
+                    {
+                      "instanceId": "blk_7tmvujld",
+                      "componentId": "src/components/landing1/section-list.tsx#SectionList",
+                      "componentName": "SectionList",
+                      "props": {
+                        "sections": [
+                          {
+                            "heading": "Our mission",
+                            "body": "To make building great software accessible to every team."
+                          },
+                          {
+                            "heading": "Our story",
+                            "body": [
+                              "Founded in 2024, we started with a simple idea.",
+                              "Since then we've grown into a small, focused team."
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

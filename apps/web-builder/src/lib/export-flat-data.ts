@@ -32,7 +32,7 @@ export type ExportedFiles = Map<string, string>;
 
 /**
  * 組出所有攤平檔案的內容，key 是相對於 `data/` 的路徑
- * （例如 "sources/route.json"、"pages.json"），value 是格式化過的 JSON 字串。
+ * （例如 "sources/route.json"、"pages/home.json"），value 是格式化過的 JSON 字串。
  *
  * 只組內容、不做任何檔案 I/O 或下載動作 —— 那些留給呼叫端（瀏覽器用
  * downloadZip，之後若要接 CLI／server 也能直接重用這個函式）。
@@ -56,9 +56,17 @@ export function buildFlatDataFiles(input: ExportFlatDataInput): ExportedFiles {
   files.set("sources/file.json", stringify(sourcesToFlatKind(sources, "file")));
   files.set("sources/typedData.json", stringify(sourcesToFlatKind(sources, "typedData")));
 
-  // --- pages.json / locales.json / style-sheets.json：直接存純值，
-  // 不需要攤平轉換（load-static-data.ts 直接 JSON.parse 後當純資料使用）---
-  files.set("pages.json", stringify(pages));
+  // --- pages/{pageId}.json：每個頁面各自一份純值檔案（不需要攤平轉換，
+  // load-static-data.ts 直接 JSON.parse 後當純資料使用），不再合併成單一
+  // pages.json —— 理由：頁面數量多時單一大檔案每次编輯任何一頁都要整份
+  // 改動、diff 很難看；拆成逐頁檔案後，改一頁只動一個檔案，也方便之後
+  // 個別頁面各自比對／版控。
+  for (const page of pages) {
+    files.set(`pages/${page.id}.json`, stringify(page));
+  }
+
+  // --- locales.json / style-sheets.json：直接存純值，不需要攤平轉換
+  // （load-static-data.ts 直接 JSON.parse 後當純資料使用）---
   files.set("locales.json", stringify(locales));
   files.set("style-sheets.json", stringify(styleSheets));
 

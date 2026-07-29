@@ -318,7 +318,7 @@
   },
   "new-1": {
     "label": "新型別資料",
-    "typeId": "src/components/landing1/brand.tsx#BrandProps",
+    "typeId": "src/components/demo/brand.tsx#BrandProps",
     "value": {
       "mode": "object",
       "fields": {

@@ -43,6 +43,7 @@ export interface ImportFlatDataToStorageResult {
 
 const FLAT_KINDS: FlatKind[] = ["route", "file", "typedData"];
 const I18N_FILE_PATTERN = /^sources\/i18n\.(.+)\.json$/;
+const PAGE_FILE_PATTERN = /^pages\/(.+)\.json$/;
 
 function toEntries(files: ImportFlatDataFiles): [string, string][] {
   return files instanceof Map ? Array.from(files.entries()) : Object.entries(files);
@@ -82,6 +83,7 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
   const locales = new Set<string>();
 
   let pages: PageItem[] | undefined;
+  const pagesById = new Map<string, PageItem>();
   let styleSheets: StyleSheet[] | undefined;
 
   for (const [path, content] of entries) {
@@ -139,17 +141,22 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
       continue;
     }
 
-    if (path === "pages.json") {
+    const pageMatch = path.match(PAGE_FILE_PATTERN);
+    if (pageMatch) {
       const parsed = tryParseJson(content);
       if (!parsed.ok) {
         skipped.push({ path, reason: parsed.reason });
         continue;
       }
-      if (!Array.isArray(parsed.value)) {
-        skipped.push({ path, reason: "頂層必須是陣列" });
+      if (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+        skipped.push({ path, reason: "頂層必須是物件" });
         continue;
       }
-      pages = parsed.value as PageItem[];
+      const page = parsed.value as PageItem;
+      // 用檔名本身（pageMatch[1]）當 key，不是完全信任檔案內容裡的 page.id
+      // ——避免檔名跟內容 id 對不上時，同一次匯入裡出現「兩個檔名不同、
+      // 但 id 相同」互相覆蓋、順序卻改用檔名排序的不一致情況。
+      pagesById.set(pageMatch[1], page);
       continue;
     }
 
@@ -186,11 +193,22 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
     // 其他不認得的路徑（例如未來新增的檔案）直接忽略，不視為錯誤。
   }
 
+  // pages/{pageId}.json 逐檔收集完成後，依檔名（pageId）排序組回陣列——
+  // 拆成逐頁檔案後，檔案系統本身（例如 zip 解壓縮、readdir）不保證原本
+  // pages.json 陣列的順序，這裡用穩定的字母序排序，確保同一份匯出結果
+  // 每次匯入的順序都一致（順序本身目前只影響頁面管理列表的預設顯示順序，
+  // 不影響路由或建置結果）。
+  if (pagesById.size > 0) {
+    pages = Array.from(pagesById.keys())
+      .sort((a, b) => a.localeCompare(b))
+      .map((id) => pagesById.get(id)!);
+  }
+
   const writtenKeys: string[] = [];
 
-  // 整包覆蓋：即使某個 key 這次沒有對應檔案（例如沒有 pages.json），
+  // 整包覆蓋：即使某個 key 這次沒有對應檔案（例如完全沒有 pages/*.json），
   // 也不 fallback 保留 localStorage 舊值 —— 呼叫端如果需要保留，應該
-  // 自行確保匯出時有帶上完整四份檔案。這裡的語意就是「用這包檔案取代」。
+  // 自行確保匯出時有帶上完整檔案。這裡的語意就是「用這包檔案取代」。
   window.localStorage.setItem(DATA_SOURCES_KEY, JSON.stringify(sources));
   writtenKeys.push(DATA_SOURCES_KEY);
 

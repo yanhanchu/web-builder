@@ -6,7 +6,8 @@
 //       -> flatI18nToSources()（packages/ui/src/lib/data-model/i18n-flat.ts）
 //   - route.json / file.json / typedData.json（攤平物件，去除 id/kind）
 //       -> flatKindToSources()（packages/ui/src/lib/data-model/flat-export.ts）
-//   - pages.json -> PageItem[]（page-model 的形狀，用 normalizePage 補齊欄位）
+//   - pages/{pageId}.json -> PageItem[]（page-model 的形狀，用 normalizePage 補齊欄位；
+//     逐頁各自一份檔案，掃描 pages/ 目錄後依檔名排序組回陣列，見 findPageFiles()）
 //   - locales.json -> string[]
 //   - style-sheets.json -> StyleSheet[]（{ id, name, css }，跟
 //     apps/web-builder/src/pages/admin/style-manager.tsx 的 StyleSheet 同形狀，
@@ -94,6 +95,27 @@ async function findI18nFiles(sourcesDir: string): Promise<Map<string, string>> {
 }
 
 /**
+ * 掃描 `pages/` 目錄找出所有頁面檔案（`pages/{pageId}.json`），依檔名（不含
+ * 副檔名）排序回傳完整路徑清單——跟 export-flat-data.ts 的 buildFlatDataFiles()
+ * 一頁一份檔案的慣例對齊，取代原本單一的 `pages.json`。排序用字母序，確保
+ * 同一份資料每次產生的結果都一致（順序目前只影響頁面管理列表的預設顯示
+ * 順序，不影響路由或建置結果）。
+ */
+async function findPageFiles(pagesDir: string): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(pagesDir);
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") return [];
+    throw err;
+  }
+  return entries
+    .filter((entry) => entry.endsWith(".json"))
+    .sort((a, b) => a.localeCompare(b))
+    .map((entry) => path.join(pagesDir, entry));
+}
+
+/**
  * 讀入 `data/` 目錄下所有攤平檔案，組回 StaticSiteData。
  *
  * 讀取順序刻意固定（i18n 先、其餘 kind 後）：i18n 各 locale 檔案彼此疊加
@@ -104,6 +126,7 @@ async function findI18nFiles(sourcesDir: string): Promise<Map<string, string>> {
 export async function loadStaticData(options: LoadStaticDataOptions): Promise<StaticSiteData> {
   const { dataDir } = options;
   const sourcesDir = path.join(dataDir, "sources");
+  const pagesDir = path.join(dataDir, "pages");
   const issues: LoadIssue[] = [];
 
   let sources: Record<string, DataSource> = {};
@@ -137,9 +160,18 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
   sources = await mergeFlatKindFile(sourcesDir, "file.json", "file", sources, issues);
   sources = await mergeFlatKindFile(sourcesDir, "typedData.json", "typedData", sources, issues);
 
-  // --- pages / locales.json（若提供則覆蓋掃描到的 i18n locale 清單）/ style-sheets ---
-  const pagesRaw = await readJsonIfExists(path.join(dataDir, "pages.json"));
-  const pages = Array.isArray(pagesRaw) ? pagesRaw.map((p) => normalizePage(p as Partial<PageItem>)) : [];
+  // --- pages/：逐頁各自一份檔案，掃描目錄後依檔名排序讀取、逐一 normalizePage ---
+  const pageFiles = await findPageFiles(pagesDir);
+  const pages: PageItem[] = [];
+  for (const filePath of pageFiles) {
+    const raw = await readJsonIfExists(filePath);
+    if (raw === undefined) continue;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push({ file: filePath, message: "頁面檔案頂層必須是物件，已略過" });
+      continue;
+    }
+    pages.push(normalizePage(raw as Partial<PageItem>));
+  }
 
   const localesRaw = await readJsonIfExists(path.join(dataDir, "locales.json"));
   const resolvedLocales = Array.isArray(localesRaw) && localesRaw.every((l) => typeof l === "string")
@@ -153,7 +185,7 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
     issues.push({ file: dataDir, message: "找不到任何語系（locales.json 缺漏，且 sources/ 底下沒有 i18n.*.json）" });
   }
   if (pages.length === 0) {
-    issues.push({ file: path.join(dataDir, "pages.json"), message: "頁面清單為空，將不會產生任何頁面" });
+    issues.push({ file: pagesDir, message: "頁面清單為空，將不會產生任何頁面" });
   }
 
   return { sources, pages, locales: resolvedLocales, styleSheets, issues };

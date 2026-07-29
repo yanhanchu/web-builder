@@ -88,7 +88,7 @@ import { renderRoutes, type RouteEntry } from "./jsx-codegen/render-routes.ts";
 import { renderGlobalCss } from "./jsx-codegen/render-global-css.ts";
 
 export interface GenerateSplitJsxOptions {
-  /** 攤平資料根目錄（含 sources/、pages.json、locales.json、style-sheets.json）。 */
+  /** 攤平資料根目錄（含 sources/、pages/、locales.json、style-sheets.json）。 */
   dataDir: string;
   /**
    * 產出目錄，不會被整個清空：只會覆寫這次產出實際用到的檔案路徑（見檔案
