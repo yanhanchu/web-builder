@@ -1,7 +1,7 @@
 import { useState } from "react";
 // 引用 workspace 共用 UI 套件（@workspace/ui）的 utils，示範 React island 可以
 // 直接使用 monorepo 內的共用元件 / 樣式，例如：
-//   import { Button } from "@workspace/ui/components/demo/button";
+//   import { Button } from "@workspace/ui/components/landing1/button";
 import { cn } from "@workspace/ui/utils";
 
 export function ReactCounter({ start = 0 }: { start?: number }) {

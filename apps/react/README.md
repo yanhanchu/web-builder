@@ -21,7 +21,7 @@ pnpm --filter react build
 
 ```ts
 import { cn } from "@workspace/ui/utils";
-import { Button } from "@workspace/ui/components/demo/button";
+import { Button } from "@workspace/ui/components/landing1/button";
 ```
 
 全域樣式（Tailwind v4 + `@workspace/ui` 的 `globals.css`）已在 `src/index.css` 中匯入。

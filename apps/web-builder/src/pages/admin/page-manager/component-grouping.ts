@@ -12,7 +12,7 @@ import { isSlotValue, isSlotPropType } from "@/lib/pages-store";
 
 const FILE_PATH_PREFIX = "src/components/";
 
-/** 把 filePath 轉成攤平後的分組標籤，例如 "src/components/demo/avatar.tsx" -> "demo"。 */
+/** 把 filePath 轉成攤平後的分組標籤，例如 "src/components/landing1/avatar.tsx" -> "demo"。 */
 export function groupLabelForComponent(component: ComponentDoc): string {
   let path = component.filePath;
   if (path.startsWith(FILE_PATH_PREFIX)) {
@@ -50,8 +50,8 @@ export function groupComponents(components: ComponentDoc[]): ComponentGroup[] {
 export async function loadDefaultProps(
   component: ComponentDoc
 ): Promise<Record<string, unknown> | null> {
-  // importPath 形如 "components/demo/card"，同目錄的 default.ts 就是
-  // "components/demo/default"。
+  // importPath 形如 "components/landing1/card"，同目錄的 default.ts 就是
+  // "components/landing1/default"。
   const lastSlash = component.importPath.lastIndexOf("/");
   if (lastSlash === -1) return null;
   const defaultImportPath = component.importPath.slice(0, lastSlash) + "/default";

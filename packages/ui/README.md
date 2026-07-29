@@ -46,7 +46,7 @@ React UI 元件庫。純粹提供**實際可用的 UI 元件**（`Avatar`, `Badg
 }
 ```
 ```tsx
-import { Button } from '@workspace/ui/components/demo/button';
+import { Button } from '@workspace/ui/components/landing1/button';
 import { cn } from '@workspace/ui/utils';
 import '@workspace/ui/globals.css'; // 在 app 入口引入一次
 ```

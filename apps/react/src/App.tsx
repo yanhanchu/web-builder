@@ -1,6 +1,6 @@
 import { useState } from "react";
 // 引用 workspace 共用 UI 套件（@workspace/ui），實際要用哪個元件視需求再展開。
-// 例如：import { Button } from "@workspace/ui/components/demo/button";
+// 例如：import { Button } from "@workspace/ui/components/landing1/button";
 import { cn } from "@workspace/ui/utils";
 
 export function App() {

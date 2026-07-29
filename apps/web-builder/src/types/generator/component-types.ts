@@ -8,7 +8,7 @@ export interface PropDoc {
 
 export interface ComponentDoc {
   /** 這個組件的獨立 id，格式為 `{filePath}#{componentName}`
-   * （例如 `src/components/demo/card.tsx#CardHeader`），
+   * （例如 `src/components/landing1/card.tsx#CardHeader`），
    * 避免不同目錄下同名組件、或同一檔案內多個具名匯出互相撞名。 */
   id: string;
   componentName: string;
@@ -39,7 +39,7 @@ export interface ComponentTypeFieldDoc {
 /**
  * 一個獨立的、可被多個組件共用的型別定義。
  * `id` 是這個型別的獨立識別碼，格式為 `{型別宣告所在檔案的 filePath}#{型別名稱}`
- * （例如 `src/components/demo/types.ts#BrandData`），因為型別名稱只在單一檔案內
+ * （例如 `src/components/landing1/types.ts#BrandData`），因為型別名稱只在單一檔案內
  * 保證唯一，用「宣告檔案路徑 + 型別名稱」組合才能保證全域唯一、避免不同檔案裡
  * 同名但定義不同的型別互相覆蓋。不同 component 的 relatedTypeNames 可能指向
  * 同一個 ComponentTypeDoc，藉此達成「型別可共用」。

@@ -84,7 +84,7 @@ export type ClientDirective = "only" | "visible" | "idle" | "load" | "media";
 export interface PageBlock {
   /** 亂數產生的實例 id，用於排序 / 刪除。 */
   instanceId: string;
-  /** 對應 components.json 的 ComponentDoc.id，例如 `src/components/demo/button.tsx#Button`。 */
+  /** 對應 components.json 的 ComponentDoc.id，例如 `src/components/landing1/button.tsx#Button`。 */
   componentId: string;
   /** 顯示用的組件名稱（快取一份，方便清單顯示）。 */
   componentName: string;

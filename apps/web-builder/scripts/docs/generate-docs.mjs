@@ -13,11 +13,11 @@
  *
  * id 規則（避免不同目錄下同名組件 / 同一檔案內多個具名匯出 / 同名型別互相覆蓋、造成路由或查找撞名）：
  *  - ComponentDoc.id      = `{組件檔案的 filePath}#{組件名稱}`
- *                           （例如 `src/components/demo/card.tsx#CardHeader`）
+ *                           （例如 `src/components/landing1/card.tsx#CardHeader`）
  *    單一檔案可能匯出多個組件（例如 card.tsx 同時匯出 Card 與 CardHeader），
  *    只用 filePath 當 id 會讓同檔案內的多個組件互相覆蓋，因此用「檔案路徑 + 組件名稱」組合。
  *  - ComponentTypeDoc.id  = `{型別宣告所在檔案的 filePath}#{型別名稱}`
- *                           （例如 `src/components/demo/types.ts#BrandData`）
+ *                           （例如 `src/components/landing1/types.ts#BrandData`）
  *    因為型別名稱在單一檔案內才保證唯一，不同檔案可能有同名但不同定義的型別，
  *    用「宣告檔案路徑 + 型別名稱」組合才能保證全域唯一。
  *
@@ -386,7 +386,7 @@ function main() {
           id: `${relFile}#${doc.displayName}`,
           componentName: doc.displayName,
           filePath: relFile,
-          importPath, // 例如 components/demo/button
+          importPath, // 例如 components/landing1/button
           description: doc.description || '',
           props: Object.entries(doc.props ?? {})
             .map(([name, prop]) => ({
