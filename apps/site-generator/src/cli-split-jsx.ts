@@ -7,7 +7,9 @@
 //
 // 預設值：
 //   --data   ../../data           （相對於 apps/site-generator，也就是 monorepo 根目錄的 data/）
-//   --out    ./dist              （產出目錄）
+//   --out    ./dist              （產出目錄，會被整個清空重建——請指到獨立資料夾，
+//                                   不要跟手寫的 index.html/main.tsx/App.tsx 放在一起，
+//                                   例如 apps/web-builder/src/generated）
 //   --group  all-in-one           （整頁一份資料檔案；改成 by-component 則每個組件名稱各自一份）
 //
 // 只負責參數解析與 exit code，實際邏輯都在 generate-split-jsx.ts。
@@ -33,6 +35,8 @@ function parseArgs(argv: string[]): { dataDir?: string; outDir?: string; group?:
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const dataDir = path.resolve(import.meta.dirname, args.dataDir ?? "../../../data");
+  // --out 可以是相對路徑（相對於 apps/site-generator）或絕對路徑，
+  // 例如 --out ../web-builder/src/generated 直接指到 web-builder 專案裡。
   const outDir = path.resolve(import.meta.dirname, args.outDir ?? "../dist");
   const dataFileGrouping = args.group ?? "all-in-one";
 
@@ -44,6 +48,7 @@ async function main() {
   }
   console.log(`\n輸出目錄：${outDir}`);
   console.log(`共 ${result.pages.length} 份 .tsx、${result.dataFiles.length} 份資料檔案。`);
+  console.log(`路由／樣式：${result.generatedFiles.routes}、${result.generatedFiles.styles}`);
 }
 
 main().catch((err) => {

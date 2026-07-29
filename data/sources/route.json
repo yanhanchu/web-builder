@@ -1,9 +1,0 @@
-{
-  "new-1": {
-    "label": "新路由",
-    "target": "page",
-    "value": "/test",
-    "noindex": false,
-    "pageId": "home"
-  }
-}

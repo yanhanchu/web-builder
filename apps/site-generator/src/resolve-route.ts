@@ -1,5 +1,5 @@
 // ============================================================
-// resolve-route —— page（+ locale）-> 輸出路徑
+// resolve-route —— page（+ locale）-> 輸出路徑（單筆解析）
 //
 // 路由的權威來源是「資料管理 / 路由」分頁建立的 RouteDataSource
 // （kind: "route", target: "page", pageId, value, noindex）：
@@ -10,11 +10,14 @@
 // page.id 當路徑（例如 id "home" -> "/home"），並回報一個 warning 讓呼叫端
 // 決定要不要中斷，而不是靜默產生一個「使用者沒設定過」的網址。
 //
-// locale 的路徑前綴規則：
+// locale 的路徑前綴規則（單筆版本，給 resolveRoute() 這個函式本身用）：
 //   - defaultLocale 不加前綴（例如 zh-TW 是預設語系 -> "/about"）
 //   - 其餘語系加前綴（例如 en -> "/en/about"）
-// 這是最常見的 i18n 路由慣例（next-intl / astro i18n 預設行為皆如此），
-// 之後如果要換成「每個語系都要前綴」或「用子網域」，只需要改這個檔案。
+// 這是最常見的 i18n 路由慣例（next-intl / astro i18n 預設行為皆如此）。
+//
+// 「要展開成一整批要產出哪些路徑」（單語系 vs 多語系、要不要同時保留帶
+// 前綴／不帶前綴的版本、沒有路由資料的頁面要不要略過）不是這個檔案的
+// 職責，見 plan-routes.ts（它在單筆 resolveRoute() 之上疊加那些規劃規則）。
 // ============================================================
 
 import type { DataSource } from "@workspace/ui/lib/data-model/schema";
@@ -93,20 +96,4 @@ export function resolveRoute(
   const outputFile = routePathToOutputFile(urlPath);
 
   return { page, locale, routePath, urlPath, outputFile, noindex };
-}
-
-/** 展開「所有語系 x 所有頁面」成完整的路由清單。跳過 status !== "published" 的頁面（草稿不產出）。 */
-export function resolveAllRoutes(
-  pages: PageItem[],
-  locales: string[],
-  options: ResolveRouteOptions,
-): ResolvedRoute[] {
-  const routes: ResolvedRoute[] = [];
-  for (const page of pages) {
-    if (page.status !== "published") continue;
-    for (const locale of locales) {
-      routes.push(resolveRoute(page, locale, options));
-    }
-  }
-  return routes;
 }
