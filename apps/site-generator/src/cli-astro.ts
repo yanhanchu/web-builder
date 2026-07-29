@@ -7,10 +7,21 @@
 //
 // 預設值：
 //   --data   ../../data          （相對於 apps/site-generator，也就是 monorepo 根目錄的 data/）
-//   --out    ./dist-astro        （產出目錄，會被整個清空重建——請指到獨立資料夾，
+//   --out    ./dist-astro        （產出目錄，每次執行採「覆蓋」寫入：只會
+//                                   建立/覆寫這次產出涵蓋到的檔案，不會整個
+//                                   清空重建，目錄底下既有但這次未涵蓋到的
+//                                   檔案會被原樣保留——請指到獨立資料夾，
 //                                   例如 Astro 專案的 src/ 目錄，例如
 //                                   apps/astro-site/src，不要跟手寫的
 //                                   astro.config.mjs / layouts 混放）
+//
+// 產出佈局（詳見 generate-astro.ts 開頭說明）：
+//   pages/[lang]/*.astro         每個 page 一份，語系無關，[lang] 只是 Astro
+//                                 動態路由片段的字面目錄名稱，不會被替換成
+//                                 實際語系；實際語系清單由檔案內
+//                                 getStaticPaths()（SSG 腳本）在建置期展開。
+//   data/<locale>/<page>/data.ts 逐語系各自一份，內容完全沿用 React
+//                                 split-jsx 版的 renderPageDataFiles()。
 //
 // 只負責參數解析與 exit code，實際邏輯都在 generate-astro.ts。
 // ============================================================
@@ -35,7 +46,8 @@ async function main() {
   const dataDir = path.resolve(import.meta.dirname, args.dataDir ?? "../../../data");
   // --out 可以是相對路徑（相對於 apps/site-generator）或絕對路徑，例如
   // --out ../astro-site/src 直接指到 Astro 專案的 src/ 目錄。
-  const outDir = path.resolve(import.meta.dirname, args.outDir ?? "../dist-astro");
+  // 注意：此目錄採覆蓋寫入，不會整個清空重建（見上方說明）。
+  const outDir = path.resolve(import.meta.dirname, args.outDir ?? "../dist/astro");
 
   const result = await generateAstro({ dataDir, outDir });
 
