@@ -47,3 +47,19 @@ export interface ThemeOption {
   /** Accessible / tooltip label */
   label: string;
 }
+
+/** A single question/answer pair, used by FAQ-style sections. */
+export interface FaqItem {
+  /** The question text */
+  question: string;
+  /** The answer text */
+  answer: string;
+}
+
+/** A related-page link, used by in-page tab-style navigation between sibling pages. */
+export interface RelatedNavLink {
+  /** Destination href */
+  href: string;
+  /** Visible label */
+  label: string;
+}

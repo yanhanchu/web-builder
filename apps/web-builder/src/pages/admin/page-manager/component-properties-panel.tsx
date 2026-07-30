@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Trash2, ChevronDown, Plus, X, Search, Type as TypeIcon, Blocks } from "lucide-react";
+import { toast } from "sonner";
 import { panelTitleStyle, labelStyle, fieldRowStyle, inputStyle, usePersistentState } from "../admin-ui";
 import { allComponents, allComponentTypes } from "@/lib/generator/component-registry";
 import type { ComponentDoc } from "@/types/generator/component-types";
@@ -15,10 +16,17 @@ import {
   type ValueNode,
   type BindingPolicy,
 } from "@/lib/data-model";
-import type { PageBlock, SlotValue, ClientDirective } from "@/lib/pages-store";
-import { isSlotValue, makeSlotValue, makeBlockId } from "@/lib/pages-store";
+import type { PageBlock, SlotValue, ClientDirective, SharedBlockRef, SharedBlockDefinition } from "@/lib/pages-store";
+import {
+  isSlotValue,
+  makeSlotValue,
+  makeBlockId,
+  isSharedBlockRef,
+  resolveSharedBlockRef,
+  useSharedBlocksState,
+} from "@/lib/pages-store";
 import { typeBadgeStyle, iconBtnStyle } from "./shared";
-import { groupComponents } from "./component-grouping";
+import { groupComponents, slotPropsOf } from "./component-grouping";
 
 // 右側「組件屬性」：對應畫布中目前被選取的單一組件實例。
 //
@@ -223,6 +231,146 @@ function classifyField(propType: string, componentId: string, propName: string):
   if (trimmed === "boolean") return { kind: "boolean" };
   if (trimmed === "number") return { kind: "number" };
   return { kind: "string" };
+}
+
+/**
+ * 選到畫布上的 SharedBlockRef 節點時顯示的唯讀摘要面板，取代原本的
+ * ComponentPropertiesPanel（那個面板假設拿到的一定是可編輯 props 的
+ * PageBlock）。
+ *
+ * 刻意唯讀：這個節點的 header/footer 這類非 slot 值不屬於「這個頁面」，
+ * 屬於共用定義本身——在這裡直接改會產生「這頁跟共用定義不同步」的假象，
+ * 或者要決定寫回共用定義、進而影響其他所有引用它的頁面，兩種都不該從
+ * 「頁面屬性面板」這個心智模型直接做。真的要改內容，走「編輯共用區塊」
+ * 跳轉到獨立的編輯介面（Phase B 待實作：目前先用 toast 提示尚未支援，
+ * 不假裝有一個能點的按鈕卻沒反應）。
+ *
+ * slotOverrides 裡的內容（例如 Layout 的 children）不受此限——那些本來就
+ * 是「這個頁面自己的東西」，只是要透過畫布選取巢狀在 slot 裡的子節點來編輯
+ * （子節點本身若是普通 PageBlock，選取它會走回原本的 ComponentPropertiesPanel），
+ * 不是在這個摘要面板上編輯。
+ */
+export function SharedBlockRefPropertiesPanel({
+  refNode,
+  onRemove,
+}: {
+  refNode: SharedBlockRef;
+  onRemove: () => void;
+}) {
+  const [sharedBlocks] = useSharedBlocksState();
+  const definitions = useMemo(
+    () => Object.fromEntries(sharedBlocks.map((d) => [d.id, d])),
+    [sharedBlocks]
+  );
+  const definition: SharedBlockDefinition | undefined = definitions[refNode.ref];
+  const resolved = definition ? resolveSharedBlockRef(refNode, definitions) : null;
+
+  const { width, onDragHandleDown } = useLeftEdgeResizable(
+    PANEL_DEFAULT_WIDTH,
+    PANEL_MIN_WIDTH,
+    PANEL_MAX_WIDTH
+  );
+
+  return (
+    <section
+      style={{
+        width,
+        minWidth: PANEL_MIN_WIDTH,
+        maxWidth: PANEL_MAX_WIDTH,
+        flexShrink: 0,
+        position: "relative",
+        borderLeft: "1px solid #2a2a2a",
+        background: "#171717",
+        overflowY: "auto",
+        padding: 14,
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        onMouseDown={onDragHandleDown}
+        title="拖動調整面板寬度"
+        style={{ position: "absolute", top: 0, left: -3, width: 6, height: "100%", cursor: "col-resize", zIndex: 10 }}
+      />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 6 }}>
+        <h2 style={{ ...panelTitleStyle, margin: 0 }}>組件屬性（共用區塊）</h2>
+        <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除這個引用（不會刪除共用區塊本身）">
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      {!definition ? (
+        <p style={{ fontSize: 12, color: "#e77", display: "flex", alignItems: "center", gap: 6 }}>
+          找不到共用區塊「{refNode.ref}」，可能已被刪除。
+        </p>
+      ) : (
+        <>
+          <div
+            style={{
+              border: "1px solid #2d9c74",
+              borderRadius: 6,
+              padding: 10,
+              marginBottom: 12,
+              background: "#132420",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 12, color: "#7fdbca", display: "flex", alignItems: "center", gap: 6 }}>
+              <Blocks size={13} />
+              {definition.name}
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: 11, color: "#8faea8" }}>
+              {resolved?.componentName ?? definition.componentName}
+            </p>
+          </div>
+
+          <p style={{ fontSize: 11, color: "#999", lineHeight: 1.6, margin: "0 0 10px" }}>
+            這是引用共用區塊的內容，右側欄位不能在此直接編輯——這裡的內容由所有引用它的頁面共用，修改會影響其他頁面。
+          </p>
+
+          <button
+            type="button"
+            style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+            onClick={() =>
+              toast.info("編輯共用區塊", {
+                description: "獨立編輯介面尚未實作（roadmap Phase B），目前僅能在此查看摘要。",
+              })
+            }
+          >
+            <TypeIcon size={12} />
+            編輯共用區塊…
+          </button>
+
+          {Object.keys(refNode.slotOverrides).length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <label style={labelStyle}>此頁覆寫的插槽</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                {Object.entries(refNode.slotOverrides).map(([key, slot]) => (
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      color: "#ccc",
+                      border: "1px solid #333",
+                      borderRadius: 4,
+                      padding: "4px 8px",
+                    }}
+                  >
+                    <span style={{ fontFamily: "monospace" }}>{key}</span>
+                    <span style={{ color: "#777" }}>{slot.blocks.length} 個組件</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: "#777", margin: "6px 0 0" }}>
+                在畫布上點選插槽內的組件即可個別編輯（那些是這個頁面自己的內容，不受唯讀限制）。
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
 
 export function ComponentPropertiesPanel({
@@ -767,6 +915,11 @@ function ReactNodeField({
 }) {
   const [query, setQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [sharedBlocks] = useSharedBlocksState();
+  const sharedBlockDefinitions = useMemo(
+    () => Object.fromEntries(sharedBlocks.map((d) => [d.id, d])),
+    [sharedBlocks]
+  );
 
   const mode = detectSlotFieldMode(value);
   const slot: SlotValue = isSlotValue(value) ? value : makeSlotValue([]);
@@ -882,7 +1035,11 @@ function ReactNodeField({
                     background: "#0d0d0d",
                   }}
                 >
-                  <span style={{ fontSize: 12, color: "#ccc" }}>{b.componentName}</span>
+                  <span style={{ fontSize: 12, color: "#ccc" }}>
+                    {isSharedBlockRef(b)
+                      ? (sharedBlockDefinitions[b.ref]?.componentName ?? `共用區塊「${b.ref}」（已遺失）`)
+                      : b.componentName}
+                  </span>
                   <button
                     style={{ ...iconBtnStyle, color: "#e77" }}
                     onClick={() => removeAt(i)}

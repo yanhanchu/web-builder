@@ -1,5 +1,13 @@
 import { usePersistentState } from "../pages/admin/admin-ui";
-import { INITIAL_PAGES, PAGES_STORAGE_KEY, normalizePage, type PageItem } from "@/lib/page-model";
+import {
+  INITIAL_PAGES,
+  PAGES_STORAGE_KEY,
+  SHARED_BLOCKS_STORAGE_KEY,
+  normalizePage,
+  normalizeSharedBlockDefinition,
+  type PageItem,
+  type SharedBlockDefinition,
+} from "@/lib/page-model";
 
 // ------------------------------------------------------------
 // 頁面清單的共用來源（app 端：localStorage 讀寫）
@@ -32,4 +40,21 @@ export function usePagesState() {
   const [pages, setPages] = usePersistentState<PageItem[]>(PAGES_STORAGE_KEY, INITIAL_PAGES);
   const normalized = pages.map(normalizePage);
   return [normalized, setPages] as const;
+}
+
+/**
+ * 完整讀寫共用區塊清單（左側「共用區塊」面板、「另存為共用區塊」modal、
+ * ref 節點的唯讀摘要 + 跳轉編輯都會用到）。讀入時自動補齊缺少欄位。
+ *
+ * 獨立 localStorage key（見 page-model 的 SHARED_BLOCKS_STORAGE_KEY 註解），
+ * 預設值是空陣列——共用區塊不像頁面清單需要「使用者從未進過某頁面」的
+ * fallback 情境（沒有共用區塊本來就是合理的初始狀態，不需要預先塞資料）。
+ */
+export function useSharedBlocksState() {
+  const [sharedBlocks, setSharedBlocks] = usePersistentState<SharedBlockDefinition[]>(
+    SHARED_BLOCKS_STORAGE_KEY,
+    []
+  );
+  const normalized = sharedBlocks.map(normalizeSharedBlockDefinition);
+  return [normalized, setSharedBlocks] as const;
 }

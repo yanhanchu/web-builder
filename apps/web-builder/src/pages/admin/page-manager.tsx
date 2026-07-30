@@ -7,6 +7,8 @@ import {
   makePageId,
   makeBlockId,
   findBlockDeep,
+  findNodeDeep,
+  isSharedBlockRef,
   removeBlockDeep,
   insertIntoSlotDeep,
   insertAtRoot,
@@ -20,7 +22,7 @@ import { BuilderToolbar, ResizeHandle, PageSwitcher } from "./page-manager/toolb
 import { ComponentsPanel } from "./page-manager/components-panel";
 import { CanvasPanel } from "./page-manager/canvas-panel";
 import { PropertiesPanel } from "./page-manager/properties-panel";
-import { ComponentPropertiesPanel } from "./page-manager/component-properties-panel";
+import { ComponentPropertiesPanel, SharedBlockRefPropertiesPanel } from "./page-manager/component-properties-panel";
 import { ComponentTreeModal } from "./page-manager/component-tree-modal";
 import { loadDefaultBlockProps } from "./page-manager/component-grouping";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
@@ -80,9 +82,14 @@ export default function PageManagerPage() {
   const selected = pages.find((p) => p.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
   const dirty = selected ? drafts[selected.id] != null : false;
-  // 選取的組件實例可能巢狀在某個 slot 裡，用 findBlockDeep 遞迴尋找。
-  const selectedBlock = draft && selectedBlockId ? findBlockDeep(draft.blocks, selectedBlockId) : null;
-  const showingComponentProps = rightPanelView === "component" && selectedBlock != null;
+  // 選取的組件實例可能巢狀在某個 slot 裡，用 findNodeDeep 遞迴尋找。
+  // 回傳型別是 AnyPageNode（PageBlock 或 SharedBlockRef），下方渲染時
+  // 用 isSharedBlockRef 分流成對應的屬性面板——findBlockDeep（只認
+  // PageBlock）仍保留給其餘假設「一定拿得到可編輯 props」的呼叫端使用
+  // （見下方 addBlock/moveBlockToSlot 內部，那些操作本來就不該對 ref
+  // 節點生效）。
+  const selectedNode = draft && selectedBlockId ? findNodeDeep(draft.blocks, selectedBlockId) : null;
+  const showingComponentProps = rightPanelView === "component" && selectedNode != null;
 
   // 切換頁面後清掉舊頁面選取的組件實例。
   useEffect(() => {
@@ -157,8 +164,10 @@ export default function PageManagerPage() {
         baseSource: prev[selected.id] ? "drafts" : "selected(fallback)",
         baseBlocksCount: base.blocks.length,
         resolvedBlocksCount: (resolved as Partial<PageItem>).blocks?.length,
-        resolvedBlocksPropsKeys: (resolved as Partial<PageItem>).blocks?.map(
-          (b) => `${b.componentName}(${b.instanceId.slice(0, 8)}):[${Object.keys(b.props).join(",")}]`
+        resolvedBlocksPropsKeys: (resolved as Partial<PageItem>).blocks?.map((b) =>
+          isSharedBlockRef(b)
+            ? `sharedBlockRef(${b.instanceId.slice(0, 8)})->${b.ref}:[${Object.keys(b.slotOverrides).join(",")}]`
+            : `${b.componentName}(${b.instanceId.slice(0, 8)}):[${Object.keys(b.props).join(",")}]`
         ),
       });
       return { ...prev, [selected.id]: { ...base, ...resolved } };
@@ -473,14 +482,19 @@ export default function PageManagerPage() {
             <ResizeHandle side="right" onExpand={() => setPropertiesOpen(true)} />
           )}
           {propertiesOpen && !fullscreen && (
-            showingComponentProps && selectedBlock ? (
+            showingComponentProps && selectedNode && isSharedBlockRef(selectedNode) ? (
+              <SharedBlockRefPropertiesPanel
+                refNode={selectedNode}
+                onRemove={() => removeBlock(selectedNode.instanceId)}
+              />
+            ) : showingComponentProps && selectedNode && !isSharedBlockRef(selectedNode) ? (
               <ComponentPropertiesPanel
-                block={selectedBlock}
-                onUpdateProp={(key, value) => updateBlockProp(selectedBlock.instanceId, key, value)}
+                block={selectedNode}
+                onUpdateProp={(key, value) => updateBlockProp(selectedNode.instanceId, key, value)}
                 onUpdateClientDirective={(directive) =>
-                  updateBlockClientDirective(selectedBlock.instanceId, directive)
+                  updateBlockClientDirective(selectedNode.instanceId, directive)
                 }
-                onRemove={() => removeBlock(selectedBlock.instanceId)}
+                onRemove={() => removeBlock(selectedNode.instanceId)}
               />
             ) : (
               <PropertiesPanel

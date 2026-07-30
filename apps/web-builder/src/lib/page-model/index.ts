@@ -28,7 +28,7 @@ import { defaultSeo, type SeoData } from "@/lib/data-model";
  */
 export interface SlotValue {
   __slot: true;
-  blocks: PageBlock[];
+  blocks: AnyPageNode[];
 }
 
 export function isSlotValue(v: unknown): v is SlotValue {
@@ -40,7 +40,7 @@ export function isSlotValue(v: unknown): v is SlotValue {
   );
 }
 
-export function makeSlotValue(blocks: PageBlock[] = []): SlotValue {
+export function makeSlotValue(blocks: AnyPageNode[] = []): SlotValue {
   return { __slot: true, blocks };
 }
 
@@ -111,14 +111,118 @@ export interface PageBlock {
   clientDirective?: ClientDirective;
 }
 
+// ------------------------------------------------------------
+// 共用區塊（shared blocks）
+//
+// 讓一個 PageBlock（含其 props / 巢狀 slot）可以被存成獨立資料、被多個頁面
+// 引用，而不用整包複製貼上（最典型的例子：Layout 的 header/footer）。
+//
+// 刻意不新增「這是 layout」這種語意標記——任何組件實例都可以被抽成共用
+// 定義，Layout 只是最常見的使用情境之一，不是被特殊識別的型別。
+// ------------------------------------------------------------
+
+/**
+ * 一份可被多處引用的組件實例定義。本質上跟 PageBlock 同形狀，只是多了
+ * `id`（供引用定位）跟 `name`（管理介面顯示用），並移除了 `instanceId`
+ * ——共用定義本身不是「某個頁面裡的一個實例」，是可以被多處引用的
+ * 「一份定義」；instanceId 只在「引用它的那個節點」（SharedBlockRef）上
+ * 出現，代表「這次引用」的身分，而不是「這份共用資料」的身分。
+ */
+export interface SharedBlockDefinition {
+  /** 唯一 id，供 SharedBlockRef.ref 引用；落地成檔案時也是檔名（見 Phase D）。 */
+  id: string;
+  /** 純顯示用途，管理介面（左側「共用區塊」面板、另存為 modal）列出時用。 */
+  name: string;
+  /** 對應 components.json 的 ComponentDoc.id，跟 PageBlock.componentId 同義。 */
+  componentId: string;
+  /** 顯示用的組件名稱，快取一份，跟 PageBlock.componentName 同義。 */
+  componentName: string;
+  /**
+   * 這份共用定義自己的 props（含 slot 型 SlotValue），跟 PageBlock.props
+   * 同一套形狀、同一套 resolve 邏輯。
+   *
+   * 慣例：真正「每個頁面都不同」的 slot（例如 Layout 的 `children`）這裡
+   * 通常給一個空的 SlotValue 佔位（makeSlotValue()），實際內容留給引用端
+   * 的 slotOverrides 決定；其餘 props（header/footer 這種全站共用的部分）
+   * 在這裡給真正的值。
+   */
+  props: Record<string, unknown>;
+}
+
+export function isSharedBlockDefinition(v: unknown): v is SharedBlockDefinition {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as { id?: unknown }).id === "string" &&
+    typeof (v as { componentId?: unknown }).componentId === "string" &&
+    typeof (v as { props?: unknown }).props === "object"
+  );
+}
+
+/**
+ * 頁面 blocks 樹裡「引用一份共用定義」的節點，取代原本會整包複製 props
+ * 的做法。跟 PageBlock 是同一棵樹裡可以出現的兩種節點之一（見 AnyPageNode），
+ * 差別在於：
+ *   - PageBlock：componentId / props 都是這個節點自己的，完全自足。
+ *   - SharedBlockRef：componentId / 大部分 props 要去查 SharedBlockDefinition，
+ *     這裡只存「引用哪一份」+「哪些 slot 要換成頁面自己的內容」。
+ */
+export interface SharedBlockRef {
+  /** discriminant，用來在 AnyPageNode 上做 narrowing。 */
+  kind: "sharedBlockRef";
+  /** 唯一實例 id，慣例前綴同 PageBlock（`blk_`）——這次引用在頁面樹裡的身分。 */
+  instanceId: string;
+  /** 指向 SharedBlockDefinition.id。 */
+  ref: string;
+  /**
+   * 覆寫共用定義裡的 slot 內容，key 必須是該組件裡型別為 ReactNode 的
+   * prop 名稱（跟 isSlotPropType 判斷一致）。
+   *
+   * 只能覆寫 slot，不能覆寫一般值 props——如果連 header/footer 這種非
+   * slot 的值都要逐頁不同，代表這兩個頁面其實不該共用同一份
+   * SharedBlockDefinition，應該拆成兩份定義，而不是在引用端疊加一堆
+   * 局部差異、讓「共用」名不符實。
+   */
+  slotOverrides: Record<string, SlotValue>;
+  /** 跟 PageBlock 同義：這次引用要不要 hydrate。共用定義本身不帶這個欄位
+   *（hydration 是「這次用在哪個頁面」的決定，不是共用內容的一部分）。 */
+  clientDirective?: ClientDirective;
+}
+
+export function isSharedBlockRef(node: unknown): node is SharedBlockRef {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    (node as { kind?: unknown }).kind === "sharedBlockRef"
+  );
+}
+
+export function makeSharedBlockRef(
+  ref: string,
+  slotOverrides: Record<string, SlotValue> = {}
+): SharedBlockRef {
+  return { kind: "sharedBlockRef", instanceId: makeBlockId(), ref, slotOverrides };
+}
+
+/**
+ * 頁面 blocks 陣列、以及任何 slot 底下的陣列，元素型別放寬成這兩種之一。
+ * 既有呼叫端逐步從 PageBlock[] 遷移到 AnyPageNode[] 時，可以用
+ * isSharedBlockRef() 做 narrowing 後照舊處理 PageBlock 分支。
+ */
+export type AnyPageNode = PageBlock | SharedBlockRef;
+
 export interface PageItem {
   id: string;
   name: string;
   status: "draft" | "published";
   /** 每頁綁定一筆 SeoData 型別資料（value 即 SEO 內容）。 */
   seo: SeoData;
-  /** 頁面內容區的組件組合（由「現有組件」區塊拖入或新增）。預設為空陣列。 */
-  blocks: PageBlock[];
+  /**
+   * 頁面內容區的組件組合（由「現有組件」區塊拖入或新增）。預設為空陣列。
+   * 元素可以是 PageBlock（自足的組件實例）或 SharedBlockRef（引用一份
+   * 共用定義），巢狀 slot 底下亦同——見 AnyPageNode。
+   */
+  blocks: AnyPageNode[];
   /**
    * 這個頁面套用的樣式表 id 清單（對應「樣式管理」頁面 wb.styleSheets 裡
    * StyleSheet.id，可複選、可調整順序）。這裡只存 id 引用，不複製樣式表
@@ -168,6 +272,33 @@ export function normalizePage(p: Partial<PageItem>): PageItem {
 }
 
 // ------------------------------------------------------------
+// 共用區塊清單的 localStorage key / id 產生 / normalize
+//
+// 跟上面 PageItem 的 PAGES_STORAGE_KEY / makePageId / normalizePage 是同一套
+// 模式，獨立成自己的 key（而不是塞進 wb.pages），因為共用區塊的生命週期
+// 跟頁面清單不同——頁面刪除不代表共用區塊要跟著刪除（可能還有其他頁面在
+// 引用），混在同一個 storage key 裡會讓「刪頁面」跟「刪共用區塊」的操作
+// 邊界變得模糊。
+// ------------------------------------------------------------
+
+export const SHARED_BLOCKS_STORAGE_KEY = "wb.sharedBlocks";
+
+export function makeSharedBlockId() {
+  return "shared_" + Math.random().toString(36).slice(2, 8);
+}
+
+/** 舊資料可能沒有 slotOverrides 對應的完整結構，補上空 props 物件避免後續流程出錯。 */
+export function normalizeSharedBlockDefinition(d: Partial<SharedBlockDefinition>): SharedBlockDefinition {
+  return {
+    id: d.id ?? makeSharedBlockId(),
+    name: d.name ?? "未命名共用區塊",
+    componentId: d.componentId ?? "",
+    componentName: d.componentName ?? "",
+    props: d.props ?? {},
+  };
+}
+
+// ------------------------------------------------------------
 // 遞迴 blocks 樹狀結構操作
 //
 // blocks 是「頁面 -> 組件實例 -> （若 props 中有 slot）子組件實例 -> ...」的
@@ -177,37 +308,79 @@ export function normalizePage(p: Partial<PageItem>): PageItem {
 // 避免巢狀後樹狀操作的遞迴邏輯散落在多個檔案裡各自實作、行為不一致。
 // ------------------------------------------------------------
 
-/** 走訪一個 block 底下所有 slot prop 的子陣列，回傳 [propKey, blocks][]。 */
-export function slotEntries(block: PageBlock): [string, PageBlock[]][] {
-  const result: [string, PageBlock[]][] = [];
-  for (const [key, value] of Object.entries(block.props)) {
+/**
+ * 走訪一個節點底下所有 slot 的子陣列，回傳 [propKey, children][]。
+ *
+ * PageBlock：掃描 props，找出值為 SlotValue 的欄位（跟原本行為一致）。
+ * SharedBlockRef：本身沒有 props，可展開的子節點是 slotOverrides
+ *   （引用端覆寫的那幾個 slot）——共用定義自己 props 裡的 slot 內容
+ *   （未被覆寫的部分）刻意不在這裡展開，因為那屬於「共用定義的內部結構」，
+ *   不是「這次引用」在頁面樹裡擁有的節點，編輯/刪除/搬移等頁面樹操作
+ *   不該觸及它（要改共用定義本身的內容，走 SharedBlockDefinition 的
+ *   獨立編輯路徑，見 roadmap Phase B）。
+ */
+export function slotEntries(node: AnyPageNode): [string, AnyPageNode[]][] {
+  const result: [string, AnyPageNode[]][] = [];
+  if (isSharedBlockRef(node)) {
+    for (const [key, value] of Object.entries(node.slotOverrides)) {
+      result.push([key, value.blocks]);
+    }
+    return result;
+  }
+  for (const [key, value] of Object.entries(node.props)) {
     if (isSlotValue(value)) result.push([key, value.blocks]);
   }
   return result;
 }
 
-/** 深拷貝一個 blocks 陣列（含巢狀 slot），用於「更新前先複製」避免直接改到舊 state。 */
-export function cloneBlocks(blocks: PageBlock[]): PageBlock[] {
-  return blocks.map((b) => ({
-    ...b,
-    props: Object.fromEntries(
-      Object.entries(b.props).map(([k, v]) =>
-        isSlotValue(v) ? [k, makeSlotValue(cloneBlocks(v.blocks))] : [k, v]
-      )
-    ),
-  }));
+/** 深拷貝一個 blocks 陣列（含巢狀 slot、含 SharedBlockRef 的 slotOverrides），
+ *  用於「更新前先複製」避免直接改到舊 state。 */
+export function cloneBlocks(blocks: AnyPageNode[]): AnyPageNode[] {
+  return blocks.map((node) => {
+    if (isSharedBlockRef(node)) {
+      return {
+        ...node,
+        slotOverrides: Object.fromEntries(
+          Object.entries(node.slotOverrides).map(([k, v]) => [k, makeSlotValue(cloneBlocks(v.blocks))])
+        ),
+      };
+    }
+    return {
+      ...node,
+      props: Object.fromEntries(
+        Object.entries(node.props).map(([k, v]) =>
+          isSlotValue(v) ? [k, makeSlotValue(cloneBlocks(v.blocks))] : [k, v]
+        )
+      ),
+    };
+  });
 }
 
-/** 在整棵樹（含巢狀 slot）中找出 instanceId 對應的 block，找不到回傳 null。 */
-export function findBlockDeep(blocks: PageBlock[], instanceId: string): PageBlock | null {
-  for (const b of blocks) {
-    if (b.instanceId === instanceId) return b;
-    for (const [, children] of slotEntries(b)) {
-      const found = findBlockDeep(children, instanceId);
+/**
+ * 在整棵樹（含巢狀 slot）中找出 instanceId 對應的節點（PageBlock 或
+ * SharedBlockRef），找不到回傳 null。
+ */
+export function findNodeDeep(blocks: AnyPageNode[], instanceId: string): AnyPageNode | null {
+  for (const node of blocks) {
+    if (node.instanceId === instanceId) return node;
+    for (const [, children] of slotEntries(node)) {
+      const found = findNodeDeep(children, instanceId);
       if (found) return found;
     }
   }
   return null;
+}
+
+/**
+ * 跟 findNodeDeep 相同，但只回傳 PageBlock（找到的節點若是 SharedBlockRef
+ * 則視為找不到，回傳 null）。給既有假設「拿到的一定是可編輯 props 的
+ * PageBlock」的呼叫端使用（例如屬性面板逐欄位編輯），避免呼叫端各自加
+ * isSharedBlockRef 判斷；需要處理 ref 節點本身（例如唯讀摘要、跳轉編輯）
+ * 的呼叫端改用 findNodeDeep。
+ */
+export function findBlockDeep(blocks: AnyPageNode[], instanceId: string): PageBlock | null {
+  const node = findNodeDeep(blocks, instanceId);
+  return node && !isSharedBlockRef(node) ? node : null;
 }
 
 /**
@@ -216,63 +389,92 @@ export function findBlockDeep(blocks: PageBlock[], instanceId: string): PageBloc
  * 「拖拉搬到別的 slot / 位置」（先移除再插入）。
  */
 export function removeBlockDeep(
-  blocks: PageBlock[],
+  blocks: AnyPageNode[],
   instanceId: string
-): [PageBlock[], PageBlock | null] {
-  let removed: PageBlock | null = null;
-  const next: PageBlock[] = [];
-  for (const b of blocks) {
-    if (b.instanceId === instanceId) {
-      removed = b;
+): [AnyPageNode[], AnyPageNode | null] {
+  let removed: AnyPageNode | null = null;
+  const next: AnyPageNode[] = [];
+  for (const node of blocks) {
+    if (node.instanceId === instanceId) {
+      removed = node;
       continue;
     }
-    let changedProps: Record<string, unknown> | null = null;
-    for (const [key, children] of slotEntries(b)) {
+    let changedField: Record<string, SlotValue> | null = null;
+    for (const [key, children] of slotEntries(node)) {
       if (removed) break; // 已經在別的分支找到，不用再往下找
       const [nextChildren, r] = removeBlockDeep(children, instanceId);
       if (r) {
         removed = r;
-        changedProps = { ...b.props, [key]: makeSlotValue(nextChildren) };
+        changedField = { [key]: makeSlotValue(nextChildren) };
       }
     }
-    next.push(changedProps ? { ...b, props: changedProps } : b);
+    if (!changedField) {
+      next.push(node);
+    } else if (isSharedBlockRef(node)) {
+      next.push({ ...node, slotOverrides: { ...node.slotOverrides, ...changedField } });
+    } else {
+      next.push({ ...node, props: { ...node.props, ...changedField } });
+    }
   }
   return [next, removed];
 }
 
-/** 在 instanceId 對應的 block 底下某個 slot prop 陣列中，於 toIndex 插入一個 block。 */
+/**
+ * 在 instanceId 對應的節點底下某個 slot 陣列中，於 toIndex 插入一個節點。
+ *
+ * 目標若是 PageBlock：跟原本行為一致，寫進 props[slotKey]。
+ * 目標若是 SharedBlockRef：只能插入 slotOverrides 裡「已經存在」的 key
+ *   （即該共用定義原本就開放覆寫的 slot）——不會憑空新增一個覆寫範圍，
+ *   因為能不能覆寫某個 slot 是「另存為共用區塊」當下（見 roadmap Phase B）
+ *   就決定好的邊界，不該由畫布上的一次拖拉操作動態擴大。若 slotKey 不在
+ *   既有 slotOverrides 裡，視同此節點不匹配，插入失敗（呼叫端可從回傳
+ *   陣列跟原陣列 reference 是否相同判斷是否真的插入了，但目前實作為求
+ *   簡單直接回傳新陣列；如需嚴格判斷插入是否成功，可比對插入前後的節點
+ *   數量）。
+ */
 export function insertIntoSlotDeep(
-  blocks: PageBlock[],
+  blocks: AnyPageNode[],
   targetInstanceId: string,
   slotKey: string,
   toIndex: number,
-  block: PageBlock
-): PageBlock[] {
-  return blocks.map((b) => {
-    if (b.instanceId === targetInstanceId) {
-      const current = b.props[slotKey];
+  block: AnyPageNode
+): AnyPageNode[] {
+  return blocks.map((node) => {
+    if (node.instanceId === targetInstanceId) {
+      if (isSharedBlockRef(node)) {
+        if (!(slotKey in node.slotOverrides)) return node; // 不允許新增覆寫範圍
+        const currentBlocks = node.slotOverrides[slotKey].blocks;
+        const nextBlocks = [...currentBlocks];
+        const clamped = Math.max(0, Math.min(toIndex, nextBlocks.length));
+        nextBlocks.splice(clamped, 0, block);
+        return { ...node, slotOverrides: { ...node.slotOverrides, [slotKey]: makeSlotValue(nextBlocks) } };
+      }
+      const current = node.props[slotKey];
       const currentBlocks = isSlotValue(current) ? current.blocks : [];
       const nextBlocks = [...currentBlocks];
       const clamped = Math.max(0, Math.min(toIndex, nextBlocks.length));
       nextBlocks.splice(clamped, 0, block);
-      return { ...b, props: { ...b.props, [slotKey]: makeSlotValue(nextBlocks) } };
+      return { ...node, props: { ...node.props, [slotKey]: makeSlotValue(nextBlocks) } };
     }
-    let changedProps: Record<string, unknown> | null = null;
-    for (const [key, children] of slotEntries(b)) {
+    let changedField: Record<string, SlotValue> | null = null;
+    for (const [key, children] of slotEntries(node)) {
       const next = insertIntoSlotDeep(children, targetInstanceId, slotKey, toIndex, block);
-      if (next !== children) {
-        changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(next) };
+      if (next.length !== children.length) {
+        changedField = { ...(changedField ?? {}), [key]: makeSlotValue(next) };
       }
     }
-    return changedProps ? { ...b, props: changedProps } : b;
+    if (!changedField) return node;
+    return isSharedBlockRef(node)
+      ? { ...node, slotOverrides: { ...node.slotOverrides, ...changedField } }
+      : { ...node, props: { ...node.props, ...changedField } };
   });
 }
 
-/** 在頂層 blocks 陣列中，於 toIndex 插入一個 block（頂層＝頁面本身，不是某個 slot）。 */
-export function insertAtRoot(blocks: PageBlock[], toIndex: number, block: PageBlock): PageBlock[] {
+/** 在頂層 blocks 陣列中，於 toIndex 插入一個節點（頂層＝頁面本身，不是某個 slot）。 */
+export function insertAtRoot(blocks: AnyPageNode[], toIndex: number, node: AnyPageNode): AnyPageNode[] {
   const next = [...blocks];
   const clamped = Math.max(0, Math.min(toIndex, next.length));
-  next.splice(clamped, 0, block);
+  next.splice(clamped, 0, node);
   return next;
 }
 
@@ -287,22 +489,30 @@ export function insertAtRoot(blocks: PageBlock[], toIndex: number, block: PageBl
  * demo prop 使用，不需要為了「新增時一次帶入多個預設值」另外寫一套邏輯。
  */
 export function patchBlockPropsDeep(
-  blocks: PageBlock[],
+  blocks: AnyPageNode[],
   instanceId: string,
   patch: Record<string, unknown>
-): PageBlock[] {
-  return blocks.map((b) => {
-    if (b.instanceId === instanceId) {
-      return { ...b, props: { ...b.props, ...patch } };
+): AnyPageNode[] {
+  return blocks.map((node) => {
+    if (node.instanceId === instanceId) {
+      // SharedBlockRef 沒有可編輯的 props（唯讀，見型別註解），保持原樣。
+      // 呼叫端（屬性面板）應該先用 isSharedBlockRef 判斷、對 ref 節點改走
+      // 唯讀摘要 + 跳轉編輯共用定義的路徑，不應該走到這裡；這裡的靜默
+      // 不生效是最後一道防線，不是預期的主要路徑。
+      if (isSharedBlockRef(node)) return node;
+      return { ...node, props: { ...node.props, ...patch } };
     }
-    let changedProps: Record<string, unknown> | null = null;
-    for (const [key, children] of slotEntries(b)) {
+    let changedField: Record<string, SlotValue> | null = null;
+    for (const [key, children] of slotEntries(node)) {
       const nextChildren = patchBlockPropsDeep(children, instanceId, patch);
-      if (nextChildren !== children) {
-        changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(nextChildren) };
+      if (nextChildren.length !== children.length || nextChildren.some((c, i) => c !== children[i])) {
+        changedField = { ...(changedField ?? {}), [key]: makeSlotValue(nextChildren) };
       }
     }
-    return changedProps ? { ...b, props: changedProps } : b;
+    if (!changedField) return node;
+    return isSharedBlockRef(node)
+      ? { ...node, slotOverrides: { ...node.slotOverrides, ...changedField } }
+      : { ...node, props: { ...node.props, ...changedField } };
   });
 }
 
@@ -318,27 +528,61 @@ export function patchBlockPropsDeep(
  * localStorage JSON 時留下一個沒有意義的 key。
  */
 export function patchBlockClientDirectiveDeep(
-  blocks: PageBlock[],
+  blocks: AnyPageNode[],
   instanceId: string,
   directive: ClientDirective | undefined
-): PageBlock[] {
-  return blocks.map((b) => {
-    if (b.instanceId === instanceId) {
+): AnyPageNode[] {
+  return blocks.map((node) => {
+    if (node.instanceId === instanceId) {
       if (directive === undefined) {
-        const { clientDirective: _drop, ...rest } = b;
-        return rest;
+        const { clientDirective: _drop, ...rest } = node;
+        return rest as AnyPageNode;
       }
-      return { ...b, clientDirective: directive };
+      return { ...node, clientDirective: directive };
     }
-    let changedProps: Record<string, unknown> | null = null;
-    for (const [key, children] of slotEntries(b)) {
+    let changedField: Record<string, SlotValue> | null = null;
+    for (const [key, children] of slotEntries(node)) {
       const nextChildren = patchBlockClientDirectiveDeep(children, instanceId, directive);
-      if (nextChildren !== children) {
-        changedProps = { ...(changedProps ?? b.props), [key]: makeSlotValue(nextChildren) };
+      if (nextChildren.length !== children.length || nextChildren.some((c, i) => c !== children[i])) {
+        changedField = { ...(changedField ?? {}), [key]: makeSlotValue(nextChildren) };
       }
     }
-    return changedProps ? { ...b, props: changedProps } : b;
+    if (!changedField) return node;
+    return isSharedBlockRef(node)
+      ? { ...node, slotOverrides: { ...node.slotOverrides, ...changedField } }
+      : { ...node, props: { ...node.props, ...changedField } };
   });
+}
+
+/**
+ * 把一個 SharedBlockRef 節點，結合它引用的 SharedBlockDefinition，合併成
+ * 一個等效的 PageBlock（componentId/props 都是展開後的具體值）。
+ *
+ * 這是畫布渲染（Phase A）與生成器 codegen（Phase E，兩套 codegen 都要用）
+ * 共用的唯一 resolve 邏輯——刻意放在 page-model 而不是各自的渲染/codegen
+ * 檔案裡各寫一份，避免「resolve 規則」跟「怎麼把 PageBlock 轉成畫面/程式碼」
+ * 這兩件事混在一起，也避免兩套 codegen 各自實作一次、之後改一處忘了改
+ * 另一處而悄悄不一致。
+ *
+ * 合併規則：definition.props 為底，slotOverrides 逐 key 覆蓋（只覆蓋
+ * slotOverrides 裡實際出現的 key，definition.props 裡其餘欄位維持原樣）。
+ * 找不到對應的 definition 時回傳 null，呼叫端自行決定如何處理（例如畫布
+ * 上顯示「共用區塊已遺失」的錯誤狀態、生成器則應該中止並拋出明確錯誤，
+ * 而不是靜默跳過——引用失效不該在產出的網站上悄悄消失一塊內容）。
+ */
+export function resolveSharedBlockRef(
+  ref: SharedBlockRef,
+  definitions: Record<string, SharedBlockDefinition>
+): PageBlock | null {
+  const definition = definitions[ref.ref];
+  if (!definition) return null;
+  return {
+    instanceId: ref.instanceId,
+    componentId: definition.componentId,
+    componentName: definition.componentName,
+    props: { ...definition.props, ...ref.slotOverrides },
+    clientDirective: ref.clientDirective,
+  };
 }
 
 /**
@@ -353,9 +597,9 @@ export function patchBlockClientDirectiveDeep(
  */
 export function splitSlotProps(
   block: PageBlock
-): { plainProps: Record<string, unknown>; slotProps: Record<string, PageBlock[]> } {
+): { plainProps: Record<string, unknown>; slotProps: Record<string, AnyPageNode[]> } {
   const plainProps: Record<string, unknown> = {};
-  const slotProps: Record<string, PageBlock[]> = {};
+  const slotProps: Record<string, AnyPageNode[]> = {};
   for (const [key, value] of Object.entries(block.props)) {
     if (isSlotValue(value)) {
       slotProps[key] = value.blocks;

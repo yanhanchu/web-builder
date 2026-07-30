@@ -23,6 +23,13 @@ export interface HeroProps {
     /** Destination href */
     to: string;
   };
+  /** Optional row of stat callouts shown under a divider at the bottom of the hero */
+  stats?: {
+    /** Stat value, e.g. "10k+" */
+    value: string;
+    /** Stat label under the value */
+    label: string;
+  }[];
   defaultItems?: string[];
   defaultNumbers?: number[];
   defaultBooleans?: boolean[];
@@ -35,8 +42,9 @@ export interface HeroProps {
 }
 
 /**
- * Full-width hero banner: eyebrow, headline, subtitle and a pair of CTAs.
- * All copy and links are supplied by the caller.
+ * Full-width hero banner: eyebrow, headline, subtitle, a pair of CTAs and
+ * an optional row of stat callouts. All copy and links are supplied by
+ * the caller.
  */
 export function Hero({
   eyebrow,
@@ -44,6 +52,7 @@ export function Hero({
   subtitle,
   primaryCta,
   secondaryCta,
+  stats,
 }: HeroProps) {
   return (
     <section className="mx-auto mt-10 max-w-6xl sm:mt-16">
@@ -87,6 +96,16 @@ export function Hero({
             </a>
           </div>
         </div>
+        {stats && stats.length > 0 ? (
+          <dl className="relative mt-8 grid gap-3 border-t border-border/60 pt-6 sm:grid-cols-3">
+            {stats.map((s) => (
+              <div key={s.label} className="flex flex-col">
+                <dt className="text-2xl font-black text-gradient-brand">{s.value}</dt>
+                <dd className="mt-1 text-xs text-muted-foreground">{s.label}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
       </div>
     </section>
   );

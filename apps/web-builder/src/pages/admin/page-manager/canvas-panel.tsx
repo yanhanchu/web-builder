@@ -28,7 +28,17 @@ import { allComponents } from "@/lib/generator/component-registry";
 import type { ComponentDoc } from "@/types/generator/component-types";
 import { InMemoryDataStore, typeRegistry, componentPropsRegistry, type DataSource } from "@/lib/data-model";
 import { resolvePlainProps, useComponentModule } from "@/lib/site-renderer";
-import { findBlockDeep, splitSlotProps, type PageItem, type PageBlock } from "@/lib/pages-store";
+import {
+  findBlockDeep,
+  isSharedBlockRef,
+  resolveSharedBlockRef,
+  splitSlotProps,
+  useSharedBlocksState,
+  type AnyPageNode,
+  type PageItem,
+  type PageBlock,
+  type SharedBlockDefinition,
+} from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { type ViewportMode, VIEWPORT_WIDTHS } from "./shared";
 import {
@@ -913,7 +923,135 @@ class BlockErrorBoundary extends ReactComponentClass<
   }
 }
 
-function CanvasBlockRenderer({
+/**
+ * 畫布節點渲染的入口：收到的節點可能是 PageBlock 或 SharedBlockRef（見
+ * AnyPageNode）。這裡只做「分流」，實際渲染邏輯維持原樣：
+ *   - PageBlock：原封不動交給 CanvasPageBlockRenderer（原本
+ *     CanvasBlockRenderer 的全部邏輯，含拖曳/選取/slot 渲染，未改動）。
+ *   - SharedBlockRef：呼叫 resolveSharedBlockRef() 合併出等效 PageBlock，
+ *     一樣交給 CanvasPageBlockRenderer 渲染（拖曳/選取/slot 邏輯完全複用，
+ *     不重寫一份），外層再包一層陽春的「這是共用區塊」視覺標記（虛線框 +
+ *     標籤）。找不到對應定義時顯示錯誤狀態，不靜默跳過——引用失效不該在
+ *     畫布上悄悄消失一塊內容。
+ *
+ * Phase A 範圍：只求「能正確渲染 ref 節點」。ref 節點目前還不能被選取／
+ * 拖曳搬移／刪除（那些操作假設節點是 PageBlock），等 Phase B 的屬性面板
+ * 唯讀摘要 + 跳轉編輯做出來後再評估要不要開放。
+ */
+function CanvasBlockRenderer(props: {
+  block: AnyPageNode;
+  rootBlocks: AnyPageNode[];
+  selectedBlockId: string | null;
+  onSelectBlock: (instanceId: string) => void;
+  onAddBlock: AddBlockFn;
+  onMoveBlock: MoveBlockFn;
+  onRemoveBlock: (instanceId: string) => void;
+}) {
+  const [sharedBlocks] = useSharedBlocksState();
+
+  if (isSharedBlockRef(props.block)) {
+    return (
+      <SharedBlockRefRenderer
+        {...props}
+        block={props.block}
+        sharedBlocks={sharedBlocks}
+      />
+    );
+  }
+
+  return <CanvasPageBlockRenderer {...props} block={props.block} />;
+}
+
+/**
+ * SharedBlockRef 節點的外層包裝：resolve 出等效 PageBlock 後交給
+ * CanvasPageBlockRenderer 渲染，外面疊一層虛線框標籤，讓使用者在畫布上
+ * 能區分「這是頁面自己的組件」跟「這是引用共用區塊的內容」。
+ *
+ * 陽春版（Phase A）：標籤本身不可互動，右側屬性面板選到 ref 節點時的
+ * 唯讀摘要 + 跳轉編輯留給 Phase B。
+ */
+function SharedBlockRefRenderer({
+  block,
+  sharedBlocks,
+  ...rest
+}: {
+  block: import("@/lib/pages-store").SharedBlockRef;
+  sharedBlocks: SharedBlockDefinition[];
+  rootBlocks: AnyPageNode[];
+  selectedBlockId: string | null;
+  onSelectBlock: (instanceId: string) => void;
+  onAddBlock: AddBlockFn;
+  onMoveBlock: MoveBlockFn;
+  onRemoveBlock: (instanceId: string) => void;
+}) {
+  const definitions = useMemo(
+    () => Object.fromEntries(sharedBlocks.map((d) => [d.id, d])),
+    [sharedBlocks],
+  );
+  const resolved = resolveSharedBlockRef(block, definitions);
+
+  if (!resolved) {
+    return (
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          rest.onSelectBlock(block.instanceId);
+        }}
+        style={{
+          border: "1px dashed #a33",
+          borderRadius: 4,
+          padding: 12,
+        }}
+      >
+        <p
+          style={{
+            color: "#e77",
+            fontSize: 12,
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <TriangleAlert size={13} />
+          找不到共用區塊「{block.ref}」，可能已被刪除。
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        border: "1px dashed var(--border-strong, #7fdbca)",
+        borderRadius: 6,
+        position: "relative",
+        padding: "18px 2px 2px",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: -1,
+          left: 8,
+          fontSize: 10,
+          lineHeight: "16px",
+          padding: "0 6px",
+          borderRadius: 4,
+          background: "#132420",
+          color: "#7fdbca",
+          border: "1px solid #2d9c74",
+          pointerEvents: "none",
+        }}
+      >
+        共用區塊・{resolved.componentName}
+      </span>
+      <CanvasPageBlockRenderer {...rest} block={resolved} />
+    </div>
+  );
+}
+
+function CanvasPageBlockRenderer({
   block,
   rootBlocks,
   selectedBlockId,
@@ -925,7 +1063,7 @@ function CanvasBlockRenderer({
   block: PageBlock;
   /** 整個頁面最頂層的 blocks（不隨遞迴縮小），用來在整棵樹裡定位拖曳來源節點，
    *  判斷「目標是不是拖曳來源自己的子孫」（防呆：不能把節點拖進自己底下）。 */
-  rootBlocks: PageBlock[];
+  rootBlocks: AnyPageNode[];
   selectedBlockId: string | null;
   onSelectBlock: (instanceId: string) => void;
   onAddBlock: AddBlockFn;
@@ -968,13 +1106,13 @@ function CanvasBlockRenderer({
   const slotDragOver = hoverTarget === block.instanceId;
 
   // 這個 block 目前 slot 裡已有的子節點清單（給 InsertionLine 算插入位置用）。
-  const slotChildren: PageBlock[] = (() => {
+  const slotChildren: AnyPageNode[] = (() => {
     if (!slotKey) return [];
     const value = block.props[slotKey];
     return value &&
       typeof value === "object" &&
       (value as { __slot?: boolean }).__slot
-      ? ((value as { blocks: PageBlock[] }).blocks ?? [])
+      ? ((value as { blocks: AnyPageNode[] }).blocks ?? [])
       : [];
   })();
 
