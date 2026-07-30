@@ -65,10 +65,24 @@ export function buildFlatDataFiles(input: ExportFlatDataInput): ExportedFiles {
     files.set(`pages/${page.id}.json`, stringify(page));
   }
 
-  // --- locales.json / style-sheets.json：直接存純值，不需要攤平轉換
+  // --- locales.json：直接存純值，不需要攤平轉換
   // （load-static-data.ts 直接 JSON.parse 後當純資料使用）---
   files.set("locales.json", stringify(locales));
-  files.set("style-sheets.json", stringify(styleSheets));
+
+  // --- style-sheets.json + style-sheets/{id}.css：
+  // localStorage / 編輯器內部（style-manager.tsx）仍然用 { id, name, css }
+  // 這個形狀（方便即時編輯），但寫到檔案系統時要拆開：css 內容各自落地成
+  // 獨立的 style-sheets/{id}.css，style-sheets.json 只留 { id, name, cssFile }
+  // 這個指標形狀。理由跟 pages/*.json 拆成逐頁檔案一樣：CSS 內容如果直接
+  // 內嵌在 JSON 字串裡，換行/縮排全部要跳脫，人眼難編輯、git diff 也幾乎
+  // 沒有意義；拆成獨立 .css 檔案後可以正常編輯、正常 diff。
+  // 對應的還原邏輯在 load-static-data.ts 的 loadStyleSheets()。
+  const styleSheetRecords = styleSheets.map((sheet) => {
+    const cssFile = `style-sheets/${sheet.id}.css`;
+    files.set(cssFile, sheet.css);
+    return { id: sheet.id, name: sheet.name, cssFile };
+  });
+  files.set("style-sheets.json", stringify(styleSheetRecords));
 
   return files;
 }

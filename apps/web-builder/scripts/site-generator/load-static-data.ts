@@ -9,10 +9,17 @@
 //   - pages/{pageId}.json -> PageItem[]（page-model 的形狀，用 normalizePage 補齊欄位；
 //     逐頁各自一份檔案，掃描 pages/ 目錄後依檔名排序組回陣列，見 findPageFiles()）
 //   - locales.json -> string[]
-//   - style-sheets.json -> StyleSheet[]（{ id, name, css }，跟
+//   - style-sheets.json -> StyleSheet[]（對外形狀是 { id, name, css }，跟
 //     apps/web-builder/src/pages/admin/style-manager.tsx 的 StyleSheet 同形狀，
-//     這裡不 import 那個檔案，因為它是 app 端頁面、混了 React state；
-//     這裡用同結構的本地型別即可，靠 JSON 形狀對齊，不是靠 import 對齊）
+//     這裡不 import 那個檔案，因為它是 app 端頁面、混了 React state；用同
+//     結構的本地型別即可，靠 JSON 形狀對齊，不是靠 import 對齊）
+//
+//     檔案上實際存的形狀是 StyleSheetRecord { id, name, cssFile }：CSS 內容
+//     不直接內嵌在 JSON 字串裡（那樣換行/縮排全部要跳脫，人眼難編輯、git
+//     diff 也幾乎沒意義），而是另外存成獨立的 .css 檔案，`cssFile` 存相對
+//     dataDir 的路徑（例如 "style-sheets/global.css"）。讀取時 loadStyleSheets()
+//     把檔案內容讀出來併回 css 欄位，之後拿到的仍是形狀不變的 StyleSheet，
+//     render-page.ts / renderGlobalCss 等呼叫端完全不用跟著改。
 //
 // 這個檔案跟 React 無關，之後如果要換掉 render-page.ts（例如改接 Astro），
 // 這裡完全不需要動。
@@ -34,6 +41,18 @@ export interface StyleSheet {
   id: string;
   name: string;
   css: string;
+}
+
+/**
+ * `style-sheets.json` 檔案上實際的攤平形狀：只存 id/name/cssFile 這三個
+ * 欄位，`css` 內容本身不內嵌在這裡（見本檔案開頭說明）。讀取時會把
+ * `cssFile` 指到的檔案內容讀出來，併回 StyleSheet.css，對外（render-page.ts
+ * 等呼叫端）拿到的仍然是形狀不變的 StyleSheet，不需要跟著改。
+ */
+interface StyleSheetRecord {
+  id: string;
+  name: string;
+  cssFile: string;
 }
 
 export interface StaticSiteData {
@@ -178,8 +197,7 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
     ? (localesRaw as string[])
     : locales;
 
-  const styleSheetsRaw = await readJsonIfExists(path.join(dataDir, "style-sheets.json"));
-  const styleSheets = Array.isArray(styleSheetsRaw) ? (styleSheetsRaw as StyleSheet[]) : [];
+  const styleSheets = await loadStyleSheets(dataDir, issues);
 
   if (resolvedLocales.length === 0) {
     issues.push({ file: dataDir, message: "找不到任何語系（locales.json 缺漏，且 sources/ 底下沒有 i18n.*.json）" });
@@ -189,6 +207,39 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
   }
 
   return { sources, pages, locales: resolvedLocales, styleSheets, issues };
+}
+
+/**
+ * 讀 `style-sheets.json`（StyleSheetRecord[] 形狀，只有 id/name/cssFile），
+ * 逐筆把 `cssFile` 指到的 .css 檔案內容讀出來，組回完整的 StyleSheet[]
+ * （含 css 欄位）給呼叫端（render-page.ts / renderGlobalCss）使用。
+ *
+ * 單筆讀取失敗（檔案不存在等）不中斷整個流程：記一筆 issue，該筆樣式表
+ * 的 css 內容退回空字串，其餘樣式表照常處理。
+ */
+async function loadStyleSheets(dataDir: string, issues: LoadIssue[]): Promise<StyleSheet[]> {
+  const jsonPath = path.join(dataDir, "style-sheets.json");
+  const raw = await readJsonIfExists(jsonPath);
+  if (!Array.isArray(raw)) return [];
+
+  const records = raw as StyleSheetRecord[];
+  const result: StyleSheet[] = [];
+  for (const record of records) {
+    const cssPath = path.join(dataDir, record.cssFile);
+    let css = "";
+    try {
+      css = await readFile(cssPath, "utf-8");
+    } catch (err) {
+      issues.push({
+        file: cssPath,
+        message: `樣式表 "${record.id}" 對應的 cssFile 讀取失敗，內容視為空字串：${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      });
+    }
+    result.push({ id: record.id, name: record.name, css });
+  }
+  return result;
 }
 
 async function mergeFlatKindFile(

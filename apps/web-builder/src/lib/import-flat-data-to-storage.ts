@@ -85,6 +85,7 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
   let pages: PageItem[] | undefined;
   const pagesById = new Map<string, PageItem>();
   let styleSheets: StyleSheet[] | undefined;
+  let styleSheetRecordsRaw: { id: string; name: string; cssFile: string }[] | undefined;
 
   for (const [path, content] of entries) {
     const i18nMatch = path.match(I18N_FILE_PATTERN);
@@ -186,7 +187,11 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
         skipped.push({ path, reason: "頂層必須是陣列" });
         continue;
       }
-      styleSheets = parsed.value as StyleSheet[];
+      // 檔案系統上的形狀是 { id, name, cssFile }（見 export-flat-data.ts），
+      // 這裡先記住 records，實際 css 內容要等所有檔案都掃過一輪、確定
+      // style-sheets/{id}.css 是否存在於這次的 entries 裡才能還原，
+      // 所以延後到迴圈跑完後再組（見下方 styleSheetRecords 處理）。
+      styleSheetRecordsRaw = parsed.value as { id: string; name: string; cssFile: string }[];
       continue;
     }
 
@@ -202,6 +207,22 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
     pages = Array.from(pagesById.keys())
       .sort((a, b) => a.localeCompare(b))
       .map((id) => pagesById.get(id)!);
+  }
+
+  // style-sheets.json 只存 { id, name, cssFile } 指標（見 export-flat-data.ts），
+  // 這裡用 entries 本身（同一批檔案裡的 style-sheets/{id}.css）反查回實際
+  // CSS 內容，還原成 localStorage / 編輯器內部使用的 { id, name, css } 形狀。
+  // 找不到對應 .css 檔案（例如匯入的檔案包不完整）時，該筆樣式表的 css
+  // 內容退回空字串，不整份匯入失敗。
+  if (styleSheetRecordsRaw !== undefined) {
+    const cssByPath = new Map(entries);
+    styleSheets = styleSheetRecordsRaw.map((record) => {
+      const css = cssByPath.get(record.cssFile);
+      if (css === undefined) {
+        skipped.push({ path: record.cssFile, reason: `樣式表 "${record.id}" 對應的 CSS 檔案缺失` });
+      }
+      return { id: record.id, name: record.name, css: css ?? "" };
+    });
   }
 
   const writtenKeys: string[] = [];
