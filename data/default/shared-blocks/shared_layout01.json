@@ -12,13 +12,34 @@
           "componentId": "src/components/landing1/header.tsx#Header",
           "componentName": "Header",
           "props": {
-            "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-            "primaryNav": { "mode": "bound", "sourceId": "typedData:nav:primary" },
-            "themeOptions": { "mode": "bound", "sourceId": "typedData:theme:options" },
-            "themeGroupLabel": { "mode": "bound", "sourceId": "i18n:theme.group" },
-            "themeLabel": { "mode": "bound", "sourceId": "i18n:header.themeLabel" },
-            "openMenuLabel": { "mode": "bound", "sourceId": "i18n:header.openMenu" },
-            "closeMenuLabel": { "mode": "bound", "sourceId": "i18n:header.closeMenu" }
+            "brand": {
+              "mode": "bound",
+              "sourceId": "typedData:brand:main"
+            },
+            "primaryNav": {
+              "mode": "bound",
+              "sourceId": "typedData:nav:primary"
+            },
+            "themeOptions": {
+              "mode": "bound",
+              "sourceId": "typedData:theme:options"
+            },
+            "themeGroupLabel": {
+              "mode": "bound",
+              "sourceId": "i18n:theme.group"
+            },
+            "themeLabel": {
+              "mode": "bound",
+              "sourceId": "i18n:header.themeLabel"
+            },
+            "openMenuLabel": {
+              "mode": "bound",
+              "sourceId": "i18n:header.openMenu"
+            },
+            "closeMenuLabel": {
+              "mode": "bound",
+              "sourceId": "i18n:header.closeMenu"
+            }
           },
           "clientDirective": "load"
         }
@@ -32,13 +53,34 @@
           "componentId": "src/components/landing1/footer.tsx#Footer",
           "componentName": "Footer",
           "props": {
-            "brand": { "mode": "bound", "sourceId": "typedData:brand:main" },
-            "tagline": { "mode": "bound", "sourceId": "i18n:footer.tagline" },
-            "email": { "mode": "bound", "sourceId": "i18n:site.email" },
-            "emailAriaLabel": { "mode": "bound", "sourceId": "i18n:footer.emailAriaLabel" },
-            "columns": { "mode": "bound", "sourceId": "typedData:nav:footerColumns" },
-            "copyright": { "mode": "bound", "sourceId": "i18n:footer.copyrightTemplate" },
-            "meta": { "mode": "bound", "sourceId": "i18n:footer.meta" }
+            "brand": {
+              "mode": "bound",
+              "sourceId": "typedData:brand:main"
+            },
+            "tagline": {
+              "mode": "bound",
+              "sourceId": "i18n:footer.tagline"
+            },
+            "email": {
+              "mode": "bound",
+              "sourceId": "i18n:site.email"
+            },
+            "emailAriaLabel": {
+              "mode": "bound",
+              "sourceId": "i18n:footer.emailAriaLabel"
+            },
+            "columns": {
+              "mode": "bound",
+              "sourceId": "typedData:nav:footerColumns"
+            },
+            "copyright": {
+              "mode": "bound",
+              "sourceId": "i18n:footer.copyrightTemplate"
+            },
+            "meta": {
+              "mode": "bound",
+              "sourceId": "i18n:footer.meta"
+            }
           }
         }
       ]

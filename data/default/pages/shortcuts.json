@@ -14,9 +14,6 @@
     "canonicalUrl": "",
     "robots": "index, follow"
   },
-  "styleSheetIds": [
-    "global"
-  ],
   "blocks": [
     {
       "kind": "sharedBlockRef",

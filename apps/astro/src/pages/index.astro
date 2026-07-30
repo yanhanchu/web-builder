@@ -38,27 +38,12 @@ import type { SeoData } from "@workspace/ui/components/site/types";
 
 import * as data from "../data/en/index/data";
 
-const {
-  header,
-  footer,
-  productHero,
-  trustSection,
-  coreValueSection,
-  showcaseSection,
-  featureGrid,
-  productUseCases,
-  quickStartSteps,
-  productFaq,
-  productClosing,
-  relatedNav,
-  cookieConsent,
-} = data;
+const { header, footer, productHero, trustSection, coreValueSection, showcaseSection, featureGrid, productUseCases, quickStartSteps, productFaq, productClosing, relatedNav, cookieConsent } = data;
 
 const seo: SeoData = {
   title: "Text to Mind Map — Convert text into structured mind maps",
   titleTemplate: "%s",
-  description:
-    "Turn structured text into mind maps with a keyboard-friendly editor, flexible layouts, rich node details and export options.",
+  description: "Turn structured text into mind maps with a keyboard-friendly editor, flexible layouts, rich node details and export options.",
   keywords: "mind map, text to mind map, outline editor, mind mapping tool",
   ogImage: "/og-default.webp",
   ogType: "website",
@@ -70,20 +55,24 @@ const seo: SeoData = {
 ---
 
 <AstroLayoutShell seo={seo} lang="en">
-  <Layout
-    header={(<Header {...header} client:load />)}
-    footer={(<Footer {...footer} />)}
-  >
-    <ProductHero {...productHero} />
-    <TrustSection {...trustSection} />
-    <CoreValueSection {...coreValueSection} />
-    <ShowcaseSection {...showcaseSection} />
-    <FeatureGrid {...featureGrid} />
-    <ProductUseCases {...productUseCases} />
-    <QuickStartSteps {...quickStartSteps} />
-    <ProductFaq {...productFaq} />
-    <ProductClosing {...productClosing} />
-    <RelatedNav {...relatedNav} />
-    <CookieConsent {...cookieConsent} client:load />
-  </Layout>
+<Layout
+  header={
+    <Header {...header} client:load />
+  }
+  footer={
+    <Footer {...footer} />
+  }
+>
+  <ProductHero {...productHero} />
+  <TrustSection {...trustSection} />
+  <CoreValueSection {...coreValueSection} />
+  <ShowcaseSection {...showcaseSection} />
+  <FeatureGrid {...featureGrid} />
+  <ProductUseCases {...productUseCases} />
+  <QuickStartSteps {...quickStartSteps} />
+  <ProductFaq {...productFaq} />
+  <ProductClosing {...productClosing} />
+  <RelatedNav {...relatedNav} />
+  <CookieConsent {...cookieConsent} client:load />
+</Layout>
 </AstroLayoutShell>

@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
 import type { DataSource, DataSourceKind } from '@/lib/data-model/schema';
 import { flatI18nToSources, parseFlatI18nJson } from '@/lib/data-model/i18n-flat';
 import {
@@ -8,6 +7,7 @@ import {
   type FlatKind,
 } from '@/lib/data-model/flat-export';
 import { inputStyle } from './shared';
+import { ModalOverlay, ModalHeader, ModalFooter } from '../admin/modal';
 
 function isDataSourceRecord(v: unknown): v is Record<string, DataSource> {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
@@ -241,20 +241,8 @@ export function ImportModal({
     : `扁平 ${FLAT_KIND_LABELS[activeKind as FlatKind]} JSON（去除 id/kind）`;
 
   return (
-    <div
-      style={modalOverlayStyle}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="匯入 JSON"
-    >
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        <div style={modalHeaderStyle}>
-          <span style={{ fontSize: 14, color: '#ccc' }}>匯入來源（JSON）</span>
-          <button style={modalCloseStyle} onClick={onClose} aria-label="關閉">
-            <X size={14} />
-          </button>
-        </div>
+    <ModalOverlay onClose={onClose} maxWidth={560} zIndex={1000} ariaLabel="匯入 JSON">
+        <ModalHeader title="匯入來源（JSON）" onClose={onClose} />
 
         <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
           <label style={radioLabelStyle}>
@@ -391,7 +379,7 @@ export function ImportModal({
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+        <ModalFooter>
           <button style={ghostModalBtnStyle} onClick={onClose}>
             取消
           </button>
@@ -405,49 +393,11 @@ export function ImportModal({
           >
             套用
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </ModalOverlay>
   );
 }
 
-const modalOverlayStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(0,0,0,0.6)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: 16,
-};
-
-const modalStyle: React.CSSProperties = {
-  background: '#1a1a1a',
-  border: '1px solid #333',
-  borderRadius: 8,
-  padding: 16,
-  width: '100%',
-  maxWidth: 560,
-  boxSizing: 'border-box',
-};
-
-const modalHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 8,
-};
-
-const modalCloseStyle: React.CSSProperties = {
-  background: 'transparent',
-  color: '#aaa',
-  border: 'none',
-  cursor: 'pointer',
-  padding: 4,
-  display: 'inline-flex',
-  alignItems: 'center',
-};
 
 const radioLabelStyle: React.CSSProperties = {
   display: 'flex',

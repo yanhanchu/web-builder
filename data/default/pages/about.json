@@ -14,7 +14,6 @@
     "canonicalUrl": "",
     "robots": "index, follow"
   },
-  "styleSheetIds": ["global"],
   "blocks": [
     {
       "kind": "sharedBlockRef",
@@ -29,8 +28,14 @@
               "componentId": "src/components/landing1/page-intro.tsx#PageIntro",
               "componentName": "PageIntro",
               "props": {
-                "title": { "mode": "bound", "sourceId": "i18n:about.title" },
-                "intro": { "mode": "bound", "sourceId": "i18n:about.intro" }
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:about.title"
+                },
+                "intro": {
+                  "mode": "bound",
+                  "sourceId": "i18n:about.intro"
+                }
               }
             },
             {
@@ -40,16 +45,34 @@
               "props": {
                 "sections": [
                   {
-                    "heading": { "mode": "bound", "sourceId": "i18n:about.sections.0.heading" },
-                    "body": { "mode": "bound", "sourceId": "i18n:about.sections.0.body" }
+                    "heading": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.0.heading"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.0.body"
+                    }
                   },
                   {
-                    "heading": { "mode": "bound", "sourceId": "i18n:about.sections.1.heading" },
-                    "body": { "mode": "bound", "sourceId": "i18n:about.sections.1.body" }
+                    "heading": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.1.heading"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.1.body"
+                    }
                   },
                   {
-                    "heading": { "mode": "bound", "sourceId": "i18n:about.sections.2.heading" },
-                    "body": { "mode": "bound", "sourceId": "i18n:about.sections.2.body" }
+                    "heading": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.2.heading"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:about.sections.2.body"
+                    }
                   }
                 ]
               }

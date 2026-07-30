@@ -1,11 +1,65 @@
 {
-  "route-home": { "label": "首頁", "target": "page", "value": "/", "noindex": false, "pageId": "home" },
-  "route-about": { "label": "關於", "target": "page", "value": "/about", "noindex": false, "pageId": "about" },
-  "route-contact": { "label": "聯絡", "target": "page", "value": "/contact", "noindex": false, "pageId": "contact" },
-  "route-guide": { "label": "指南", "target": "page", "value": "/guide", "noindex": false, "pageId": "guide" },
-  "route-shortcuts": { "label": "快捷鍵", "target": "page", "value": "/shortcuts", "noindex": false, "pageId": "shortcuts" },
-  "route-templates": { "label": "範本", "target": "page", "value": "/templates", "noindex": false, "pageId": "templates" },
-  "route-use-cases": { "label": "使用情境", "target": "page", "value": "/use-cases", "noindex": false, "pageId": "use-cases" },
-  "route-privacy": { "label": "隱私權政策", "target": "page", "value": "/privacy", "noindex": false, "pageId": "privacy" },
-  "route-terms": { "label": "服務條款", "target": "page", "value": "/terms", "noindex": false, "pageId": "terms" }
+  "route-home": {
+    "label": "首頁",
+    "target": "page",
+    "value": "/",
+    "noindex": false,
+    "pageId": "home"
+  },
+  "route-about": {
+    "label": "關於",
+    "target": "page",
+    "value": "/about",
+    "noindex": false,
+    "pageId": "about"
+  },
+  "route-contact": {
+    "label": "聯絡",
+    "target": "page",
+    "value": "/contact",
+    "noindex": false,
+    "pageId": "contact"
+  },
+  "route-guide": {
+    "label": "指南",
+    "target": "page",
+    "value": "/guide",
+    "noindex": false,
+    "pageId": "guide"
+  },
+  "route-shortcuts": {
+    "label": "快捷鍵",
+    "target": "page",
+    "value": "/shortcuts",
+    "noindex": false,
+    "pageId": "shortcuts"
+  },
+  "route-templates": {
+    "label": "範本",
+    "target": "page",
+    "value": "/templates",
+    "noindex": false,
+    "pageId": "templates"
+  },
+  "route-use-cases": {
+    "label": "使用情境",
+    "target": "page",
+    "value": "/use-cases",
+    "noindex": false,
+    "pageId": "use-cases"
+  },
+  "route-privacy": {
+    "label": "隱私權政策",
+    "target": "page",
+    "value": "/privacy",
+    "noindex": false,
+    "pageId": "privacy"
+  },
+  "route-terms": {
+    "label": "服務條款",
+    "target": "page",
+    "value": "/terms",
+    "noindex": false,
+    "pageId": "terms"
+  }
 }

@@ -14,7 +14,6 @@
     "canonicalUrl": "",
     "robots": "index, follow"
   },
-  "styleSheetIds": ["global"],
   "blocks": [
     {
       "kind": "sharedBlockRef",
@@ -29,25 +28,70 @@
               "componentId": "src/components/landing1/contact-form.tsx#ContactForm",
               "componentName": "ContactForm",
               "props": {
-                "title": { "mode": "bound", "sourceId": "i18n:contact.title" },
-                "intro": { "mode": "bound", "sourceId": "i18n:contact.intro" },
-                "email": { "mode": "bound", "sourceId": "i18n:contact.email" },
-                "topicsTitle": { "mode": "bound", "sourceId": "i18n:contact.topicsTitle" },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.title"
+                },
+                "intro": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.intro"
+                },
+                "email": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.email"
+                },
+                "topicsTitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.topicsTitle"
+                },
                 "topics": [
-                  { "mode": "bound", "sourceId": "i18n:contact.topics.0" },
-                  { "mode": "bound", "sourceId": "i18n:contact.topics.1" },
-                  { "mode": "bound", "sourceId": "i18n:contact.topics.2" },
-                  { "mode": "bound", "sourceId": "i18n:contact.topics.3" }
+                  {
+                    "mode": "bound",
+                    "sourceId": "i18n:contact.topics.0"
+                  },
+                  {
+                    "mode": "bound",
+                    "sourceId": "i18n:contact.topics.1"
+                  },
+                  {
+                    "mode": "bound",
+                    "sourceId": "i18n:contact.topics.2"
+                  },
+                  {
+                    "mode": "bound",
+                    "sourceId": "i18n:contact.topics.3"
+                  }
                 ],
-                "namePlaceholder": { "mode": "bound", "sourceId": "i18n:contact.namePlaceholder" },
-                "emailPlaceholder": { "mode": "bound", "sourceId": "i18n:contact.emailPlaceholder" },
-                "messagePlaceholder": { "mode": "bound", "sourceId": "i18n:contact.messagePlaceholder" },
-                "submitLabel": { "mode": "bound", "sourceId": "i18n:contact.sendLabel" },
-                "submitPendingLabel": { "mode": "bound", "sourceId": "i18n:contact.sendingLabel" },
-                "successMessage": { "mode": "bound", "sourceId": "i18n:contact.success" },
+                "namePlaceholder": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.namePlaceholder"
+                },
+                "emailPlaceholder": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.emailPlaceholder"
+                },
+                "messagePlaceholder": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.messagePlaceholder"
+                },
+                "submitLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.sendLabel"
+                },
+                "submitPendingLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.sendingLabel"
+                },
+                "successMessage": {
+                  "mode": "bound",
+                  "sourceId": "i18n:contact.success"
+                },
                 "genericErrorMessage": "Something went wrong.",
                 "errorFallbackPrefix": "You can also reach us directly at",
-                "apiKey": "",
+                "apiKey": {
+                  "mode": "literal",
+                  "value": "test"
+                },
                 "submitSubject": "New message from Contact",
                 "endpoint": "https://api.staticforms.dev/submit"
               },

@@ -210,7 +210,7 @@ const navLinkStyle: React.CSSProperties = {
 
 const mainStyle: React.CSSProperties = {
   flex: 1,
-  padding: 24,
+  padding: "12px 24px 24px",
   boxSizing: "border-box",
   minWidth: 0,
 };

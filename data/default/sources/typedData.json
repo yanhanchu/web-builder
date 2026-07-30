@@ -348,5 +348,22 @@
         }
       ]
     }
+  },
+  "new-1": {
+    "label": "新型別資料",
+    "typeId": "src/components/landing1/product-hero.tsx#ProductHeroStat",
+    "value": {
+      "mode": "object",
+      "fields": {
+        "value": {
+          "mode": "literal",
+          "value": "Test"
+        },
+        "label": {
+          "mode": "literal",
+          "value": "A"
+        }
+      }
+    }
   }
 }
