@@ -341,21 +341,16 @@ export default function AppSettingsPage() {
           </Field>
         </section>
 
-        <section style={panelStyle}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 4,
-            }}
-          >
-            <h2 style={{ ...panelTitleStyle, margin: 0 }}>網站基本資訊</h2>
-            <TypeBadge typeId={SiteInfoDataTypeId} />
-          </div>
-          <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
-            綁定型別資料：<code>typedData:siteInfo:main</code>
-          </p>
+        <CollapsibleSection
+          storageKey="wb.appSettings.collapsed.siteInfo"
+          title="網站基本資訊"
+          titleExtra={<TypeBadge typeId={SiteInfoDataTypeId} />}
+          description={
+            <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
+              綁定型別資料：<code>typedData:siteInfo:main</code>
+            </p>
+          }
+        >
           <Field label="網站名稱（siteName）">
             <input
               style={inputStyle}
@@ -419,23 +414,18 @@ export default function AppSettingsPage() {
               onChange={(e) => setSite("publisher", e.target.value)}
             />
           </Field>
-        </section>
+        </CollapsibleSection>
 
-        <section style={panelStyle}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 4,
-            }}
-          >
-            <h2 style={{ ...panelTitleStyle, margin: 0 }}>SEO 預設</h2>
-            <TypeBadge typeId={SeoDataTypeId} />
-          </div>
-          <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
-            綁定型別資料：<code>typedData:seo:default</code>
-          </p>
+        <CollapsibleSection
+          storageKey="wb.appSettings.collapsed.seo"
+          title="SEO 預設"
+          titleExtra={<TypeBadge typeId={SeoDataTypeId} />}
+          description={
+            <p style={{ fontSize: 12, color: "#888", marginTop: 0 }}>
+              綁定型別資料：<code>typedData:seo:default</code>
+            </p>
+          }
+        >
           <Field label="預設標題（title）">
             <input
               style={inputStyle}
@@ -511,7 +501,7 @@ export default function AppSettingsPage() {
               onChange={(e) => setSeoField("robots", e.target.value)}
             />
           </Field>
-        </section>
+        </CollapsibleSection>
 
         <UploadDestinationsPanel
           dests={uploadDests}
@@ -542,6 +532,106 @@ function Field({
 }
 
 // ------------------------------------------------------------
+// 可收合區塊：包住 <section style={panelStyle}> 的標題列 + 內容，
+// 標題列點擊切換展開／收合。展開狀態用 usePersistentState 記在
+// localStorage（key 由呼叫端傳入、各區塊各自獨立），重新整理頁面後
+// 維持使用者上次收合／展開的狀態，不會每次進頁面都被重置成全部展開。
+//
+// 這個頁面（App 設定）本身欄位很多、又分成「網站基本資訊 / SEO 預設 /
+// 上傳目的地」三大塊，全部展開時要滑很長一段才能找到想改的區塊，所以
+// 加上收合功能；子區塊（每個上傳目的地卡片，見 DestCardShell）也是
+// 同一套元件，收合後只留標題列（含啟用checkbox／刪除鈕），方便在目的地
+// 數量多時快速瀏覽。
+// ------------------------------------------------------------
+
+function CollapsibleSection({
+  storageKey,
+  defaultExpanded = true,
+  title,
+  titleExtra,
+  headerExtra,
+  description,
+  children,
+}: {
+  /** localStorage key，決定這個區塊的展開狀態要記在哪裡；同一頁面內每個區塊要用不同的 key。 */
+  storageKey: string;
+  /** 第一次造訪（localStorage 裡還沒有值）時的預設展開狀態。 */
+  defaultExpanded?: boolean;
+  /** 標題列文字。 */
+  title: string;
+  /** 緊接在標題文字後方的小型內容（例如 TypeBadge），跟標題同一行、同樣可點擊觸發收合。 */
+  titleExtra?: React.ReactNode;
+  /** 標題列最右側的內容（例如「已啟用數量」徽章），不觸發收合，可放獨立的互動元素。 */
+  headerExtra?: React.ReactNode;
+  /** 標題列下方的說明文字，只在展開時顯示。 */
+  description?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = usePersistentState<boolean>(storageKey, defaultExpanded);
+
+  return (
+    <section style={panelStyle}>
+      <div style={collapsibleHeaderRowStyle}>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          style={collapsibleTitleBtnStyle}
+          aria-expanded={expanded}
+          title={expanded ? "收合" : "展開"}
+        >
+          <span
+            style={{
+              ...collapsibleChevronStyle,
+              transform: expanded ? "rotate(90deg)" : "none",
+            }}
+          >
+            ▶
+          </span>
+          <h2 style={{ ...panelTitleStyle, margin: 0 }}>{title}</h2>
+          {titleExtra}
+        </button>
+        {headerExtra}
+      </div>
+      {expanded && (
+        <>
+          {description}
+          {children}
+        </>
+      )}
+    </section>
+  );
+}
+
+const collapsibleHeaderRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const collapsibleTitleBtnStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  background: "transparent",
+  border: "none",
+  padding: 0,
+  margin: 0,
+  cursor: "pointer",
+  color: "inherit",
+  textAlign: "left",
+};
+
+const collapsibleChevronStyle: React.CSSProperties = {
+  display: "inline-block",
+  fontSize: 10,
+  color: "#888",
+  transition: "transform 120ms",
+  flexShrink: 0,
+};
+
+// ------------------------------------------------------------
 // 上傳目的地設定區塊
 // ------------------------------------------------------------
 
@@ -561,27 +651,22 @@ function UploadDestinationsPanel({
   const enabledCount = dests.filter((d) => d.enabled).length;
 
   return (
-    <section style={panelStyle}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginBottom: 4,
-          flexWrap: "wrap",
-        }}
-      >
-        <h2 style={{ ...panelTitleStyle, margin: 0 }}>上傳目的地</h2>
+    <CollapsibleSection
+      storageKey="wb.appSettings.collapsed.uploadDests"
+      title="上傳目的地"
+      headerExtra={
         <span style={countBadgeStyle}>
           {enabledCount} / {dests.length} 已啟用
         </span>
-      </div>
-      <p style={{ fontSize: 12, color: "#888", marginTop: 0, marginBottom: 12 }}>
-        設定檔案要上傳到哪裡，可勾選多個同時啟用（例如同時存本機備份 + 上傳到
-        S3）。S3 類型可自訂 endpoint，因此相容 MinIO、Cloudflare R2、Backblaze
-        B2 等任何 S3 相容節點，不限定 AWS 官方。
-      </p>
-
+      }
+      description={
+        <p style={{ fontSize: 12, color: "#888", marginTop: 0, marginBottom: 12 }}>
+          設定檔案要上傳到哪裡，可勾選多個同時啟用（例如同時存本機備份 + 上傳到
+          S3）。S3 類型可自訂 endpoint，因此相容 MinIO、Cloudflare R2、Backblaze
+          B2 等任何 S3 相容節點，不限定 AWS 官方。
+        </p>
+      }
+    >
       {dests.length === 0 && (
         <div style={{ fontSize: 12, color: "#777", fontStyle: "italic", padding: "8px 2px" }}>
           尚無上傳目的地，請新增至少一個。
@@ -618,7 +703,7 @@ function UploadDestinationsPanel({
           新增 S3 節點
         </button>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -637,23 +722,50 @@ function DestCardShell({
   onRemove: () => void;
   children: React.ReactNode;
 }) {
+  // 每張目的地卡片各自的收合狀態用一般 useState（不持久化）：卡片數量不固定、
+  // id 是動態產生的（見 makeLocalDest / makeS3Dest 的 `${kind}-${Date.now()}`），
+  // 若持久化成 localStorage key 會隨著新增/刪除目的地不斷累積用不到的舊 key。
+  // 預設展開，跟「上傳目的地」外層大區塊的展開/收合（會記住）分開處理即可 ——
+  // 這裡主要是給「目的地數量一多，想快速瀏覽/比對設定」的情境用。
+  const [expanded, setExpanded] = useState(true);
+
   return (
     <div style={destCardStyle}>
       <div style={destCardHeaderStyle}>
-        <label style={destEnableLabelStyle} title="啟用此目的地（可多選）">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => onToggleEnabled(e.target.checked)}
-          />
-          {icon}
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
-        </label>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          style={destCardHeaderStyle}
+          aria-expanded={expanded}
+          title={expanded ? "收合" : "展開"}
+        >
+          <span
+            style={{
+              ...collapsibleChevronStyle,
+              transform: expanded ? "rotate(90deg)" : "none",
+            }}
+          >
+            ▶
+          </span>
+          <label
+            style={destEnableLabelStyle}
+            title="啟用此目的地（可多選）"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => onToggleEnabled(e.target.checked)}
+            />
+            {icon}
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
+          </label>
+        </button>
         <button style={dangerBtnStyle} title="刪除此目的地" onClick={onRemove}>
           <Trash2 size={12} />
         </button>
       </div>
-      <div style={destCardBodyStyle}>{children}</div>
+      {expanded && <div style={destCardBodyStyle}>{children}</div>}
     </div>
   );
 }
