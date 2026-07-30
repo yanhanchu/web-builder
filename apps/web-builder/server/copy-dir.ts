@@ -2,8 +2,8 @@
 // copy-dir —— 純 Node fs 的「整個目錄覆寫複製」工具，不依賴 Vite/瀏覽器
 // 環境，可以同時被：
 //   - server/data-export-dev-plugin.ts（dev server 的 /api/data-export，
-//     負責 apps/web-builder/public/static/ <-> data/{appName}/files/ 互相
-//     覆寫同步）
+//     負責 apps/web-builder/public/{appName}/static/ <-> data/{appName}/files/
+//     互相覆寫同步）
 //   - scripts/site-generator/generate-astro.ts、generate-split-jsx.ts
 //     （站台產生器，負責 data/{appName}/files/ -> 輸出目錄旁的
 //     public/static/ 單向覆寫複製）

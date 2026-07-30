@@ -251,13 +251,23 @@ export function useFileSync(
    * FileDataSource.fileName，讓之後任何「備援同步」（performSync /
    * 全部同步）都能沿用同一個保留副檔名的檔名，不會因為改用 label／id
    * 當檔名而在 S3 相容節點上遺失副檔名。
+   *
+   * 這裡會讀既有這筆 FileDataSource 上的 preferredDestId（使用者在
+   * PreferredDestSelect 下拉選單設定過的「偏好目的地」），傳給
+   * uploadFileToAllEnabledDests 決定這次上傳完 url 該對齊哪個目的地；
+   * 新增檔案（uploadFiles）時還沒有既有的 FileDataSource、自然也就沒有
+   * 這個偏好可套用，維持原本「本機優先、其次 S3」的預設規則。
    */
   const updateExistingFile = async (
     fileId: string,
     file: File,
   ): Promise<{ url: string; mimeType?: string; size?: number; fileName?: string }> => {
-    const uploadResult = await uploadFileToAllEnabledDests(file, appName);
-    const existing = sources[fileId];
+    const existing = sources[fileId] as FileDataSource | undefined;
+    const uploadResult = await uploadFileToAllEnabledDests(
+      file,
+      appName,
+      existing?.preferredDestId,
+    );
     const updatedSource: FileDataSource = {
       ...(existing as FileDataSource),
       id: fileId,

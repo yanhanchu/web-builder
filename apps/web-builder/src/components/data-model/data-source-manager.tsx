@@ -18,7 +18,7 @@ import {
 } from '@/lib/data-model/schema';
 import { sourcesToFlatI18n } from '@/lib/data-model/i18n-flat';
 import { sourcesToFlatKind, type FlatKind } from '@/lib/data-model/flat-export';
-import type { FileDetailSyncSlot, FileRowSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
+import type { FileDetailSyncSlot, FileDestOption, FileRowSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
 import { ImportModal } from './import-modal';
 import { LocaleBar } from './locale-bar';
 import { SourceCard } from './source-card';
@@ -48,6 +48,13 @@ interface DataSourceManagerProps {
   fileRowSyncSlot?: FileRowSyncSlot;
   /** 展開的 file 卡片中，詳細資訊區塊顯示的「所有已同步節點」url 清單 */
   fileDetailSyncSlot?: FileDetailSyncSlot;
+  /**
+   * file tab 專用：目前「已啟用」的上傳目的地清單，供每筆檔案卡片內的
+   * 「偏好的上傳目的地」下拉選單使用（見 FileDataSource.preferredDestId /
+   * fields/file-fields.tsx 的 PreferredDestSelect）。只有在這個清單長度
+   * > 1 時，個別卡片才會顯示這個下拉選單；不提供時視為空陣列，一律不顯示。
+   */
+  fileDestinations?: FileDestOption[];
   /**
    * 檔案上傳（file tab 專用）：提供時，FileFields 會多顯示一顆「上傳檔案」
    * 按鈕，選好本機檔案後呼叫這個函式，回傳的 url / mimeType 直接填回草稿。
@@ -105,6 +112,7 @@ export function DataSourceManager({
   fileSyncContent,
   fileRowSyncSlot,
   fileDetailSyncSlot,
+  fileDestinations,
   onUploadFile,
   resolvePreviewUrl,
   activeKind: controlledActiveKind,
@@ -608,6 +616,7 @@ export function DataSourceManager({
                   : undefined
               }
               detailSyncSlot={activeKind === 'file' ? fileDetailSyncSlot : undefined}
+              fileDestinations={activeKind === 'file' ? fileDestinations : undefined}
             />
           ))}
         </div>

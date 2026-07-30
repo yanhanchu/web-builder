@@ -255,10 +255,16 @@ export interface UploadToAllResult {
  *      useFileSync）可以把「自動上傳當下就成功」的目的地直接標成
  *      synced，不需要使用者再手動點一次；失敗的則維持 unsynced /
  *      failed，讓使用者可以用同步鈕當「備援」重試。
+ *
+ * @param preferredDestId  對應 FileDataSource.preferredDestId：決定
+ *   「主要」結果（primary）時優先採用哪個目的地上傳成功的網址。不提供、
+ *   或該目的地這次沒有成功（未啟用／上傳失敗），一律退回預設規則
+ *   （本機優先、其次 S3、都沒有就用 OPFS 網址）。見 primary 欄位說明。
  */
 export async function uploadFileToAllEnabledDests(
   file: File,
   appName: string = DEFAULT_APP_NAME,
+  preferredDestId?: string,
 ): Promise<UploadToAllResult> {
   // 1) 一定先落地到 OPFS
   const savedOpfs = await saveFileToOpfs(file, appName, file.name);
@@ -285,8 +291,13 @@ export async function uploadFileToAllEnabledDests(
     }),
   );
 
-  // 3) 決定「主要」結果：本機優先、其次 S3，一個都沒成功就退回 OPFS
+  // 3) 決定「主要」結果：優先採用 preferredDestId 指定的目的地（如果那次
+  //    有成功），否則退回預設規則：本機優先、其次 S3，一個都沒成功就退回 OPFS
+  const preferredOk = preferredDestId
+    ? perDestination.find((d) => d.ok && d.destId === preferredDestId)
+    : undefined;
   const firstOk =
+    preferredOk ??
     perDestination.find((d) => d.ok && d.destKind === "local") ??
     perDestination.find((d) => d.ok);
 
@@ -306,8 +317,9 @@ export async function uploadFileToAllEnabledDests(
 export async function uploadFileToFirstEnabledDest(
   file: File,
   appName: string = DEFAULT_APP_NAME,
+  preferredDestId?: string,
 ): Promise<UploadResult> {
-  const result = await uploadFileToAllEnabledDests(file, appName);
+  const result = await uploadFileToAllEnabledDests(file, appName, preferredDestId);
   return result.primary;
 }
 

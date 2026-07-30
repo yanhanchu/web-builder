@@ -170,6 +170,11 @@ export default function DataManagerPage() {
                 syncMap={fileSync.syncMap}
               />
             )}
+            fileDestinations={fileSync.destinations.map((d) => ({
+              id: d.id,
+              label: d.label || d.id,
+              kind: d.kind,
+            }))}
             resolvePreviewUrl={(url) => (isOpfsUrl(url) ? resolveOpfsUrlToObjectUrl(url) : url)}
             onUploadFile={async (file, source) => {
               // 更新既有檔案（在已展開的卡片上點擊／拖放新檔案取代內容）：

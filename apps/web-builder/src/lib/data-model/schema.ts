@@ -110,6 +110,23 @@ export interface FileDataSource extends DataSourceMetaBase {
   focusX?: number;
   /** 圖片焦點 Y 座標，0~1（0 = 最上，1 = 最下），意義同 focusX。 */
   focusY?: number;
+  /**
+   * 偏好的上傳目的地 id（對應上傳目的地設定裡的 UploadDest.id）。
+   *
+   * 一個檔案可以同時自動送到「每一個」已啟用的上傳目的地（見
+   * upload-client.ts 的 uploadFileToAllEnabledDests），但 `url` 欄位
+   * 只能存一個網址、也只有一個網址會被「之後使用這筆資料的地方」
+   * （頁面渲染、匯出攤平資料…）實際引用。這個欄位就是用來決定「上傳／
+   * 更新之後，`url` 該對齊哪一個目的地」：
+   *   - 未設定（undefined）時，退回預設規則：本機優先、其次 S3、都沒有
+   *     就用 OPFS 網址（見 uploadFileToAllEnabledDests 的 primary 說明）。
+   *   - 設定了但那次上傳這個目的地失敗（或該目的地當下未啟用），一樣
+   *     退回同一套預設規則，不會讓整筆上傳因此失敗。
+   *   - 只有在「已啟用的目的地數量 > 1」時，管理介面才會顯示讓使用者
+   *     選擇這個欄位的下拉選單（只有一個目的地時沒有選擇的意義，見
+   *     fields/file-fields.tsx 的 PreferredDestSelect）。
+   */
+  preferredDestId?: string;
 }
 
 /**

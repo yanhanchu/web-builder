@@ -11,6 +11,19 @@ export type FileRowSyncSlot = (file: FileDataSource) => ReactNode;
  */
 export type FileDetailSyncSlot = (file: FileDataSource) => ReactNode;
 
+/**
+ * 供「偏好的上傳目的地」下拉選單（FileDataSource.preferredDestId）使用的
+ * 最小目的地資訊。這個型別刻意跟 app 層的 UploadDest / PublicUploadDest
+ * （定義在 src/lib/upload-client.ts、upload-destinations.ts）脫鉤 ——
+ * components/data-model 這一層是框架無關的資料管理 UI，不依賴任何跟
+ * 「上傳」這個具體實作有關的型別，只取用它渲染下拉選單需要的最小欄位。
+ */
+export interface FileDestOption {
+  id: string;
+  label: string;
+  kind: "local" | "s3";
+}
+
 /** 供「路由 → 選擇頁面」下拉選單使用的最小頁面資訊。 */
 export interface PageOption {
   id: string;

@@ -13,7 +13,7 @@
     "docs:generate": "node scripts/docs/generate-docs.mjs",
     "functions:generate": "node scripts/docs/generate-functions-docs.mjs",
     "generate:tsx": "vite-node ./scripts/site-generator/cli-split-jsx.ts --out ../../../react/src",
-    "generate:astro": "vite-node ./scripts/site-generator/cli-astro.ts --out ../../../astro/src"
+    "generate:astro": "vite-node ./scripts/site-generator/cli-astro.ts --data ../../../../data/default --out ../../../astro/src"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -49,12 +49,12 @@ export function makeLocalDest(): LocalUploadDest {
     kind: "local",
     enabled: true,
     label: "本機儲存",
-    // 空字串：直接用固定的 apps/web-builder/public/static/ 目錄本身，不再
-    // 多一層子目錄；Vite dev server 原生就會把 public/** 服務到網站根目錄，
-    // 上傳完不用額外設定就能直接用瀏覽器打開；也會自動建立目錄，不需要
-    // 手動 mkdir。填其他值（不管是相對路徑還是看起來像絕對路徑的字串）都
-    // 會被當成 public/static/ 底下的子目錄，見
-    // server/local-upload.ts 的 resolveStoragePath() 說明。
+    // 空字串：直接用這個 app 專屬的 apps/web-builder/public/<appName>/static/
+    // 目錄本身，不再多一層子目錄；Vite dev server 原生就會把 public/**
+    // 服務到網站根目錄，上傳完不用額外設定就能直接用瀏覽器打開；也會自動
+    // 建立目錄，不需要手動 mkdir。填其他值（不管是相對路徑還是看起來像
+    // 絕對路徑的字串）都會被當成 public/<appName>/static/ 底下的子路徑，見
+    // server/local-upload.ts 的 getStaticDir() / resolveStoragePath() 說明。
     storagePath: "",
     publicBaseUrl: "",
   };

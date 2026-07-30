@@ -6,7 +6,7 @@ import type {
   FileDataSource,
   InMemoryDataStore,
 } from '@/lib/data-model/schema';
-import type { FileDetailSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
+import type { FileDestOption, FileDetailSyncSlot, FilePreviewUrlResolver, PageOption } from './types';
 import { I18nFields } from './fields/i18n-fields';
 import { RouteFields } from './fields/route-fields';
 import { FileFields } from './fields/file-fields';
@@ -52,6 +52,7 @@ export function SourceCard({
   resolvePreviewUrl,
   rowSyncSlot,
   detailSyncSlot,
+  fileDestinations,
 }: {
   source: DataSource;
   sources: Record<string, DataSource>;
@@ -73,6 +74,8 @@ export function SourceCard({
   rowSyncSlot?: React.ReactNode;
   /** file 種類的詳細資訊區塊：顯示這個檔案「所有已同步節點」的 url 清單。 */
   detailSyncSlot?: FileDetailSyncSlot;
+  /** file 種類的「偏好的上傳目的地」下拉選單可選的目的地清單，見 FileFields 的說明。 */
+  fileDestinations?: FileDestOption[];
 }) {
   // 所有種類都用同一套本地草稿：使用者輸入時只改草稿，不直接寫回 sources；
   // 通過驗證、按下「儲存」才 commit 進 onChange。key（id）用獨立 state 管理，方便重新命名。
@@ -168,6 +171,7 @@ export function SourceCard({
                 setDraftId(next);
               }}
               detailSyncSlot={detailSyncSlot}
+              fileDestinations={fileDestinations}
             />
           ) : (
             <>

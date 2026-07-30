@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { DataSource, FileDataSource } from '@/lib/data-model/schema';
-import type { FileDetailSyncSlot, FilePreviewUrlResolver } from '../types';
+import type { FileDestOption, FileDetailSyncSlot, FilePreviewUrlResolver } from '../types';
 import { ImageThumb, VideoThumb, Labeled, formatBytes, inputStyle, isImageMime, isVideoMime } from '../shared';
 
 const PREVIEW_BOX_SIZE = 220;
@@ -13,6 +13,7 @@ export function FileFields({
   draftId,
   onChangeDraftId,
   detailSyncSlot,
+  fileDestinations,
 }: {
   source: FileDataSource;
   onChange: (next: DataSource) => void;
@@ -26,6 +27,13 @@ export function FileFields({
   onChangeDraftId: (next: string) => void;
   /** 由 app 層注入，顯示這個檔案「所有已同步節點」的 url 清單；不提供則不顯示這個區塊。 */
   detailSyncSlot?: FileDetailSyncSlot;
+  /**
+   * 由 app 層注入，目前「已啟用」的上傳目的地清單，供「偏好的上傳目的地」
+   * 下拉選單使用。只有在這個清單長度 > 1 時，下拉選單才會顯示 ——
+   * 只有一個（或沒有）目的地時，url 要對齊哪個目的地沒有選擇的意義。
+   * 不提供時視為空陣列，下拉選單不顯示。
+   */
+  fileDestinations?: FileDestOption[];
 }) {
   return (
     <div style={fileFieldsLayoutStyle}>
@@ -55,6 +63,14 @@ export function FileFields({
             style={inputStyle}
           />
         </Labeled>
+
+        {fileDestinations && fileDestinations.length > 1 && (
+          <PreferredDestSelect
+            value={source.preferredDestId}
+            destinations={fileDestinations}
+            onChange={(destId) => onChange({ ...source, preferredDestId: destId })}
+          />
+        )}
 
         <Labeled label="caption（標題／圖說，可選）">
           <input
@@ -361,6 +377,44 @@ function FilePreviewDropZone({
 /** 把數值夾在 [0, 1] 區間內，避免點擊在框線上時因為浮點誤差跑出範圍。 */
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * 「偏好的上傳目的地」下拉選單：只在有多個已啟用目的地時（呼叫端已過濾，
+ * 見 FileFields 裡的 `fileDestinations.length > 1` 判斷）才會被渲染。
+ *
+ * 選了之後只是把 preferredDestId 寫回草稿，實際生效的時機是「下一次
+ * 上傳／更新這個檔案」時：upload-client.ts 的 uploadFileToAllEnabledDests
+ * 會優先採用這個目的地上傳成功的結果當作 url（見該函式與
+ * FileDataSource.preferredDestId 的說明）。選好之後、還沒有重新上傳前，
+ * 目前的 url 不會因為改變這個選項而跟著變動。
+ */
+function PreferredDestSelect({
+  value,
+  destinations,
+  onChange,
+}: {
+  value: string | undefined;
+  destinations: FileDestOption[];
+  onChange: (destId: string | undefined) => void;
+}) {
+  return (
+    <Labeled label="偏好的上傳目的地（可選）">
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        style={inputStyle}
+        title="上傳／更新這個檔案時，優先採用哪個目的地的網址當作 url；未選擇則自動退回本機優先、其次 S3 的預設規則"
+      >
+        <option value="">（自動：本機優先，其次 S3）</option>
+        {destinations.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.label || d.id}（{d.kind === 's3' ? 'S3' : '本機'}）
+          </option>
+        ))}
+      </select>
+    </Labeled>
+  );
 }
 
 /** 唯讀的單行資訊列（mimeType / size / uploadedAt），這些欄位一律由上傳流程自動填入。 */
