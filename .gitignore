@@ -1,34 +1,22 @@
 node_modules/
 dist/
 apps/web-builder/.data/
-apps/web-builder/public/uploads/*
-!apps/web-builder/public/uploads/.gitkeep
+apps/web-builder/public/static/*
+!apps/web-builder/public/static/.gitkeep
 .env.local
 .env.*.local
 .env.*
 .turbo/
 .vite/
 .astro
-
-
+apps/astro/src/pages
+apps/astro/src/data
+apps/react/src/pages
+apps/react/src/data
 archive/
 *.zip
-*.webp
-*.png
-*.jpg
 
 
-packages/server/
-packages/browser/src/db/*
-packages/browser/src/google/*
-packages/browser/src/s3/*
-packages/browser/src/worker/*
-packages/browser/drizzle.config.ts
-
-apps/astro/
-apps/react/
-apps/web-builder
-#data
 
 
 
