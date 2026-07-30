@@ -3,74 +3,607 @@
   "name": "首頁",
   "status": "published",
   "seo": {
-    "title": "首頁",
-    "titleTemplate": "%s | Web Builder",
-    "description": "網站首頁",
-    "keywords": "web, builder, cms",
-    "ogImage": "/og-image.png",
+    "title": "Text to Mind Map — Convert text into structured mind maps",
+    "titleTemplate": "%s",
+    "description": "Turn structured text into mind maps with a keyboard-friendly editor, flexible layouts, rich node details and export options.",
+    "keywords": "mind map, text to mind map, outline editor, mind mapping tool",
+    "ogImage": "/og-default.webp",
     "ogType": "website",
     "twitterCard": "summary_large_image",
-    "twitterSite": "@webbuilder",
+    "twitterSite": "",
     "canonicalUrl": "",
     "robots": "index, follow"
   },
+  "styleSheetIds": [
+    "global"
+  ],
   "blocks": [
     {
       "kind": "sharedBlockRef",
-      "instanceId": "blk_l3d01njq",
-      "ref": "shared_9gpawd",
+      "instanceId": "blk_home_layout",
+      "ref": "shared_layout01",
       "slotOverrides": {
         "children": {
           "__slot": true,
           "blocks": [
             {
-              "instanceId": "blk_sydn4ljd",
-              "componentId": "src/components/landing1/theme-toggle.tsx#ThemeToggle",
-              "componentName": "ThemeToggle",
+              "instanceId": "blk_home_hero",
+              "componentId": "src/components/landing1/product-hero.tsx#ProductHero",
+              "componentName": "ProductHero",
               "props": {
-                "groupLabel": "Theme",
-                "options": [
+                "eyebrow": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.hero.eyebrow"
+                },
+                "title": {
+                  "lead": {
+                    "mode": "bound",
+                    "sourceId": "i18n:t2m.hero.title.lead"
+                  },
+                  "accent": {
+                    "mode": "bound",
+                    "sourceId": "i18n:t2m.hero.title.accent"
+                  }
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.hero.subtitle"
+                },
+                "primaryCtaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.hero.primaryCta"
+                },
+                "primaryCtaHref": "/app",
+                "secondaryCtaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.hero.secondaryCta"
+                },
+                "secondaryCtaHref": "#quick-start",
+                "note": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.hero.note"
+                },
+                "stats": [
                   {
-                    "value": "light",
-                    "label": "Light"
+                    "value": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.0.value"
+                    },
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.0.label"
+                    }
                   },
                   {
-                    "value": "dark",
-                    "label": "Dark"
+                    "value": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.1.value"
+                    },
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.1.label"
+                    }
                   },
                   {
-                    "value": "system",
-                    "label": "System"
+                    "value": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.2.value"
+                    },
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.hero.stat.2.label"
+                    }
+                  }
+                ],
+                "image": {
+                  "src": {
+                    "mode": "bound",
+                    "sourceId": "file:t2m-editor-shot"
+                  },
+                  "alt": "App screenshot showing the Text to Mind Map editor with a mind map diagram.",
+                  "width": 1440,
+                  "height": 875
+                }
+              }
+            },
+            {
+              "instanceId": "blk_home_trust",
+              "componentId": "src/components/landing1/trust-section.tsx#TrustSection",
+              "componentName": "TrustSection",
+              "props": {
+                "eyebrowLabel": "Privacy",
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.trust.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.trust.body"
+                },
+                "points": [
+                  {
+                    "icon": "Lock",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.0.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.0.body"
+                    }
+                  },
+                  {
+                    "icon": "CloudOff",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.1.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.1.body"
+                    }
+                  },
+                  {
+                    "icon": "ShieldCheck",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.2.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.trust.points.2.body"
+                    }
                   }
                 ]
               }
             },
             {
-              "instanceId": "blk_lsp9j0a7",
-              "componentId": "src/components/landing1/contact-card.tsx#ContactCard",
-              "componentName": "ContactCard",
+              "instanceId": "blk_home_corevalue",
+              "componentId": "src/components/landing1/core-value-section.tsx#CoreValueSection",
+              "componentName": "CoreValueSection",
               "props": {
-                "title": "Get in touch",
-                "intro": "Have a question or a project in mind? We'd love to hear from you.",
-                "email": "hello@example.com",
-                "topicsTitle": "What can we help with?",
-                "topics": [
-                  "Sales",
-                  "Support",
-                  "Partnerships",
-                  "Press"
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.coreValue.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.coreValue.body"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_home_showcase",
+              "componentId": "src/components/landing1/showcase-section.tsx#ShowcaseSection",
+              "componentName": "ShowcaseSection",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.showcase.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.showcase.subtitle"
+                },
+                "previewLabel": "Preview",
+                "caption": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.showcase.shot1.caption"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.showcase.shot1.body"
+                },
+                "ctaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.showcase.ctaLabel"
+                },
+                "ctaHref": "/app",
+                "image": {
+                  "src": {
+                    "mode": "bound",
+                    "sourceId": "file:t2m-editor-shot"
+                  },
+                  "alt": "Text to Mind Map editor and live map view",
+                  "width": 1440,
+                  "height": 875
+                }
+              }
+            },
+            {
+              "instanceId": "blk_home_features",
+              "componentId": "src/components/landing1/feature-grid.tsx#FeatureGrid",
+              "componentName": "FeatureGrid",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.features.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.features.subtitle"
+                },
+                "items": [
+                  {
+                    "icon": "Keyboard",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.0.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.0.body"
+                    }
+                  },
+                  {
+                    "icon": "FileText",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.1.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.1.body"
+                    }
+                  },
+                  {
+                    "icon": "LayoutGrid",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.2.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.2.body"
+                    }
+                  },
+                  {
+                    "icon": "MousePointer2",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.3.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.3.body"
+                    }
+                  },
+                  {
+                    "icon": "Palette",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.4.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.4.body"
+                    }
+                  },
+                  {
+                    "icon": "FolderKanban",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.5.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.5.body"
+                    }
+                  },
+                  {
+                    "icon": "Download",
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.6.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.features.items.6.body"
+                    }
+                  }
                 ]
               }
+            },
+            {
+              "instanceId": "blk_home_usecases",
+              "componentId": "src/components/landing1/product-use-cases.tsx#ProductUseCases",
+              "componentName": "ProductUseCases",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.useCases.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.useCases.subtitle"
+                },
+                "groups": [
+                  {
+                    "emoji": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.0.emoji"
+                    },
+                    "audience": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.0.audience"
+                    },
+                    "items": [
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.0.items.0.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.0.items.0.body"
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.0.items.1.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.0.items.1.body"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.1.emoji"
+                    },
+                    "audience": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.1.audience"
+                    },
+                    "items": [
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.1.items.0.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.1.items.0.body"
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.1.items.1.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.1.items.1.body"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.2.emoji"
+                    },
+                    "audience": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.useCases.groups.2.audience"
+                    },
+                    "items": [
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.2.items.0.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.2.items.0.body"
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.2.items.1.title"
+                        },
+                        "body": {
+                          "mode": "bound",
+                          "sourceId": "i18n:t2m.useCases.groups.2.items.1.body"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_home_quickstart",
+              "componentId": "src/components/landing1/quick-start-steps.tsx#QuickStartSteps",
+              "componentName": "QuickStartSteps",
+              "props": {
+                "anchorId": "quick-start",
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.quickStart.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.quickStart.subtitle"
+                },
+                "steps": [
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.0.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.0.body"
+                    }
+                  },
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.1.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.1.body"
+                    }
+                  },
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.2.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.2.body"
+                    }
+                  },
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.3.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.3.body"
+                    }
+                  },
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.4.title"
+                    },
+                    "body": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.quickStart.steps.4.body"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_home_faq",
+              "componentId": "src/components/landing1/product-faq.tsx#ProductFaq",
+              "componentName": "ProductFaq",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.faq.title"
+                },
+                "items": [
+                  {
+                    "question": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.0.question"
+                    },
+                    "answer": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.0.answer"
+                    }
+                  },
+                  {
+                    "question": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.1.question"
+                    },
+                    "answer": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.1.answer"
+                    }
+                  },
+                  {
+                    "question": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.2.question"
+                    },
+                    "answer": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.2.answer"
+                    }
+                  },
+                  {
+                    "question": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.3.question"
+                    },
+                    "answer": {
+                      "mode": "bound",
+                      "sourceId": "i18n:t2m.faq.items.3.answer"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_home_closing",
+              "componentId": "src/components/landing1/product-closing.tsx#ProductClosing",
+              "componentName": "ProductClosing",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.closing.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.closing.body"
+                },
+                "primaryCtaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.closing.primaryCta"
+                },
+                "primaryCtaHref": "/app",
+                "secondaryCtaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:t2m.closing.secondaryCta"
+                },
+                "secondaryCtaHref": "/contact"
+              }
+            },
+            {
+              "instanceId": "blk_home_relatednav",
+              "componentId": "src/components/landing1/related-nav.tsx#RelatedNav",
+              "componentName": "RelatedNav",
+              "props": {
+                "ariaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:relatedNav.ariaLabel"
+                },
+                "links": {
+                  "mode": "bound",
+                  "sourceId": "typedData:relatedNav:links"
+                },
+                "current": "/"
+              }
+            },
+            {
+              "instanceId": "blk_home_cookie",
+              "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+              "componentName": "CookieConsent",
+              "props": {
+                "storageKey": "txt2map:cookie-consent",
+                "title": "We respect your privacy",
+                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+                "privacyLinkLabel": "Privacy Policy",
+                "privacyLinkHref": "/privacy",
+                "necessaryLabel": "Strictly necessary",
+                "necessaryDescription": "— required for the site to function. Always on.",
+                "analyticsLabel": "Anonymous analytics",
+                "analyticsDescription": "— helps us understand which pages are useful.",
+                "acceptAllLabel": "Accept all",
+                "rejectLabel": "Reject non-essential",
+                "customiseLabel": "Customise",
+                "saveLabel": "Save choices",
+                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+              },
+              "clientDirective": "load"
             }
           ]
         }
       }
-    },
-    {
-      "kind": "sharedBlockRef",
-      "instanceId": "blk_mlpp2g4j",
-      "ref": "shared_gg9ekr",
-      "slotOverrides": {}
     }
   ]
 }

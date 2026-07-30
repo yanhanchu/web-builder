@@ -1,0 +1,479 @@
+{
+  "id": "shortcuts",
+  "name": "Shortcuts",
+  "status": "published",
+  "seo": {
+    "title": "Keyboard Shortcuts & Quick Commands — Text to Mind Map",
+    "titleTemplate": "%s",
+    "description": "Full reference of keyboard shortcuts for the text editor and mind map view, the quick command list for setting node text, colour, links and images, and how Google Drive sync works.",
+    "keywords": "text to mind map",
+    "ogImage": "/og-default.webp",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "styleSheetIds": [
+    "global"
+  ],
+  "blocks": [
+    {
+      "kind": "sharedBlockRef",
+      "instanceId": "blk_shortcuts_layout",
+      "ref": "shared_layout01",
+      "slotOverrides": {
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_shortcuts_relatednav",
+              "componentId": "src/components/landing1/related-nav.tsx#RelatedNav",
+              "componentName": "RelatedNav",
+              "props": {
+                "ariaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:relatedNav.ariaLabel"
+                },
+                "links": {
+                  "mode": "bound",
+                  "sourceId": "typedData:relatedNav:links"
+                },
+                "current": "/shortcuts"
+              }
+            },
+            {
+              "instanceId": "blk_shortcuts_hero",
+              "componentId": "src/components/landing1/resource-page-hero.tsx#ResourcePageHero",
+              "componentName": "ResourcePageHero",
+              "props": {
+                "eyebrow": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.hero.eyebrow"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.hero.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.hero.subtitle"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_shortcuts_table",
+              "componentId": "src/components/landing1/shortcut-table.tsx#ShortcutTable",
+              "componentName": "ShortcutTable",
+              "props": {
+                "groups": [
+                  {
+                    "title": {
+                      "mode": "literal",
+                      "value": "Editing the outline"
+                    },
+                    "rows": [
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Enter"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Create a new sibling node at the current indentation level"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Tab"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Indent the current line, turning it into a child of the node above"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Shift + Tab"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Outdent the current line, moving it up one level"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Alt/Option + ↑"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Move the current node (and its children) up among its siblings"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Alt/Option + ↓"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Move the current node (and its children) down among its siblings"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "` / @ / # / ~"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Open the quick command menu on the current line (configurable trigger key)"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "title": {
+                      "mode": "literal",
+                      "value": "Working with the map view"
+                    },
+                    "rows": [
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Scroll wheel"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Zoom the map in or out"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "+ / − (view controls)"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Zoom in or out using the on-screen buttons"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Centre button"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Recentre the view on the current map"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Click a node"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Show the quick toolbar for text colour and node background colour"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Double-click a node"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Open the node's detail panel (title, URL, notes, tags)"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Drag a node"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Freely reposition the node within the map"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "+ button on a node"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Add a new child node"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "> button on a node"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Collapse or expand the node's subtree"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "title": {
+                      "mode": "literal",
+                      "value": "Diagrams & workspace"
+                    },
+                    "rows": [
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "New tab (top-right of editor)"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Add another diagram alongside the current one"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Double-click a diagram tab"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Rename that diagram"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "× on a tab"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Delete a diagram (shown once more than one diagram exists)"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Collapse-panel button"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Hide the left-hand code editor panel for a larger map view"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "title": {
+                      "mode": "literal",
+                      "value": "Sync & backup"
+                    },
+                    "rows": [
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Sync icon (left of theme toggle)"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Open the Google Drive sync menu"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Sign in with Google"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Connect your Google account to enable sync"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Push"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Save the current workspace to your private Google Drive app-data folder"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Pull"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Restore the most recently saved workspace from Google Drive"
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "Auto sync toggle"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Automatically push changes in the background while signed in"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_shortcuts_quickcmd",
+              "componentId": "src/components/landing1/shortcut-table.tsx#ShortcutTable",
+              "componentName": "ShortcutTable",
+              "props": {
+                "groups": [
+                  {
+                    "title": {
+                      "mode": "bound",
+                      "sourceId": "i18n:shortcuts.quickCommandsTitle"
+                    },
+                    "rows": [
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "text"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Set the node's plain text label."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "markdown"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Set the node's text using markdown formatting."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "url"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Attach a URL to the node."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "image / img"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Set an image URL shown in the node's detail view."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "color"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Set the node's colour."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "tag"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Apply a colour-coded tag to the node."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "shining"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Toggle a shining/glow effect on the node."
+                        }
+                      },
+                      {
+                        "keys": {
+                          "mode": "literal",
+                          "value": "jump"
+                        },
+                        "action": {
+                          "mode": "literal",
+                          "value": "Toggle a jumping animation on the node."
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_shortcuts_closing",
+              "componentId": "src/components/landing1/resource-page-closing.tsx#ResourcePageClosing",
+              "componentName": "ResourcePageClosing",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.closing.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.closing.body"
+                },
+                "ctaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:shortcuts.closing.cta"
+                },
+                "ctaHref": "/app"
+              }
+            },
+            {
+              "instanceId": "blk_shortcuts_cookie",
+              "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+              "componentName": "CookieConsent",
+              "props": {
+                "storageKey": "txt2map:cookie-consent",
+                "title": "We respect your privacy",
+                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+                "privacyLinkLabel": "Privacy Policy",
+                "privacyLinkHref": "/privacy",
+                "necessaryLabel": "Strictly necessary",
+                "necessaryDescription": "— required for the site to function. Always on.",
+                "analyticsLabel": "Anonymous analytics",
+                "analyticsDescription": "— helps us understand which pages are useful.",
+                "acceptAllLabel": "Accept all",
+                "rejectLabel": "Reject non-essential",
+                "customiseLabel": "Customise",
+                "saveLabel": "Save choices",
+                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+              },
+              "clientDirective": "load"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

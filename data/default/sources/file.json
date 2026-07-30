@@ -1,9 +1,15 @@
 {
-  "upload-1": {
-    "label": "gradient-output-0.5x.webp",
-    "url": "http://localhost:5173/test/static/1785374981464-ea7dbea0b499.webp",
-    "mimeType": "image/webp",
-    "size": 98622,
-    "fileName": "1785374981418-6051e2dd.webp"
+  "logo-main": {
+    "label": "檔案: Text to Mind Map Logo",
+    "url": "https://txt2map.com/logo.svg"
+  },
+  "t2m-editor-shot": {
+    "label": "檔案: 編輯器截圖 (t2m-editor)",
+    "url": "https://txt2map.com/t2m-editor.webp",
+    "caption": "Text to Mind Map editor and live map view"
+  },
+  "og-default": {
+    "label": "檔案: 預設 OG 圖片",
+    "url": "https://txt2map.com/og-default.webp"
   }
 }

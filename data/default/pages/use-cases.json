@@ -1,0 +1,330 @@
+{
+  "id": "use-cases",
+  "name": "Use cases",
+  "status": "published",
+  "seo": {
+    "title": "Mind Mapping Use Cases — Study, Planning, Brainstorming & More",
+    "titleTemplate": "%s",
+    "description": "See how a text-based mind map tool fits study notes, project planning, brainstorming, content outlines, technical documentation, and multi-device workflows backed up with Google Drive.",
+    "keywords": "text to mind map",
+    "ogImage": "/og-default.webp",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "styleSheetIds": [
+    "global"
+  ],
+  "blocks": [
+    {
+      "kind": "sharedBlockRef",
+      "instanceId": "blk_use-cases_layout",
+      "ref": "shared_layout01",
+      "slotOverrides": {
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_use-cases_relatednav",
+              "componentId": "src/components/landing1/related-nav.tsx#RelatedNav",
+              "componentName": "RelatedNav",
+              "props": {
+                "ariaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:relatedNav.ariaLabel"
+                },
+                "links": {
+                  "mode": "bound",
+                  "sourceId": "typedData:relatedNav:links"
+                },
+                "current": "/use-cases"
+              }
+            },
+            {
+              "instanceId": "blk_usecases_hero",
+              "componentId": "src/components/landing1/resource-page-hero.tsx#ResourcePageHero",
+              "componentName": "ResourcePageHero",
+              "props": {
+                "eyebrow": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.hero.eyebrow"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.hero.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.hero.subtitle"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_usecases_groups",
+              "componentId": "src/components/landing1/use-case-groups.tsx#UseCaseGroups",
+              "componentName": "UseCaseGroups",
+              "props": {
+                "groups": [
+                  {
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "📝"
+                    },
+                    "audience": {
+                      "mode": "literal",
+                      "value": "Students & lifelong learners"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Turning linear notes into a structure that's easier to review and compare at a glance."
+                    },
+                    "scenarios": [
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Lecture and reading notes"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Take notes as an outline during a lecture or while reading, then let the indentation become the map's hierarchy — main topic, sub-topics, supporting detail."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Essay and assignment planning"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Draft an argument as nested points — thesis, supporting arguments, evidence, counter-points — and rearrange them until the structure holds together before you start writing prose."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Exam revision"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Condense a topic into a single map that shows how sub-topics relate, making it easier to spot gaps than scrolling through pages of notes."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "🗂️"
+                    },
+                    "audience": {
+                      "mode": "literal",
+                      "value": "Project & product planning"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Getting a shared, visual view of scope, structure, and open questions without a heavyweight planning tool."
+                    },
+                    "scenarios": [
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Project scoping"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "List requirements as nested bullet points, group them by theme through indentation, and export the result as a reference during kickoff discussions."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Roadmap and feature breakdown"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Break a feature area into smaller, more concrete pieces of work as child nodes, then reorder priorities with Alt + Up/Down as scope changes."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Meeting and decision notes"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Capture discussion points live as an outline, then tidy the structure afterwards into a map worth referring back to."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "💡"
+                    },
+                    "audience": {
+                      "mode": "literal",
+                      "value": "Brainstorming & ideation"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Getting ideas down quickly, without the friction of placing and connecting shapes on a canvas."
+                    },
+                    "scenarios": [
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Open-ended brainstorms"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Type ideas as fast as they come, using Enter for new ideas and Tab to nest related ones — sorting can happen afterwards, not while you're still generating ideas."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Naming and concept exploration"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "List variations under a shared root, tag the strongest candidates with the quick command menu, and colour-code by theme to compare options visually."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "💻"
+                    },
+                    "audience": {
+                      "mode": "literal",
+                      "value": "Technical & content work"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Mapping structure that already exists — in a codebase, a content plan, or a knowledge base — so it's easier to reason about."
+                    },
+                    "scenarios": [
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "System and flow diagrams"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Represent code structures, API endpoints, or user journeys as nested nodes, and switch to a tree layout when the content is naturally hierarchical."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Content and documentation planning"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Outline pillars, sub-pages, and supporting notes for a piece of content or a documentation set, attaching reference URLs directly to the relevant node."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Knowledge bases and reference maps"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Organise concepts, related decisions, and cross-references as a single visual map that's faster to scan than a folder of documents."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "🔄"
+                    },
+                    "audience": {
+                      "mode": "literal",
+                      "value": "Multi-device & backed-up workflows"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Picking up the same map on a different computer, or simply making sure a long-running project has a backup."
+                    },
+                    "scenarios": [
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Switching between work and home"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Push a workspace to Google Drive at the end of a session, then pull it down on another computer to carry on exactly where you left off."
+                        }
+                      },
+                      {
+                        "title": {
+                          "mode": "literal",
+                          "value": "Long-running planning documents"
+                        },
+                        "body": {
+                          "mode": "literal",
+                          "value": "Turn on auto sync for maps you update regularly, so a recent backup always exists in your own Drive without having to remember to export one."
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_usecases_closing",
+              "componentId": "src/components/landing1/resource-page-closing.tsx#ResourcePageClosing",
+              "componentName": "ResourcePageClosing",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.closing.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.closing.body"
+                },
+                "ctaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:useCases.closing.cta"
+                },
+                "ctaHref": "/app"
+              }
+            },
+            {
+              "instanceId": "blk_usecases_cookie",
+              "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+              "componentName": "CookieConsent",
+              "props": {
+                "storageKey": "txt2map:cookie-consent",
+                "title": "We respect your privacy",
+                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+                "privacyLinkLabel": "Privacy Policy",
+                "privacyLinkHref": "/privacy",
+                "necessaryLabel": "Strictly necessary",
+                "necessaryDescription": "— required for the site to function. Always on.",
+                "analyticsLabel": "Anonymous analytics",
+                "analyticsDescription": "— helps us understand which pages are useful.",
+                "acceptAllLabel": "Accept all",
+                "rejectLabel": "Reject non-essential",
+                "customiseLabel": "Customise",
+                "saveLabel": "Save choices",
+                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+              },
+              "clientDirective": "load"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "id": "contact",
+  "name": "聯絡",
+  "status": "published",
+  "seo": {
+    "title": "Contact",
+    "titleTemplate": "%s — Text to Mind Map",
+    "description": "For questions, feedback or general enquiries, please get in touch by email.",
+    "keywords": "contact, support, text to mind map",
+    "ogImage": "/og-default.webp",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "styleSheetIds": ["global"],
+  "blocks": [
+    {
+      "kind": "sharedBlockRef",
+      "instanceId": "blk_contact_layout",
+      "ref": "shared_layout01",
+      "slotOverrides": {
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_contact_form",
+              "componentId": "src/components/landing1/contact-form.tsx#ContactForm",
+              "componentName": "ContactForm",
+              "props": {
+                "title": { "mode": "bound", "sourceId": "i18n:contact.title" },
+                "intro": { "mode": "bound", "sourceId": "i18n:contact.intro" },
+                "email": { "mode": "bound", "sourceId": "i18n:contact.email" },
+                "topicsTitle": { "mode": "bound", "sourceId": "i18n:contact.topicsTitle" },
+                "topics": [
+                  { "mode": "bound", "sourceId": "i18n:contact.topics.0" },
+                  { "mode": "bound", "sourceId": "i18n:contact.topics.1" },
+                  { "mode": "bound", "sourceId": "i18n:contact.topics.2" },
+                  { "mode": "bound", "sourceId": "i18n:contact.topics.3" }
+                ],
+                "namePlaceholder": { "mode": "bound", "sourceId": "i18n:contact.namePlaceholder" },
+                "emailPlaceholder": { "mode": "bound", "sourceId": "i18n:contact.emailPlaceholder" },
+                "messagePlaceholder": { "mode": "bound", "sourceId": "i18n:contact.messagePlaceholder" },
+                "submitLabel": { "mode": "bound", "sourceId": "i18n:contact.sendLabel" },
+                "submitPendingLabel": { "mode": "bound", "sourceId": "i18n:contact.sendingLabel" },
+                "successMessage": { "mode": "bound", "sourceId": "i18n:contact.success" },
+                "genericErrorMessage": "Something went wrong.",
+                "errorFallbackPrefix": "You can also reach us directly at",
+                "apiKey": "",
+                "submitSubject": "New message from Contact",
+                "endpoint": "https://api.staticforms.dev/submit"
+              },
+              "clientDirective": "load"
+            },
+            {
+              "instanceId": "blk_contact_cookie",
+              "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+              "componentName": "CookieConsent",
+              "props": {
+                "storageKey": "txt2map:cookie-consent",
+                "title": "We respect your privacy",
+                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+                "privacyLinkLabel": "Privacy Policy",
+                "privacyLinkHref": "/privacy",
+                "necessaryLabel": "Strictly necessary",
+                "necessaryDescription": "— required for the site to function. Always on.",
+                "analyticsLabel": "Anonymous analytics",
+                "analyticsDescription": "— helps us understand which pages are useful.",
+                "acceptAllLabel": "Accept all",
+                "rejectLabel": "Reject non-essential",
+                "customiseLabel": "Customise",
+                "saveLabel": "Save choices",
+                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+              },
+              "clientDirective": "load"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

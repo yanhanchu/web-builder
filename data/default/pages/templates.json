@@ -1,0 +1,340 @@
+{
+  "id": "templates",
+  "name": "Templates",
+  "status": "published",
+  "seo": {
+    "title": "Free Mind Map Templates & Examples — Copy, Paste, Customise",
+    "titleTemplate": "%s",
+    "description": "Ready-to-use mind map templates for study notes, project planning, SWOT analysis, brainstorming, meeting notes and content outlines. Paste one in and start editing.",
+    "keywords": "text to mind map",
+    "ogImage": "/og-default.webp",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "",
+    "canonicalUrl": "",
+    "robots": "index, follow"
+  },
+  "styleSheetIds": [
+    "global"
+  ],
+  "blocks": [
+    {
+      "kind": "sharedBlockRef",
+      "instanceId": "blk_templates_layout",
+      "ref": "shared_layout01",
+      "slotOverrides": {
+        "children": {
+          "__slot": true,
+          "blocks": [
+            {
+              "instanceId": "blk_templates_relatednav",
+              "componentId": "src/components/landing1/related-nav.tsx#RelatedNav",
+              "componentName": "RelatedNav",
+              "props": {
+                "ariaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:relatedNav.ariaLabel"
+                },
+                "links": {
+                  "mode": "bound",
+                  "sourceId": "typedData:relatedNav:links"
+                },
+                "current": "/templates"
+              }
+            },
+            {
+              "instanceId": "blk_templates_hero",
+              "componentId": "src/components/landing1/resource-page-hero.tsx#ResourcePageHero",
+              "componentName": "ResourcePageHero",
+              "props": {
+                "eyebrow": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.hero.eyebrow"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.hero.title"
+                },
+                "subtitle": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.hero.subtitle"
+                },
+                "intro": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.intro"
+                }
+              }
+            },
+            {
+              "instanceId": "blk_templates_grid",
+              "componentId": "src/components/landing1/outline-template-grid.tsx#OutlineTemplateGrid",
+              "componentName": "OutlineTemplateGrid",
+              "props": {
+                "templates": [
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "study-notes"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "📚"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "Study & revision notes"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "A subject broken into topics, sub-topics and key facts, ready for exam revision."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Students condensing a chapter, unit or lecture into one reviewable map."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Subject / Topic\n\tKey concept 1\n\t\tDefinition\n\t\tExample\n\t\tCommon mistake\n\tKey concept 2\n\t\tDefinition\n\t\tExample\n\tFormulas / facts to memorise\n\t\tItem 1\n\t\tItem 2\n\tPractice questions to revisit"
+                    }
+                  },
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "project-plan"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "🗂️"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "Project planning"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Scope, milestones, owners and risks laid out as a single structured overview."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Kicking off a project and getting a shared view of scope before work begins."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Project name\n\tGoals\n\t\tPrimary goal\n\t\tSuccess metric\n\tScope\n\t\tIn scope\n\t\tOut of scope\n\tMilestones\n\t\tMilestone 1 — date\n\t\tMilestone 2 — date\n\tOwners\n\t\tName — responsibility\n\tRisks & open questions\n\t\tRisk 1\n\t\tQuestion 1"
+                    }
+                  },
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "swot-analysis"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "⚖️"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "SWOT analysis"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "The four SWOT quadrants as branches, each with room for supporting detail."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Evaluating a business, product or decision from four angles at a glance."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Decision or subject\n\tStrengths\n\t\tStrength 1\n\t\tStrength 2\n\tWeaknesses\n\t\tWeakness 1\n\t\tWeakness 2\n\tOpportunities\n\t\tOpportunity 1\n\t\tOpportunity 2\n\tThreats\n\t\tThreat 1\n\t\tThreat 2"
+                    }
+                  },
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "brainstorm"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "💡"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "Open brainstorm"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "A loose structure for capturing ideas fast, sorted into rough themes afterwards."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Early-stage idea generation where speed matters more than structure."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Central question or prompt\n\tTheme A\n\t\tIdea\n\t\tIdea\n\tTheme B\n\t\tIdea\n\t\tIdea\n\tTheme C\n\t\tIdea\n\tParking lot (unsorted ideas)\n\t\tIdea\n\t\tIdea"
+                    }
+                  },
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "meeting-notes"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "📝"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "Meeting notes & decisions"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "Agenda items, discussion points and decisions captured live during a call."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Turning a meeting into a scannable record of what was decided and by whom."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Meeting — date\n\tAgenda item 1\n\t\tDiscussion point\n\t\tDecision\n\t\tAction — owner\n\tAgenda item 2\n\t\tDiscussion point\n\t\tDecision\n\t\tAction — owner\n\tOpen items for next meeting\n\t\tItem 1"
+                    }
+                  },
+                  {
+                    "slug": {
+                      "mode": "literal",
+                      "value": "content-outline"
+                    },
+                    "emoji": {
+                      "mode": "literal",
+                      "value": "✍️"
+                    },
+                    "title": {
+                      "mode": "literal",
+                      "value": "Article & content outline"
+                    },
+                    "summary": {
+                      "mode": "literal",
+                      "value": "A piece of content broken into sections, supporting points and sources."
+                    },
+                    "bestFor": {
+                      "mode": "literal",
+                      "value": "Planning a blog post, article or documentation page before drafting prose."
+                    },
+                    "outline": {
+                      "mode": "literal",
+                      "value": "Working title\n\tIntroduction / hook\n\tSection 1\n\t\tMain point\n\t\tSupporting evidence\n\tSection 2\n\t\tMain point\n\t\tSupporting evidence\n\tConclusion / call to action\n\tSources to reference"
+                    }
+                  }
+                ],
+                "bestForLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.bestForLabel"
+                },
+                "copyLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.copyLabel"
+                },
+                "copiedLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.copiedLabel"
+                },
+                "pasteHint": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.pasteHint"
+                }
+              },
+              "clientDirective": "load"
+            },
+            {
+              "instanceId": "blk_templates_faq",
+              "componentId": "src/components/landing1/product-faq.tsx#ProductFaq",
+              "componentName": "ProductFaq",
+              "props": {
+                "title": {
+                  "mode": "literal",
+                  "value": "Frequently asked questions"
+                },
+                "items": [
+                  {
+                    "question": {
+                      "mode": "literal",
+                      "value": "How do I use one of these templates?"
+                    },
+                    "answer": {
+                      "mode": "literal",
+                      "value": "Copy the outline text for a template, open the editor, and paste it in. Each line becomes a node and the indentation becomes the map's hierarchy automatically."
+                    }
+                  },
+                  {
+                    "question": {
+                      "mode": "literal",
+                      "value": "Can I mix parts of different templates?"
+                    },
+                    "answer": {
+                      "mode": "literal",
+                      "value": "Yes. Paste in one template, then copy branches from another and paste them under the node where they belong — indentation is all that determines hierarchy, so pieces combine cleanly."
+                    }
+                  },
+                  {
+                    "question": {
+                      "mode": "literal",
+                      "value": "Do templates support colours, tags or images?"
+                    },
+                    "answer": {
+                      "mode": "literal",
+                      "value": "Templates are plain text to keep them easy to copy and adapt. Once pasted in, use the quick command menu or a node's detail panel to add colours, tags, URLs or images to any node."
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "instanceId": "blk_templates_closing",
+              "componentId": "src/components/landing1/resource-page-closing.tsx#ResourcePageClosing",
+              "componentName": "ResourcePageClosing",
+              "props": {
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.closing.title"
+                },
+                "body": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.closing.body"
+                },
+                "ctaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:templates.closing.cta"
+                },
+                "ctaHref": "/app"
+              }
+            },
+            {
+              "instanceId": "blk_templates_cookie",
+              "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+              "componentName": "CookieConsent",
+              "props": {
+                "storageKey": "txt2map:cookie-consent",
+                "title": "We respect your privacy",
+                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+                "privacyLinkLabel": "Privacy Policy",
+                "privacyLinkHref": "/privacy",
+                "necessaryLabel": "Strictly necessary",
+                "necessaryDescription": "— required for the site to function. Always on.",
+                "analyticsLabel": "Anonymous analytics",
+                "analyticsDescription": "— helps us understand which pages are useful.",
+                "acceptAllLabel": "Accept all",
+                "rejectLabel": "Reject non-essential",
+                "customiseLabel": "Customise",
+                "saveLabel": "Save choices",
+                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+              },
+              "clientDirective": "load"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

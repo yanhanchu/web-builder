@@ -13,7 +13,6 @@ import { type FlexProps as FlexProps, type FlexItemProps as FlexItemProps } from
 import { type FooterProps as FooterProps } from "./footer";
 import { type HeaderProps as HeaderProps } from "./header";
 import { type HeroProps as HeroProps } from "./hero";
-import { type LayoutProps as LayoutProps } from "./layout";
 import { type Layout2Props as Layout2Props } from "./layout2";
 import { type OutlineTemplateGridProps as OutlineTemplateGridProps } from "./outline-template-grid";
 import { type PageIntroProps as PageIntroProps } from "./page-intro";
@@ -222,13 +221,9 @@ export const hero: HeroProps = {
   secondaryCta: { label: "Learn more", to: "/about" },
 }
 
-export const layout: LayoutProps = {
-  header,
-  footer,
-  children: undefined,
-}
-
 export const layout2: Layout2Props = {
+  header: undefined,
+  footer: undefined,
   children: undefined,
 }
 

@@ -11,7 +11,7 @@
         },
         "ariaLabel": {
           "mode": "bound",
-          "sourceId": "i18n:brand.ariaLabel"
+          "sourceId": "i18n:brand.ariaHome"
         },
         "mark": {
           "mode": "bound",
@@ -19,7 +19,7 @@
         },
         "logoSrc": {
           "mode": "bound",
-          "sourceId": "file:upload-1"
+          "sourceId": "file:logo-main"
         },
         "wordmark": {
           "mode": "object",
@@ -48,11 +48,11 @@
           "fields": {
             "label": {
               "mode": "bound",
-              "sourceId": "i18n:nav.product"
+              "sourceId": "i18n:nav.primary.0.label"
             },
             "to": {
-              "mode": "literal",
-              "value": "/product"
+              "mode": "bound",
+              "sourceId": "i18n:nav.primary.0.to"
             }
           }
         },
@@ -61,11 +61,11 @@
           "fields": {
             "label": {
               "mode": "bound",
-              "sourceId": "i18n:nav.about"
+              "sourceId": "i18n:nav.primary.1.label"
             },
             "to": {
-              "mode": "literal",
-              "value": "/about"
+              "mode": "bound",
+              "sourceId": "i18n:nav.primary.1.to"
             }
           }
         },
@@ -74,11 +74,11 @@
           "fields": {
             "label": {
               "mode": "bound",
-              "sourceId": "i18n:nav.contact"
+              "sourceId": "i18n:nav.primary.2.label"
             },
             "to": {
-              "mode": "literal",
-              "value": "/contact"
+              "mode": "bound",
+              "sourceId": "i18n:nav.primary.2.to"
             }
           }
         }
@@ -99,21 +99,8 @@
               "value": "light"
             },
             "label": {
-              "mode": "literal",
-              "value": "Light"
-            }
-          }
-        },
-        {
-          "mode": "object",
-          "fields": {
-            "value": {
-              "mode": "literal",
-              "value": "dark"
-            },
-            "label": {
-              "mode": "literal",
-              "value": "Dark"
+              "mode": "bound",
+              "sourceId": "i18n:theme.options.0.label"
             }
           }
         },
@@ -125,8 +112,21 @@
               "value": "system"
             },
             "label": {
+              "mode": "bound",
+              "sourceId": "i18n:theme.options.1.label"
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "value": {
               "mode": "literal",
-              "value": "System"
+              "value": "dark"
+            },
+            "label": {
+              "mode": "bound",
+              "sourceId": "i18n:theme.options.2.label"
             }
           }
         }
@@ -143,8 +143,8 @@
           "mode": "object",
           "fields": {
             "title": {
-              "mode": "literal",
-              "value": "Product"
+              "mode": "bound",
+              "sourceId": "i18n:nav.footer.0.title"
             },
             "items": {
               "mode": "array",
@@ -153,12 +153,12 @@
                   "mode": "object",
                   "fields": {
                     "label": {
-                      "mode": "literal",
-                      "value": "Features"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.0.items.0.label"
                     },
                     "to": {
-                      "mode": "literal",
-                      "value": "/features"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.0.items.0.to"
                     }
                   }
                 },
@@ -166,12 +166,12 @@
                   "mode": "object",
                   "fields": {
                     "label": {
-                      "mode": "literal",
-                      "value": "Pricing"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.0.items.1.label"
                     },
                     "to": {
-                      "mode": "literal",
-                      "value": "/pricing"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.0.items.1.to"
                     }
                   }
                 }
@@ -183,8 +183,8 @@
           "mode": "object",
           "fields": {
             "title": {
-              "mode": "literal",
-              "value": "Company"
+              "mode": "bound",
+              "sourceId": "i18n:nav.footer.1.title"
             },
             "items": {
               "mode": "array",
@@ -194,11 +194,11 @@
                   "fields": {
                     "label": {
                       "mode": "bound",
-                      "sourceId": "i18n:nav.about"
+                      "sourceId": "i18n:nav.footer.1.items.0.label"
                     },
                     "to": {
-                      "mode": "literal",
-                      "value": "/about"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.1.items.0.to"
                     }
                   }
                 },
@@ -207,11 +207,64 @@
                   "fields": {
                     "label": {
                       "mode": "bound",
-                      "sourceId": "i18n:nav.contact"
+                      "sourceId": "i18n:nav.footer.1.items.1.label"
                     },
                     "to": {
-                      "mode": "literal",
-                      "value": "/contact"
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.1.items.1.to"
+                    }
+                  }
+                },
+                {
+                  "mode": "object",
+                  "fields": {
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.1.items.2.label"
+                    },
+                    "to": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.1.items.2.to"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "title": {
+              "mode": "bound",
+              "sourceId": "i18n:nav.footer.2.title"
+            },
+            "items": {
+              "mode": "array",
+              "items": [
+                {
+                  "mode": "object",
+                  "fields": {
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.2.items.0.label"
+                    },
+                    "to": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.2.items.0.to"
+                    }
+                  }
+                },
+                {
+                  "mode": "object",
+                  "fields": {
+                    "label": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.2.items.1.label"
+                    },
+                    "to": {
+                      "mode": "bound",
+                      "sourceId": "i18n:nav.footer.2.items.1.to"
                     }
                   }
                 }
@@ -222,145 +275,78 @@
       ]
     }
   },
-  "siteInfo:main": {
-    "label": "型別資料: 網站基本資訊 (SiteInfoData)",
-    "typeId": "src/components/site/types.ts#SiteInfoData",
+  "relatedNav:links": {
+    "label": "型別資料: 相關頁面導覽 (RelatedNavLink[])",
+    "typeId": "src/components/landing1/types.ts#RelatedNavLink[]",
     "value": {
-      "mode": "object",
-      "fields": {
-        "siteName": {
-          "mode": "literal",
-          "value": "Web Builder"
-        },
-        "tagline": {
-          "mode": "literal",
-          "value": "使用 Web Builder 打造你的網站。"
-        },
-        "siteUrl": {
-          "mode": "literal",
-          "value": "https://example.com"
-        },
-        "faviconUrl": {
-          "mode": "literal",
-          "value": "/favicon.ico"
-        },
-        "manifestUrl": {
-          "mode": "literal",
-          "value": "/manifest.webmanifest"
-        },
-        "themeColor": {
-          "mode": "literal",
-          "value": "#2d9c74"
-        },
-        "defaultLocale": {
-          "mode": "literal",
-          "value": "zh-TW"
-        },
-        "contactEmail": {
-          "mode": "literal",
-          "value": "hello@example.com"
-        },
-        "publisher": {
-          "mode": "literal",
-          "value": "Web Builder"
-        }
-      }
-    }
-  },
-  "seo:default": {
-    "label": "型別資料: 全站 SEO 預設 (SeoData)",
-    "typeId": "src/components/site/types.ts#SeoData",
-    "value": {
-      "mode": "object",
-      "fields": {
-        "title": {
-          "mode": "literal",
-          "value": "Web Builder"
-        },
-        "titleTemplate": {
-          "mode": "literal",
-          "value": "%s | Web Builder"
-        },
-        "description": {
-          "mode": "literal",
-          "value": "使用 Web Builder 打造你的網站。"
-        },
-        "keywords": {
-          "mode": "literal",
-          "value": "web, builder, cms"
-        },
-        "ogImage": {
-          "mode": "literal",
-          "value": "/og-image.png"
-        },
-        "ogType": {
-          "mode": "literal",
-          "value": "website"
-        },
-        "twitterCard": {
-          "mode": "literal",
-          "value": "summary_large_image"
-        },
-        "twitterSite": {
-          "mode": "literal",
-          "value": "@webbuilder"
-        },
-        "canonicalUrl": {
-          "mode": "literal",
-          "value": ""
-        },
-        "robots": {
-          "mode": "literal",
-          "value": "index, follow"
-        }
-      }
-    }
-  },
-  "new-1": {
-    "label": "新型別資料",
-    "typeId": "src/components/demo/brand.tsx#BrandProps",
-    "value": {
-      "mode": "object",
-      "fields": {
-        "data": {
+      "mode": "array",
+      "items": [
+        {
           "mode": "object",
           "fields": {
-            "toHome": {
+            "href": {
               "mode": "literal",
-              "value": ""
+              "value": "/"
             },
-            "ariaLabel": {
+            "label": {
               "mode": "literal",
-              "value": ""
-            },
-            "mark": {
-              "mode": "literal",
-              "value": ""
-            },
-            "logoSrc": {
-              "mode": "literal",
-              "value": ""
-            },
-            "wordmark": {
-              "mode": "object",
-              "fields": {
-                "lead": {
-                  "mode": "literal",
-                  "value": ""
-                },
-                "accent": {
-                  "mode": "literal",
-                  "value": ""
-                }
-              }
+              "value": "Overview"
             }
           }
         },
-        "className": {
-          "mode": "literal",
-          "value": ""
+        {
+          "mode": "object",
+          "fields": {
+            "href": {
+              "mode": "literal",
+              "value": "/guide"
+            },
+            "label": {
+              "mode": "bound",
+              "sourceId": "i18n:nav.primary.0.label"
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "href": {
+              "mode": "literal",
+              "value": "/templates"
+            },
+            "label": {
+              "mode": "literal",
+              "value": "Templates"
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "href": {
+              "mode": "literal",
+              "value": "/use-cases"
+            },
+            "label": {
+              "mode": "literal",
+              "value": "Use cases"
+            }
+          }
+        },
+        {
+          "mode": "object",
+          "fields": {
+            "href": {
+              "mode": "literal",
+              "value": "/shortcuts"
+            },
+            "label": {
+              "mode": "literal",
+              "value": "Shortcuts"
+            }
+          }
         }
-      }
+      ]
     }
   }
 }
