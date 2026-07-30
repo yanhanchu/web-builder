@@ -49,10 +49,13 @@ export function makeLocalDest(): LocalUploadDest {
     kind: "local",
     enabled: true,
     label: "本機儲存",
-    // 相對路徑：會自動對應到 apps/web-builder/public/uploads，Vite dev
-    // server 原生就會把 public/** 服務到網站根目錄，上傳完不用額外設定
-    // 就能直接用瀏覽器打開；也會自動建立目錄，不需要手動 mkdir。
-    storagePath: "public/uploads",
+    // 空字串：直接用固定的 apps/web-builder/public/static/ 目錄本身，不再
+    // 多一層子目錄；Vite dev server 原生就會把 public/** 服務到網站根目錄，
+    // 上傳完不用額外設定就能直接用瀏覽器打開；也會自動建立目錄，不需要
+    // 手動 mkdir。填其他值（不管是相對路徑還是看起來像絕對路徑的字串）都
+    // 會被當成 public/static/ 底下的子目錄，見
+    // server/local-upload.ts 的 resolveStoragePath() 說明。
+    storagePath: "",
     publicBaseUrl: "",
   };
 }
@@ -64,7 +67,7 @@ export function makeS3Dest(): S3UploadDest {
     enabled: false,
     label: "新 S3 節點",
     bucket: "",
-    region: "auto",
+    region: "us-east-1",
     accessKeyId: "",
     secretAccessKey: "",
     endpoint: "",

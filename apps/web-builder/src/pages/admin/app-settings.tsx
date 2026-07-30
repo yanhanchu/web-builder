@@ -226,8 +226,19 @@ export default function AppSettingsPage() {
     // 把上傳目的地同步到 dev server（server/upload-dev-plugin.ts），
     // 本機上傳 / S3 presign API 之後都是讀這份存檔。localStorage 的
     // 儲存已經完成，這裡失敗只顯示提示、不影響上面的「已儲存」狀態。
+    //
+    // 這裡務必用 effectiveAppName（跟 handleWriteToServer /
+    // handleReadFromServer 用同一個值），不能寫死 DEFAULT_APP_NAME：
+    // 過去這裡固定傳 DEFAULT_APP_NAME，導致即使把 App Name 欄位改成
+    // 別的值（例如 "test"），上傳目的地設定仍一律寫進
+    // apps/web-builder/.data/default/app-settings.json，而不是
+    // .data/{effectiveAppName}/app-settings.json —— 之後
+    // /admin/data-manager 上傳檔案時是照 effectiveAppName 呼叫
+    // /api/upload/{appName}/local，去讀 .data/{appName}/ 底下的設定，
+    // 兩邊 appName 對不上，就會出現「找不到已啟用的本機上傳目的地」的
+    // 404（伺服器讀到的是空設定，不是路由沒掛到）。
     try {
-      await syncUploadSettings(uploadDests, DEFAULT_APP_NAME);
+      await syncUploadSettings(uploadDests, effectiveAppName);
     } catch (err) {
       toast.error("上傳設定同步到伺服器失敗", {
         description: err instanceof Error ? err.message : undefined,

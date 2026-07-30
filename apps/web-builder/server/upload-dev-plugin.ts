@@ -19,7 +19,8 @@
 //   POST /api/upload/:appName/local?destId=xxx
 //     multipart/form-data，欄位名稱固定用 "file"。
 //     依 destId 找到對應（kind: "local"）的目的地設定，把檔案寫到
-//     <storagePath>/<appName>/<隨機檔名>，保留原始副檔名。
+//     public/<appName>/static/<storagePath>/<隨機檔名>，保留原始副檔名
+//     （見 local-upload.ts 的 getStaticDir() / resolveStoragePath()）。
 //     前端呼叫這條路由前，會先把檔案存進瀏覽器的 OPFS（見
 //     src/lib/opfs.ts），這裡收到的是 OPFS 內容的 multipart 副本，
 //     不是「檔案唯一的落地點」——OPFS 那份才是。
@@ -165,14 +166,13 @@ export function uploadDevPlugin(): Plugin {
               const settings = await readAppSettings(appName);
               // 找出第一個本機目的地來定位檔案根目錄（開發用途的靜態檔服務）
               const localDest = settings.uploadDestinations.find(
-                (d): d is LocalUploadDest => d.kind === "local" && !!d.storagePath,
+                (d): d is LocalUploadDest => d.kind === "local",
               );
               if (!localDest) {
                 return json(res, 404, { error: "找不到本機上傳目的地設定" });
               }
               const filePath = path.join(
-                resolveStoragePath(localDest.storagePath),
-                appName,
+                resolveStoragePath(localDest.storagePath, appName),
                 fileName,
               );
               try {

@@ -77,6 +77,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 import { loadStaticData } from "./load-static-data.ts";
+import { copyDirRecursive } from "../../server/copy-dir.ts";
 import type {
   RenderPageAstroFileOptions,
   RenderPageAstroRootOptions,
@@ -367,6 +368,18 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
     const stylesFile = path.join(options.outDir, "index.css");
     await writeFile(stylesFile, renderGlobalCss(data.styleSheets), "utf-8");
     log(`✓ index.css（合併 ${data.styleSheets.length} 份樣式表）`);
+
+    // ---- 上傳檔案本體：把攤平資料來源（options.dataDir）底下的 files/
+    // （對應本機上傳目的地固定落地的 apps/web-builder/public/static/，見
+    // export-flat-data.ts 匯出 /「寫入資料到本地」那一步怎麼把它們一起帶
+    // 進 data/{appName}/files/ 的說明）整個覆寫複製到輸出目錄旁的
+    // public/static/。outDir 慣例指到 Astro 專案的 `src/`（見檔案開頭
+    // GenerateAstroOptions.outDir 說明），`public/` 是它的同層目錄，這裡
+    // 用 path.dirname(outDir) 算出來，不假設呼叫端一定用 "src" 這個字面
+    // 名稱。 ----
+    const publicStaticDir = path.join(path.dirname(options.outDir), "public", "static");
+    await copyDirRecursive(path.join(options.dataDir, "files"), publicStaticDir);
+    log(`✓ public/static/（覆寫複製自 ${path.join(options.dataDir, "files")}）`);
 
     generatedFiles = { styles: path.relative(options.outDir, stylesFile) };
   } finally {

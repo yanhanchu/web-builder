@@ -86,7 +86,16 @@ export default function DataManagerPage() {
   // 頁面清單跟「頁面管理」共用同一份 store（同一個 key、同一份預設值），
   // 這裡只讀，不呼叫 setPages，避免兩邊 fallback 初始值不一致。
   const [pages] = usePagesState();
-  const fileSync = useFileSync(sources, setSources, DEFAULT_APP_NAME);
+  // App Name 跟「App 設定」頁（admin/app-settings.tsx）共用同一個
+  // localStorage key（wb.appName），這裡只讀不寫。過去這裡固定傳
+  // DEFAULT_APP_NAME（"default"），導致即使在設定頁改了 App Name，
+  // 這個頁面上傳檔案時仍一律送到 appName="default" 底下（造成 UI 上
+  // 顯示 /static/default/... 而不是 /static/{你設定的 appName}/...）。
+  // fallback 邏輯跟 app-settings.tsx 的 effectiveAppName 保持一致：
+  // 空字串（含只有空白）一律視為 DEFAULT_APP_NAME。
+  const [rawAppName] = usePersistentState<string>("wb.appName", "");
+  const appName = rawAppName.trim() || DEFAULT_APP_NAME;
+  const fileSync = useFileSync(sources, setSources, appName);
 
   // 每次 sources 一改就重建 store，讓下方 resolved 預覽即時反映
   const store = useMemo(

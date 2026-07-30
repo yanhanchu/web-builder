@@ -78,6 +78,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 import { loadStaticData } from "./load-static-data.ts";
+import { copyDirRecursive } from "../../server/copy-dir.ts";
 import { planAllRoutes } from "./plan-routes.ts";
 import type {
   RenderPageSplitJsxOptions,
@@ -344,6 +345,14 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
     const stylesFile = path.join(options.outDir, "index.css");
     await writeFile(stylesFile, renderGlobalCss(data.styleSheets), "utf-8");
     log(`✓ index.css（合併 ${data.styleSheets.length} 份樣式表）`);
+
+    // ---- 上傳檔案本體：把攤平資料來源（options.dataDir）底下的 files/
+    // 整個覆寫複製到輸出目錄旁的 public/static/，理由跟 generate-astro.ts
+    // 同一段說明一致——outDir 視為專案的 `src/`，`public/` 是它的同層
+    // 目錄，這裡用 path.dirname(outDir) 算出來，不假設固定資料夾名稱。----
+    const publicStaticDir = path.join(path.dirname(options.outDir), "public", "static");
+    await copyDirRecursive(path.join(options.dataDir, "files"), publicStaticDir);
+    log(`✓ public/static/（覆寫複製自 ${path.join(options.dataDir, "files")}）`);
 
     generatedFiles = {
       routes: path.relative(options.outDir, routesFile),
