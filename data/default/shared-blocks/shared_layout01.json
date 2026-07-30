@@ -1,8 +1,8 @@
 {
   "id": "shared_layout01",
-  "name": "全站頁首頁尾 (Layout2)",
-  "componentId": "src/components/landing1/layout2.tsx#Layout2",
-  "componentName": "Layout2",
+  "name": "全站頁首頁尾 (Layout)",
+  "componentId": "src/components/landing1/layout.tsx#Layout",
+  "componentName": "Layout",
   "props": {
     "header": {
       "__slot": true,

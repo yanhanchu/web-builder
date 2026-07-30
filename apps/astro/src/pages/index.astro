@@ -1,36 +1,89 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import { ReactCounter } from "../components/ReactCounter";
+// ============================================================
+// 此檔案由 site-generator（apps/site-generator/src/astro-codegen/render-page-astro.ts）
+// 自動產生，請勿手動編輯——重新執行產生器即會覆蓋這裡的內容。
+//
+// 來源頁面：home（首頁）
+// 固定用預設語系（en）的資料，不帶語系前綴的根路徑頁面，跟
+// 'pages/[lang]/index.astro'（透過
+// getStaticPaths() 展開所有語系）搭配使用，對應 i18n 路由慣例：
+// defaultLocale 不加前綴（見 render-page-astro.ts 開頭「第一層（無前綴）
+// 預設語系頁面」說明）。
+// 資料來源：data.ts 內容逐字沿用 render-page-split-jsx.ts 的
+// renderPageDataFiles()（跟 React split-jsx 版輸出一模一樣）。
+// client:* 指令依 page.blocks 各自的 clientDirective 欄位產生（見
+// astro-codegen/render-block-tree-to-astro.ts 的 clientDirectiveAttr()）。
+// 整份頁面內容包在 AstroLayoutShell（apps/astro/src/layouts/AstroLayoutShell.astro）
+// 底下，帶入 page.seo 作為 SEO 資料。
+// ============================================================
 
-const greeting: string = "Hello, Astro + React + TypeScript!";
+import { CookieConsent } from "@workspace/ui/components/landing1/cookie-consent";
+import { CoreValueSection } from "@workspace/ui/components/landing1/core-value-section";
+import { FeatureGrid } from "@workspace/ui/components/landing1/feature-grid";
+import { Footer } from "@workspace/ui/components/landing1/footer";
+import { Header } from "@workspace/ui/components/landing1/header";
+import { Layout } from "@workspace/ui/components/landing1/layout";
+import { ProductClosing } from "@workspace/ui/components/landing1/product-closing";
+import { ProductFaq } from "@workspace/ui/components/landing1/product-faq";
+import { ProductHero } from "@workspace/ui/components/landing1/product-hero";
+import { ProductUseCases } from "@workspace/ui/components/landing1/product-use-cases";
+import { QuickStartSteps } from "@workspace/ui/components/landing1/quick-start-steps";
+import { RelatedNav } from "@workspace/ui/components/landing1/related-nav";
+import { ShowcaseSection } from "@workspace/ui/components/landing1/showcase-section";
+import { TrustSection } from "@workspace/ui/components/landing1/trust-section";
+
+import AstroLayoutShell from "../layouts/AstroLayoutShell.astro";
+
+import type { SeoData } from "@workspace/ui/components/site/types";
+
+import * as data from "../data/en/index/data";
+
+const {
+  header,
+  footer,
+  productHero,
+  trustSection,
+  coreValueSection,
+  showcaseSection,
+  featureGrid,
+  productUseCases,
+  quickStartSteps,
+  productFaq,
+  productClosing,
+  relatedNav,
+  cookieConsent,
+} = data;
+
+const seo: SeoData = {
+  title: "Text to Mind Map — Convert text into structured mind maps",
+  titleTemplate: "%s",
+  description:
+    "Turn structured text into mind maps with a keyboard-friendly editor, flexible layouts, rich node details and export options.",
+  keywords: "mind map, text to mind map, outline editor, mind mapping tool",
+  ogImage: "/og-default.webp",
+  ogType: "website",
+  twitterCard: "summary_large_image",
+  twitterSite: "@webbuilder",
+  canonicalUrl: "",
+  robots: "index, follow",
+};
 ---
 
-<Layout title="astro-app">
-  <main class="card">
-    <h1>{greeting}</h1>
-    <p>Vite（Astro 內建）+ Astro + React + TypeScript 的簡單起始專案，已接上 @workspace/ui。</p>
-    <ReactCounter start={0} client:load />
-  </main>
-</Layout>
-
-<style>
-  .card {
-    max-width: 28rem;
-    padding: 2rem;
-    border: 1px solid color-mix(in oklab, currentColor 15%, transparent);
-    border-radius: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-  }
-
-  p {
-    margin: 0;
-    opacity: 0.8;
-  }
-</style>
+<AstroLayoutShell seo={seo} lang="en">
+  <Layout
+    header={(<Header {...header} client:load />)}
+    footer={(<Footer {...footer} />)}
+  >
+    <ProductHero {...productHero} />
+    <TrustSection {...trustSection} />
+    <CoreValueSection {...coreValueSection} />
+    <ShowcaseSection {...showcaseSection} />
+    <FeatureGrid {...featureGrid} />
+    <ProductUseCases {...productUseCases} />
+    <QuickStartSteps {...quickStartSteps} />
+    <ProductFaq {...productFaq} />
+    <ProductClosing {...productClosing} />
+    <RelatedNav {...relatedNav} />
+    <CookieConsent {...cookieConsent} client:load />
+  </Layout>
+</AstroLayoutShell>

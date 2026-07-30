@@ -7,7 +7,7 @@
     "predev": "pnpm run docs:generate && pnpm run functions:generate",
     "prebuild": "pnpm run docs:generate && pnpm run functions:generate",
     "dev": "vite",
-    "build": "tsc -b && pnpm prebuild && vite build",
+    "build": "tsc -b && pnpm prebuild && pnpm generate:astro && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "docs:generate": "node scripts/docs/generate-docs.mjs",

@@ -898,45 +898,6 @@
     "props": [
       {
         "name": "children",
-        "required": true,
-        "type": "ReactNode",
-        "defaultValue": null,
-        "description": "Page content rendered between the header and footer"
-      },
-      {
-        "name": "footer",
-        "required": true,
-        "type": "FooterProps",
-        "defaultValue": null,
-        "description": "Data for the footer, forwarded to <Footer />"
-      },
-      {
-        "name": "header",
-        "required": true,
-        "type": "HeaderProps",
-        "defaultValue": null,
-        "description": "Data for the sticky header, forwarded to <Header />"
-      }
-    ],
-    "relatedTypeNames": [
-      "src/components/landing1/layout.tsx#LayoutProps",
-      "src/components/landing1/header.tsx#HeaderProps",
-      "src/components/landing1/types.ts#BrandData",
-      "src/components/landing1/types.ts#NavItem",
-      "src/components/landing1/types.ts#ThemeOption",
-      "src/components/landing1/footer.tsx#FooterProps",
-      "src/components/landing1/types.ts#NavColumn"
-    ]
-  },
-  {
-    "id": "src/components/landing1/layout2.tsx#Layout2",
-    "componentName": "Layout2",
-    "filePath": "src/components/landing1/layout2.tsx",
-    "importPath": "components/landing1/layout2",
-    "description": "Page chrome shared by every route: decorative aurora background, sticky\nheader, main content slot and footer.\n\nThis is a component like any other block — it takes no data from\ncontext, only from props — so it is generated into `components.json`\nand can itself be a `pages.json` node (e.g. the root node every page\nis nested inside). All copy/links come from `header`/`footer`.",
-    "props": [
-      {
-        "name": "children",
         "required": false,
         "type": "ReactNode",
         "defaultValue": null,
@@ -958,7 +919,7 @@
       }
     ],
     "relatedTypeNames": [
-      "src/components/landing1/layout2.tsx#Layout2Props"
+      "src/components/landing1/layout.tsx#LayoutProps"
     ]
   },
   {

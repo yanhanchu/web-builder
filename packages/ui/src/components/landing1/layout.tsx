@@ -1,14 +1,13 @@
 import type { ReactNode } from "react"
-import { Header, type HeaderProps } from "./header"
-import { Footer, type FooterProps } from "./footer"
+
 
 export interface LayoutProps {
   /** Data for the sticky header, forwarded to <Header /> */
-  header: HeaderProps
+  header?: ReactNode
   /** Data for the footer, forwarded to <Footer /> */
-  footer: FooterProps
+  footer?: ReactNode
   /** Page content rendered between the header and footer */
-  children: ReactNode
+  children?: ReactNode
 }
 
 /**
@@ -28,9 +27,9 @@ export function Layout({ header, footer, children }: LayoutProps) {
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-10 opacity-[0.04] [background-image:radial-gradient(currentColor_1px,transparent_1px)] [background-size:24px_24px]"
       />
-      <Header {...header} />
+      {header}
       <main className="px-3 sm:px-6">{children}</main>
-      <Footer {...footer} />
+      {footer}
     </div>
   )
 }
