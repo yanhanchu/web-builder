@@ -1,0 +1,97 @@
+{
+  "id": "shared_6nljkr",
+  "name": "Layout",
+  "componentId": "src/components/landing1/layout.tsx#Layout",
+  "componentName": "Layout",
+  "props": {
+    "header": {
+      "brand": {
+        "toHome": "/",
+        "ariaLabel": "OZSV home",
+        "mark": "OZSV",
+        "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+        "wordmark": {
+          "lead": "OZ",
+          "accent": "SV"
+        }
+      },
+      "primaryNav": [
+        {
+          "label": "Product",
+          "to": "/product"
+        },
+        {
+          "label": "About",
+          "to": "/about"
+        },
+        {
+          "label": "Contact",
+          "to": "/contact"
+        }
+      ],
+      "themeOptions": [
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "system",
+          "label": "System"
+        }
+      ],
+      "themeGroupLabel": "Theme",
+      "themeLabel": "Theme",
+      "openMenuLabel": "Open menu",
+      "closeMenuLabel": "Close menu"
+    },
+    "footer": {
+      "brand": {
+        "toHome": "/",
+        "ariaLabel": "OZSV home",
+        "mark": "OZSV",
+        "logoSrc": "https://ozsv.au/_astro/logo.Czr5nQmc.webp",
+        "wordmark": {
+          "lead": "OZ",
+          "accent": "SV"
+        }
+      },
+      "tagline": "Building better software, together.",
+      "email": "hello@example.com",
+      "emailAriaLabel": "Email us at hello@example.com",
+      "columns": [
+        {
+          "title": "Product",
+          "items": [
+            {
+              "label": "Features",
+              "to": "/features"
+            },
+            {
+              "label": "Pricing",
+              "to": "/pricing"
+            }
+          ]
+        },
+        {
+          "title": "Company",
+          "items": [
+            {
+              "label": "About",
+              "to": "/about"
+            },
+            {
+              "label": "Contact",
+              "to": "/contact"
+            }
+          ]
+        }
+      ],
+      "copyright": "© 2026 OZSV. All rights reserved.",
+      "meta": "Made in Australia"
+    }
+  }
+}

@@ -14,8 +14,9 @@ data/components.json          ← 每個組件的 props 表格
 data/component-types.json     ← props 用到的具名 type/interface 完整展開
               │
               ▼
-data/<workspace>/sources/*.json   ← 值從哪裡來：i18n / file / route / typedData
-data/<workspace>/pages/*.json     ← 頁面用了哪些組件、順序、props 綁定
+data/<workspace>/sources/*.json        ← 值從哪裡來：i18n / file / route / typedData
+data/<workspace>/pages/*.json          ← 頁面用了哪些組件、順序、props 綁定
+data/<workspace>/shared-blocks/*.json  ← 可被多個頁面引用的共用組件實例（見 2.5）
 data/<workspace>/locales.json
 data/<workspace>/style-sheets.json
 ```
@@ -135,6 +136,7 @@ data/<workspace>/
     file.json                  已上傳/引用的檔案
     typedData.json             具名型別資料（可綁定 i18n/file/巢狀 typedData）
   pages/<pageId>.json          單一頁面：seo + blocks 樹
+  shared-blocks/<id>.json      單一共用區塊定義（可被多個頁面的 blocks 樹引用，見 2.5）
 ```
 
 ### 2.1 `sources/` 四種資料來源
@@ -292,7 +294,7 @@ data/<workspace>/
 - 檔名＝`id`（`home.json` 的 `id` 是 `"home"`）。
 - `status`：只有 `"published"` 會被生成器輸出成實際頁面；`"draft"` 會被略過。
 - `seo` 是純值（不是 ValueNode）——每頁各自寫死，不透過綁定機制。
-- `blocks` 是組件實例樹，每個節點：
+- `blocks` 是組件實例樹，陣列裡每個節點是 `PageBlock`（一般組件實例，見下方欄位說明）或 `SharedBlockRef`（引用 `shared-blocks/` 底下某筆共用定義，見 2.5）；巢狀 slot 底下的 `blocks` 也一樣，兩種節點可以混用。`PageBlock` 節點：
   - `instanceId`：唯一亂數 id，慣例前綴 `blk_`。
   - `componentId`：必須完全等於 `data/components.json` 裡該組件的 `id`（`{檔案路徑}#{組件名稱}`）。
   - `componentName`：純顯示用途。
@@ -315,6 +317,75 @@ data/<workspace>/
 - [ ] 需要綁定的 prop 才寫 ValueNode，其餘直接寫純值
 - [ ] 沒特別需要 hydrate 的組件不要加 `clientDirective`
 - [ ] CSS 內容改在 `style-sheets/<id>.css`，不要塞回 `style-sheets.json`
+- [ ] 引用 `shared-blocks/` 的節點要用 `SharedBlockRef`（`kind: "sharedBlockRef"`），不要把整包 `PageBlock` 複製貼上到多個頁面（見 2.5）
+
+### 2.5 `shared-blocks/<id>.json` 共用區塊定義
+
+**用途**：同一個組件實例（連同它的 props）要在多個頁面重複使用時（最典型是 `Layout` 的
+`header`/`footer`），不要把整包 `PageBlock`（含所有 props）複製貼上到每個
+`pages/<pageId>.json`——那樣之後要改一個導覽連結，就得同步改 N 個頁面檔案。
+改成把這個組件實例存成一筆獨立的 `SharedBlockDefinition`，頁面的 `blocks` 樹裡
+改放一個引用它的 `SharedBlockRef` 節點。
+
+**這不是「Layout 專屬」的機制**：任何組件實例都可以被存成共用定義，Layout 只是
+最常見的使用情境，資料模型本身不特別識別「這是 layout」。
+
+```json
+{
+  "id": "shb_8pq2z1",
+  "name": "全站頁首頁尾",
+  "componentId": "src/components/landing1/layout.tsx#Layout",
+  "componentName": "Layout",
+  "props": {
+    "header": { "brand": "...", "primaryNav": "..." },
+    "footer": "...",
+    "children": { "__slot": true, "blocks": [] }
+  }
+}
+```
+
+規則：
+- 檔名＝`id`（`shb_8pq2z1.json` 的 `id` 是 `"shb_8pq2z1"`），慣例前綴 `shb_`。
+- `componentId` / `componentName` 意義跟 `PageBlock` 完全一樣（對應 `data/components.json`）。
+- `props` 存這個共用定義「自己的」值——想留給各頁面各自覆寫的 slot（例如 Layout 的
+  `children`），在這裡存成空白佔位：`{ "__slot": true, "blocks": [] }`；其餘欄位存實際共用值。
+- 沒有 `status`（不像 `pages/`，共用定義本身不會被生成器直接輸出成頁面，只有被
+  `SharedBlockRef` 引用到、且該頁面本身是 `published` 時才會出現在產出結果裡）。
+
+頁面 `blocks` 樹裡引用它的節點（`SharedBlockRef`）：
+
+```json
+{
+  "kind": "sharedBlockRef",
+  "instanceId": "blk_r3f001",
+  "ref": "shb_8pq2z1",
+  "slotOverrides": {
+    "children": { "__slot": true, "blocks": [ /* 這一頁自己的內容區塊 */ ] }
+  }
+}
+```
+
+規則：
+- `kind` 固定是 `"sharedBlockRef"`（跟 `PageBlock` 節點的區分方式：`PageBlock` 沒有
+  `kind` 欄位）。
+- `instanceId`：跟 `PageBlock` 一樣，這個節點在「這棵樹裡」的唯一 id，慣例前綴 `blk_`
+  （不是共用定義本身的 id）。
+- `ref`：對應 `shared-blocks/<id>.json` 的 `id`。找不到對應定義時生成器會直接報錯
+  中止產出，不會悄悄漏產出一塊內容——新增 `SharedBlockRef` 時務必確認 `ref` 存在。
+- `slotOverrides`：只能覆寫共用定義的 `props` 裡「本來就已經是空白佔位 slot」的欄位
+  （即共用定義裡該欄位是 `{ "__slot": true, "blocks": [] }`）；不能對共用定義裡已經
+  有實際內容的一般欄位覆寫值，也不能覆寫共用定義原本沒有留白的 slot——這兩種情況都
+  代表要改的是共用定義本身（`shared-blocks/<id>.json`），不是引用它的某個頁面。
+
+檢查清單：
+
+- [ ] 存成共用定義前，先確認這個組件實例真的要被 ≥2 個頁面重複使用（單一頁面用
+      的內容不需要抽出來）
+- [ ] `shared-blocks/<id>.json` 的檔名、`id` 一致，慣例前綴 `shb_`
+- [ ] 想留給各頁面覆寫的 slot，在共用定義的 `props` 裡存空白佔位（`blocks: []`）
+- [ ] 頁面裡的引用節點用 `SharedBlockRef`（`kind: "sharedBlockRef"` + `ref` 指向存在
+      的共用定義 id），不要複製整包 `PageBlock`
+- [ ] `slotOverrides` 只覆寫共用定義裡留白的 slot 欄位
 
 ---
 
@@ -368,11 +439,12 @@ data/<workspace>/
 | 新增一個頁面 | `data/<workspace>/pages/<id>.json` + `route.json` 補路由 |
 | 頁面裡新增/調整組件組合、順序、巢狀 slot | 對應 `pages/<id>.json` 的 `blocks` |
 | 讓某個組件在輸出時可互動 | 該 block 的 `clientDirective` 欄位 |
+| 讓某個組件實例（例如頁首頁尾）被多個頁面共用 | `data/<workspace>/shared-blocks/<id>.json`（見 2.5），頁面裡改放 `SharedBlockRef` |
 
-## 附錄 D：型別參考（`ValueNode` / `DataSource` / `PageBlock` / `PageItem`）
+## 附錄 D：型別參考（`ValueNode` / `DataSource` / `PageBlock` / `SharedBlockDefinition` / `SharedBlockRef` / `PageItem`）
 
-> 第 2 節提到的 JSON 格式（`ValueNode`、`bound`/`literal`/`object`/`array`、`__slot`……）
-> 就是照這裡的型別定義走的。查格式看這裡就好。
+> 第 2 節提到的 JSON 格式（`ValueNode`、`bound`/`literal`/`object`/`array`、`__slot`、
+> `SharedBlockDefinition`、`SharedBlockRef`……）就是照這裡的型別定義走的。查格式看這裡就好。
 
 ```ts
 export type PrimitiveType = "string" | "number" | "boolean" | "date";
@@ -438,7 +510,7 @@ export type DataSource = I18nDataSource | FileDataSource | RouteDataSource | Typ
 /** 放進某個 ReactNode（slot）prop 裡的值：一組子組件實例，順序即渲染順序。 */
 export interface SlotValue {
   __slot: true;
-  blocks: PageBlock[];
+  blocks: AnyPageNode[];
 }
 
 /** Astro island hydration 指令。undefined＝維持靜態（預設）。 */
@@ -453,12 +525,39 @@ export interface PageBlock {
   clientDirective?: ClientDirective; // 跟 props 平行存放
 }
 
+/**
+ * 一筆可被多個頁面重複引用的共用組件實例定義（見 2.5）。
+ * 存放位置：data/<workspace>/shared-blocks/<id>.json。
+ * 不是「layout 專屬」型別——任何組件實例都可以存成 SharedBlockDefinition。
+ */
+export interface SharedBlockDefinition {
+  id: string;               // 慣例前綴 shb_，檔名即此 id
+  name: string;              // 顯示用途
+  componentId: string;       // 對應 components.json 的 id，意義同 PageBlock.componentId
+  componentName: string;     // 顯示用途
+  props: Record<string, unknown>; // 想留給頁面覆寫的 slot 在這裡存空白佔位 SlotValue（blocks: []）
+}
+
+/**
+ * 頁面 blocks 樹裡「引用某筆 SharedBlockDefinition」的節點，取代原本整包複製
+ * PageBlock 的做法。跟 PageBlock 的區分方式：只有這個型別有 kind 欄位。
+ */
+export interface SharedBlockRef {
+  kind: "sharedBlockRef";
+  instanceId: string;        // 這個引用節點在目前這棵樹裡的唯一 id，慣例前綴 blk_
+  ref: string;                // 對應的 SharedBlockDefinition.id
+  slotOverrides?: Record<string, SlotValue>; // 只能覆寫 definition.props 裡本來就是空白佔位的 slot 欄位
+}
+
+/** 頁面 blocks 樹（含巢狀 slot）裡每個節點的型別：一般組件實例，或共用區塊引用。 */
+export type AnyPageNode = PageBlock | SharedBlockRef;
+
 export interface PageItem {
   id: string;
   name: string;
   status: "draft" | "published";
   seo: SeoData;              // 純值，每頁各自寫死
-  blocks: PageBlock[];
+  blocks: AnyPageNode[];
   styleSheetIds?: string[];  // 只存 id 引用
 }
 ```

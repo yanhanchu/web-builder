@@ -929,6 +929,39 @@
     ]
   },
   {
+    "id": "src/components/landing1/layout2.tsx#Layout2",
+    "componentName": "Layout2",
+    "filePath": "src/components/landing1/layout2.tsx",
+    "importPath": "components/landing1/layout2",
+    "description": "Page chrome shared by every route: decorative aurora background, sticky\nheader, main content slot and footer.\n\nThis is a component like any other block — it takes no data from\ncontext, only from props — so it is generated into `components.json`\nand can itself be a `pages.json` node (e.g. the root node every page\nis nested inside). All copy/links come from `header`/`footer`.",
+    "props": [
+      {
+        "name": "children",
+        "required": false,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Page content rendered between the header and footer"
+      },
+      {
+        "name": "footer",
+        "required": false,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Data for the footer, forwarded to <Footer />"
+      },
+      {
+        "name": "header",
+        "required": false,
+        "type": "ReactNode",
+        "defaultValue": null,
+        "description": "Data for the sticky header, forwarded to <Header />"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/layout2.tsx#Layout2Props"
+    ]
+  },
+  {
     "id": "src/components/landing1/outline-template-grid.tsx#OutlineTemplateGrid",
     "componentName": "OutlineTemplateGrid",
     "filePath": "src/components/landing1/outline-template-grid.tsx",

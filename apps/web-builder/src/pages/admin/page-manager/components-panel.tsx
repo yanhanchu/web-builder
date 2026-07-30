@@ -8,6 +8,7 @@ import {
   X,
   Eye,
   Blocks,
+  Trash2,
 } from "lucide-react";
 import { panelTitleStyle, inputStyle, labelStyle } from "../admin-ui";
 import { LivePreview } from "@/components/generator/live-preview";
@@ -52,6 +53,7 @@ export function ComponentsPanel({
   disabled,
   sharedBlocks,
   onAddSharedBlockRef,
+  onDeleteSharedBlockRef,
 }: {
   onClose: () => void;
   onAddBlock: (component: ComponentDoc) => void;
@@ -59,6 +61,8 @@ export function ComponentsPanel({
   /** Phase C：共用區塊清單，供第二個 tab 瀏覽/搜尋/加入。未傳入時只顯示「現有組件」單一 tab。 */
   sharedBlocks?: SharedBlockDefinition[];
   onAddSharedBlockRef?: (definitionId: string) => void;
+  /** 刪除一份共用區塊定義本身（不是移除某頁面上的引用）。未傳入時卡片上不顯示刪除按鈕。 */
+  onDeleteSharedBlockRef?: (definitionId: string) => void;
 }) {
   const [tab, setTab] = useState<"components" | "sharedBlocks">("components");
   const [componentQuery, setComponentQuery] = useState("");
@@ -248,6 +252,7 @@ export function ComponentsPanel({
                 definition={d}
                 disabled={disabled}
                 onAdd={() => onAddSharedBlockRef?.(d.id)}
+                onDelete={onDeleteSharedBlockRef ? () => onDeleteSharedBlockRef(d.id) : undefined}
               />
             ))}
           </div>
@@ -420,10 +425,13 @@ function SharedBlockCard({
   definition,
   disabled,
   onAdd,
+  onDelete,
 }: {
   definition: SharedBlockDefinition;
   disabled: boolean;
   onAdd: () => void;
+  /** 刪除這份共用定義本身。未傳入時不顯示刪除按鈕（例如尚未接上刪除邏輯的呼叫端）。 */
+  onDelete?: () => void;
 }) {
   const slotKeys = useMemo(() => slotPropsOf(definition.componentId), [definition.componentId]);
   const propCount = Object.keys(definition.props).length;
@@ -463,14 +471,33 @@ function SharedBlockCard({
           {slotKeys.length > 0 ? ` · ${slotKeys.length} 個插槽` : ""}
         </div>
       </div>
-      <button
-        style={{ ...iconBtnStyle, border: "1px solid #444", flexShrink: 0, padding: 2 }}
-        onClick={onAdd}
-        title="加到目前選中的頁面"
-        disabled={disabled}
-      >
-        <Plus size={12} />
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        <button
+          style={{ ...iconBtnStyle, border: "1px solid #444", padding: 2 }}
+          onClick={onAdd}
+          title="加到目前選中的頁面"
+          disabled={disabled}
+        >
+          <Plus size={12} />
+        </button>
+        {onDelete && (
+          <button
+            style={{ ...iconBtnStyle, border: "1px solid #444", padding: 2, color: "#e77" }}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `確定要刪除共用區塊「${definition.name}」嗎？仍引用它的頁面會顯示「共用區塊已遺失」，此動作無法復原。`
+                )
+              ) {
+                onDelete();
+              }
+            }}
+            title="刪除這份共用區塊定義（會影響所有仍引用它的頁面）"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

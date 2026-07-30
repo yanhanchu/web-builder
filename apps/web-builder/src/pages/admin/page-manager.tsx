@@ -29,7 +29,11 @@ import { BuilderToolbar, ResizeHandle, PageSwitcher } from "./page-manager/toolb
 import { ComponentsPanel } from "./page-manager/components-panel";
 import { CanvasPanel } from "./page-manager/canvas-panel";
 import { PropertiesPanel } from "./page-manager/properties-panel";
-import { ComponentPropertiesPanel, SharedBlockRefPropertiesPanel } from "./page-manager/component-properties-panel";
+import {
+  ComponentPropertiesPanel,
+  SharedBlockRefPropertiesPanel,
+  SharedBlockDefinitionPropertiesPanel,
+} from "./page-manager/component-properties-panel";
 import { ComponentTreeModal } from "./page-manager/component-tree-modal";
 import { loadDefaultBlockProps } from "./page-manager/component-grouping";
 import type { StatusFilter, ViewportMode } from "./page-manager/shared";
@@ -86,6 +90,12 @@ export default function PageManagerPage() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   // 右側面板顯示「頁面屬性」或「組件屬性」，獨立於是否有選取組件，由工具列按鈕切換。
   const [rightPanelView, setRightPanelView] = useState<"page" | "component">("page");
+  // 「編輯共用區塊」畫面：非 null 時，右側面板整個切換成
+  // SharedBlockDefinitionPropertiesPanel（重用「組件屬性」樣版編輯
+  // SharedBlockDefinition.props），優先於 rightPanelView 判斷——這是
+  // 獨立於「選取畫布上哪個節點」的另一個畫面，關閉後回到原本的
+  // rightPanelView 狀態（通常是觸發編輯的 SharedBlockRef 摘要）。
+  const [editingSharedBlockId, setEditingSharedBlockId] = useState<string | null>(null);
 
   const selected = pages.find((p) => p.id === selectedId) ?? null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
@@ -103,6 +113,7 @@ export default function PageManagerPage() {
   useEffect(() => {
     setSelectedBlockId(null);
     setRightPanelView("page");
+    setEditingSharedBlockId(null);
   }, [selectedId]);
 
   // 全螢幕模式下按 Esc 退出。
@@ -391,6 +402,32 @@ export default function PageManagerPage() {
     setPropertiesOpen(true);
   };
 
+  // 「編輯共用區塊」——目前正在編輯的 SharedBlockDefinition（若有）。
+  const editingSharedBlock = editingSharedBlockId
+    ? sharedBlocks.find((d) => d.id === editingSharedBlockId) ?? null
+    : null;
+
+  // 直接寫回 wb.sharedBlocks 裡對應那筆 definition 的 props（跟 updateBlockProp
+  // 對頁面 draft 的寫法對稱，只是這裡沒有草稿機制——共用定義的編輯即時生效，
+  // 不像頁面編輯需要另外按「儲存」，理由：共用定義本身沒有「發布狀態」這種
+  // 需要草稿保護的概念，所有引用它的頁面本來就是即時讀取同一份 wb.sharedBlocks）。
+  const updateSharedBlockDefinitionProp = (definitionId: string, key: string, value: unknown) => {
+    setSharedBlocks(
+      sharedBlocks.map((d) => (d.id === definitionId ? { ...d, props: { ...d.props, [key]: value } } : d))
+    );
+  };
+
+  // 刪除一份共用定義本身（不是移除某頁面上的一個引用，那是 removeBlock 的職責）。
+  // 刪除後，所有仍引用它的 SharedBlockRef 不會被自動清掉或轉換——這些頁面draft
+  // 或已儲存內容裡的 ref.ref 會變成指向不存在的 id，跟「找不到共用區塊，可能
+  // 已被刪除」的既有錯誤狀態（見 SharedBlockRefPropertiesPanel／canvas-panel.tsx
+  // 的 resolve 失敗處理）完全對應，不需要額外的遷移或級聯刪除邏輯。
+  const deleteSharedBlockDefinition = (definitionId: string) => {
+    setSharedBlocks(sharedBlocks.filter((d) => d.id !== definitionId));
+    if (editingSharedBlockId === definitionId) setEditingSharedBlockId(null);
+    toast.success("已刪除共用區塊");
+  };
+
   const saveSelected = () => {
     if (!selected || !dirty) return;
     const next = drafts[selected.id];
@@ -505,6 +542,7 @@ export default function PageManagerPage() {
               disabled={!draft}
               sharedBlocks={sharedBlocks}
               onAddSharedBlockRef={addSharedBlockRef}
+              onDeleteSharedBlockRef={deleteSharedBlockDefinition}
             />
           )}
           {!componentsOpen && !fullscreen && (
@@ -545,10 +583,20 @@ export default function PageManagerPage() {
             <ResizeHandle side="right" onExpand={() => setPropertiesOpen(true)} />
           )}
           {propertiesOpen && !fullscreen && (
-            showingComponentProps && selectedNode && isSharedBlockRef(selectedNode) ? (
+            editingSharedBlock ? (
+              <SharedBlockDefinitionPropertiesPanel
+                definition={editingSharedBlock}
+                onUpdateDefinitionProp={(key, value) =>
+                  updateSharedBlockDefinitionProp(editingSharedBlock.id, key, value)
+                }
+                onDelete={() => deleteSharedBlockDefinition(editingSharedBlock.id)}
+                onClose={() => setEditingSharedBlockId(null)}
+              />
+            ) : showingComponentProps && selectedNode && isSharedBlockRef(selectedNode) ? (
               <SharedBlockRefPropertiesPanel
                 refNode={selectedNode}
                 onRemove={() => removeBlock(selectedNode.instanceId)}
+                onEditSharedBlock={(definitionId) => setEditingSharedBlockId(definitionId)}
               />
             ) : showingComponentProps && selectedNode && !isSharedBlockRef(selectedNode) ? (
               <ComponentPropertiesPanel

@@ -1,0 +1,22 @@
+{
+  "id": "shared_gg9ekr",
+  "name": "CookieConsent",
+  "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+  "componentName": "CookieConsent",
+  "props": {
+    "storageKey": "app:cookie-consent",
+    "title": "We respect your privacy",
+    "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
+    "privacyLinkLabel": "Privacy Policy",
+    "privacyLinkHref": "/privacy",
+    "necessaryLabel": "Strictly necessary",
+    "necessaryDescription": "— required for the site to function. Always on.",
+    "analyticsLabel": "Anonymous analytics",
+    "analyticsDescription": "— helps us understand which pages are useful.",
+    "acceptAllLabel": "Accept all",
+    "rejectLabel": "Reject non-essential",
+    "customiseLabel": "Customise",
+    "saveLabel": "Save choices",
+    "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+  }
+}

@@ -50,9 +50,9 @@
 
 import type { DataStore } from "../../src/lib/data-model/schema";
 import type { PageItem, SharedBlockDefinition } from "../../src/lib/page-model";
-import { ImportCollector } from "./jsx-codegen/import-collector";
+import { ImportCollector } from "./shared/import-collector";
 import { walkBlockListToSplitJsx } from "./jsx-codegen/render-block-tree-to-split-jsx";
-import { VarNameAllocator } from "./jsx-codegen/var-naming";
+import { VarNameAllocator } from "./shared/var-naming";
 import {
   groupAllInOneFile,
   groupByComponentName,

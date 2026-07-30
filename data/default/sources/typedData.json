@@ -19,7 +19,7 @@
         },
         "logoSrc": {
           "mode": "bound",
-          "sourceId": "file:logo-main"
+          "sourceId": "file:upload-1"
         },
         "wordmark": {
           "mode": "object",

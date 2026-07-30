@@ -93,8 +93,8 @@
 import type { DataStore } from "../../../src/lib/data-model/schema";
 import type { PageItem, SharedBlockDefinition } from "../../../src/lib/page-model";
 import type { SeoData } from "../../../../../packages/ui/src/components/site/types";
-import { ImportCollector } from "../jsx-codegen/import-collector";
-import { VarNameAllocator } from "../jsx-codegen/var-naming";
+import { ImportCollector } from "../shared/import-collector";
+import { VarNameAllocator } from "../shared/var-naming";
 import { renderPageDataFiles, type RenderedDataFile } from "../render-page-split-jsx.ts";
 import { stringifyLiteralValue } from "../jsx-codegen/stringify-literal.ts";
 import { walkBlockListToAstro } from "./render-block-tree-to-astro";

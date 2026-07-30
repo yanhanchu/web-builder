@@ -1,81 +1,98 @@
-# Component & Function Docs (trimmed)
+# Web Builder Monorepo
 
-這是從原專案抽出的精簡版本，只保留 `docs:generate` 與 `functions:generate` 兩個功能：
+一個「組件庫 + 資料驅動頁面編輯器 + 靜態網站生成器」的 pnpm workspace 專案。
+核心理念：**組件（UI）、頁面結構（page-model）、內容資料（data-model）三者分離**，
+頁面編輯器在瀏覽器裡組裝三者，生成器再把同一份資料轉成靜態網站原始碼。
 
-- `packages/ui/scripts/generate-docs.mjs` — 掃描 `packages/ui/src/components/landing1/*.tsx`，
-  產生 `packages/ui/data/components.json`、`packages/ui/data/component-types.json`、
-  `packages/ui/src/lib/generator/component-map.ts`。
-- `packages/ui/scripts/generate-functions-docs.mjs` — 掃描 `packages/ui/src/functions/**/*.ts`，
-  產生 `packages/ui/data/functions.json`、`packages/ui/src/types/generator/function-types.ts`。
+## Workspace 結構
 
-## id 規則調整
+```
+packages/ui/            組件庫（真正的 UI 原始碼）
+  src/components/<group>/*.tsx   各群組的組件（目前：landing1、site）
+  src/lib/                       page-model / data-model / site-renderer 等框架無關核心邏輯
+  src/styles/, src/utils/
 
-- `ComponentDoc.id`：改為 `{filePath}#{componentName}`（例如
-  `src/components/landing1/card.tsx#CardHeader`），避免同一檔案內多個具名匯出
-  （例如 `card.tsx` 同時匯出 `Card` 與 `CardHeader`）或不同目錄同名組件互相撞名。
-- `ComponentTypeDoc.id`：改為 `{型別宣告所在檔案的 filePath}#{型別名稱}`（例如
-  `src/components/landing1/types.ts#BrandData`），避免不同檔案定義的同名型別互相覆蓋。
+apps/web-builder/       頁面編輯器（Vite + React SPA）+ 靜態網站生成器（Node script）
+  src/pages/admin/                編輯器 UI：頁面管理、共用區塊、樣式、App 設定、檔案同步
+  src/lib/                        page-model / data-model 的編輯器端狀態（localStorage）、匯出/匯入
+  scripts/docs/                   掃描 packages/ui，產生 data/components.json 等文件
+  scripts/site-generator/         讀 data/ 底下的攤平 JSON，產出 .tsx（React）或 .astro 網站原始碼
+  server/                         開發用 Vite plugin：檔案上傳、data/ 目錄讀寫（回寫到專案 / 從本機讀取）
 
-## 已移除的功能
-
-原本 `apps/web-builder` 的頁面編輯、i18n 管理、路由管理、主題產生器、檔案管理、
-就地寫回原始碼（write-back）等 UI Builder 功能皆未保留。`apps/web-builder` 目前只是
-一個可以跑起來的空殼 Vite + React + react-router 專案，掛載了 Components /
-Functions 兩個文件瀏覽頁面（首頁列表 + 詳情頁），其餘功能尚未實作。
-
-## 新增：資料管理核心（`packages/ui/src/lib/data-model/`）
-
-這次加入的是資料管理系統的核心模型，用來銜接「components 生成的定義」與「頁面編輯
-時的資料綁定」，取代原本 `components/landing1/default.ts` 手動重複填值的做法。
-**components 生成流程（`scripts/generate-docs.mjs`）完全沒有變動**，這層只是讀取
-它的輸出、疊加一層可綁定的抽象。
-
-### 檔案
-
-- `schema.ts` — 核心型別與 resolver：
-  - `FieldType` / `ValueNode`：遞迴的型別定義與對應的值結構（`primitive` /
-    `ref` / `array` / `object` / `slot`，`ValueNode` 每一層都可以是
-    `literal`（純值）或 `bound`（綁定到某個 `DataSource`））。
-  - `DataSource`：統一的資料來源節點，`i18n` / `file` / `typedData` / `route`
-    四種 kind 共用同一套綁定介面。`i18n` 是「基本型別容器」
-    （`string`/`number`/`boolean` 皆可，不只是文字）。
-  - `resolveValue()`：照著 `FieldType` 走訪 `ValueNode`，把綁定解成最終純值，
-    是靜態產生階段唯一需要走的路徑。
-  - `BindingPolicy` / `getCandidateSources()`：「這個欄位可以綁哪些種類的資料」
-    的判斷機制。因為生成器（乃至任何工具）無法從 TS 型別字串判斷語意
-    （一個 `string` 究竟是不是 i18n 文案、是不是檔案路徑），這裡不武斷分類，
-    改用可替換的 policy 決定候選綁定種類；目前用
-    `permissiveBindingPolicy`：無法判定就全部開放。之後要精細化（人工標註、
-    或用其他方式判斷欄位語意）只要換一顆 policy，其餘程式碼不用動。
-- `from-generated.ts` — 讀取 `data/components.json` /
-  `data/component-types.json`，把 TS 型別字串（`"BrandData"`、`"NavItem[]"`、
-  `"ReactNode"`⋯）轉換成 `FieldType`。型別 id 直接沿用生成器已提供的複合 id
-  （`{filePath}#{TypeName}`），不需要額外處理撞名。`ReactNode` 一律轉成
-  `{ kind: 'slot' }`，代表插槽、不參與資料綁定。
-- `FieldEditor.tsx` — 遞迴表單元件：依 `FieldType` 自動渲染 literal input /
-  binding 下拉選單 / 巢狀 object 子表單 / array 項目增刪，候選綁定來源
-  透過 `BindingPolicy` 決定。
-- `sample-data.ts` — 示範資料：模擬「已經建好的 i18n / 檔案 / 型別資料」，
-  並組出 `Header` / `Footer` 兩個真實 component 的初始 `ValueNode`。重點對照
-  `components/landing1/default.ts`：那裡 `header` 和 `footer` 各自手動填了一份
-  `brandData`；這裡兩者的 `brand` 欄位都改成 `{ mode: 'bound', sourceId:
-  'typedData:brand:main' }`，整格引用同一筆資料，之後要換 LOGO 只要改一處。
-- `index.ts` — 對外的統一匯出（barrel）。
-
-### 示範頁面
-
-`apps/web-builder/src/pages/data-model-demo.tsx`，掛在 `/data-model-demo`
-路由。左側是依 `FieldType` 遞迴渲染的編輯表單，右側即時顯示
-`resolveValue()` 解算出的最終 JSON（component 實際會拿到的 props），並可切換
-locale 觀察 i18n 綁定同步變化。
-
-## 使用方式
-
-```bash
-npm install
-npm run docs:generate
-npm run functions:generate
-npm run dev --workspace=web-builder
+data/                    組件文件（生成物）+ 網站內容資料（人工/編輯器維護）
+  components.json, component-types.json, functions.json   ← 由 scripts/docs 生成，不要手改
+  default/                 一個 workspace 的網站內容（可能有多份，結構相同）
+    sources/                i18n / route / file / typedData 四種資料來源
+    pages/<id>.json         每個頁面的 blocks 樹
+    shared-blocks/<id>.json 可被多個頁面引用的共用區塊定義
+    locales.json, style-sheets.json, style-sheets/*.css
 ```
 
-> 本次交付未執行 `npm install`、未做型別編譯檢查、未跑測試。
+## 資料流（心智模型）
+
+```
+packages/ui 組件 + JSDoc
+        │  pnpm --filter web-builder docs:generate
+        ▼
+data/components.json / component-types.json   ← 組件的 props 表格（機器可讀）
+        │
+        ▼
+data/<workspace>/sources/*.json     ← 值從哪裡來（i18n / file / route / typedData）
+data/<workspace>/pages/*.json       ← 頁面用了哪些組件、順序、props 綁定、slot 巢狀關係
+data/<workspace>/shared-blocks/*.json  ← 共用組件實例（例如全站頁首頁尾），頁面用引用節點取代整包複製
+        │
+        ├─▶ apps/web-builder 編輯器（瀏覽器 + localStorage，可視化編輯上面三種資料）
+        └─▶ scripts/site-generator（讀檔案系統，產出靜態網站原始碼：.tsx 或 .astro）
+```
+
+**核心分離原則**：組件是純 UI，不知道值從哪裡來；頁面資料只描述組合關係；內容資料只描述值本身。
+詳細規則（怎麼寫組件、怎麼編輯各種 JSON 格式）見 [`AGENTS.md`](./AGENTS.md)。
+
+## 開發
+
+```bash
+pnpm install
+
+# 產生/更新組件文件（第一次跑、或改過 packages/ui 組件之後）
+pnpm --filter web-builder docs:generate
+pnpm --filter web-builder functions:generate
+
+# 啟動編輯器（會先自動跑一次上面兩個 generate）
+pnpm --filter web-builder dev
+```
+
+其餘 monorepo 層級指令（跑在所有 workspace 上）：
+
+```bash
+pnpm build       # turbo build
+pnpm lint        # turbo lint
+pnpm typecheck   # turbo typecheck
+pnpm format      # turbo format
+```
+
+## 靜態網站生成器
+
+編輯器裡把 `wb.pages` / `wb.sharedBlocks`（localStorage）「回寫到專案」後，
+`data/<workspace>/` 底下就有完整的攤平資料，可以在不啟動編輯器的情況下單獨生成靜態網站：
+
+```bash
+cd apps/web-builder
+
+# React（.tsx，拆分資料檔案）
+pnpm generate:tsx
+
+# Astro（.astro + client:* island 指令）
+pnpm generate:astro
+```
+
+兩套生成器（`scripts/site-generator/{jsx-codegen,astro-codegen}/`）共用同一份
+`load-static-data.ts`（讀 `data/`）、`page-model` 的 `resolveSharedBlockRef`（共用區塊
+展開邏輯）、以及 `scripts/site-generator/shared/`（block 樹遞迴走訪、資料 export 抽取），
+只有輸出語法（JSX vs Astro template、client 指令）各自實作。細節見
+[`apps/web-builder/scripts/site-generator/readme.md`](./apps/web-builder/scripts/site-generator/readme.md)。
+
+## 其他文件
+
+- [`AGENTS.md`](./AGENTS.md) —— 給 AI／協作者的組件與資料格式規範（最詳細、最常查）
+- [`roadmap.md`](./roadmap.md) —— 共用區塊（Shared Blocks）機制的設計與各 Phase 進度
+- [`apps/web-builder/scripts/site-generator/readme.md`](./apps/web-builder/scripts/site-generator/readme.md) —— 生成器的資料格式、路由規則、兩套 codegen 差異

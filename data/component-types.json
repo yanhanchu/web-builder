@@ -783,6 +783,32 @@
       ]
     },
     {
+      "id": "src/components/landing1/layout2.tsx#Layout2Props",
+      "name": "Layout2Props",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "header",
+          "required": false,
+          "type": "ReactNode",
+          "description": "Data for the sticky header, forwarded to <Header />"
+        },
+        {
+          "name": "footer",
+          "required": false,
+          "type": "ReactNode",
+          "description": "Data for the footer, forwarded to <Footer />"
+        },
+        {
+          "name": "children",
+          "required": false,
+          "type": "ReactNode",
+          "description": "Page content rendered between the header and footer"
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/outline-template-grid.tsx#OutlineTemplate",
       "name": "OutlineTemplate",
       "kind": "interface",

@@ -20,6 +20,7 @@ export const componentMap: Record<string, ComponentLoader> = {
   'components/landing1/header': () => import('@workspace/ui/components/landing1/header.tsx'),
   'components/landing1/hero': () => import('@workspace/ui/components/landing1/hero.tsx'),
   'components/landing1/layout': () => import('@workspace/ui/components/landing1/layout.tsx'),
+  'components/landing1/layout2': () => import('@workspace/ui/components/landing1/layout2.tsx'),
   'components/landing1/outline-template-grid': () => import('@workspace/ui/components/landing1/outline-template-grid.tsx'),
   'components/landing1/page-intro': () => import('@workspace/ui/components/landing1/page-intro.tsx'),
   'components/landing1/product-closing': () => import('@workspace/ui/components/landing1/product-closing.tsx'),

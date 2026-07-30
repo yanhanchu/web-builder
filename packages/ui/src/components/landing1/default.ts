@@ -14,6 +14,7 @@ import { type FooterProps as FooterProps } from "./footer";
 import { type HeaderProps as HeaderProps } from "./header";
 import { type HeroProps as HeroProps } from "./hero";
 import { type LayoutProps as LayoutProps } from "./layout";
+import { type Layout2Props as Layout2Props } from "./layout2";
 import { type OutlineTemplateGridProps as OutlineTemplateGridProps } from "./outline-template-grid";
 import { type PageIntroProps as PageIntroProps } from "./page-intro";
 import { type ProductClosingProps as ProductClosingProps } from "./product-closing";
@@ -224,6 +225,10 @@ export const hero: HeroProps = {
 export const layout: LayoutProps = {
   header,
   footer,
+  children: undefined,
+}
+
+export const layout2: Layout2Props = {
   children: undefined,
 }
 

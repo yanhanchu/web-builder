@@ -22,6 +22,7 @@ import {
   makeSlotValue,
   makeBlockId,
   isSharedBlockRef,
+  makeSharedBlockRef,
   resolveSharedBlockRef,
   useSharedBlocksState,
 } from "@/lib/pages-store";
@@ -253,9 +254,12 @@ function classifyField(propType: string, componentId: string, propName: string):
 export function SharedBlockRefPropertiesPanel({
   refNode,
   onRemove,
+  onEditSharedBlock,
 }: {
   refNode: SharedBlockRef;
   onRemove: () => void;
+  /** 切到「編輯共用區塊」畫面（直接複用「組件屬性」樣版編輯 SharedBlockDefinition.props）。 */
+  onEditSharedBlock: (definitionId: string) => void;
 }) {
   const [sharedBlocks] = useSharedBlocksState();
   const definitions = useMemo(
@@ -330,11 +334,7 @@ export function SharedBlockRefPropertiesPanel({
           <button
             type="button"
             style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
-            onClick={() =>
-              toast.info("編輯共用區塊", {
-                description: "獨立編輯介面尚未實作，目前僅能在此查看摘要。",
-              })
-            }
+            onClick={() => onEditSharedBlock(definition.id)}
           >
             <TypeIcon size={12} />
             編輯共用區塊…
@@ -488,6 +488,10 @@ export function ComponentPropertiesPanel({
   onUpdateClientDirective,
   onRemove,
   onSaveAsSharedBlock,
+  title = "組件屬性",
+  removeTitle = "從此頁移除此組件",
+  showClientDirective = true,
+  headerNote,
 }: {
   block: PageBlock;
   onUpdateProp: (key: string, value: unknown) => void;
@@ -495,6 +499,18 @@ export function ComponentPropertiesPanel({
   onRemove: () => void;
   /** Phase B：把這個組件實例另存為共用區塊。未傳入時不顯示按鈕（保持向下相容）。 */
   onSaveAsSharedBlock?: (name: string, overridableSlots: string[]) => void;
+  /** 面板標題，預設「組件屬性」。共用區塊編輯模式（見 SharedBlockDefinitionPropertiesPanel）
+   *  會覆寫成「組件屬性（編輯共用區塊）」，讓使用者清楚知道現在改的是共用定義本身。 */
+  title?: string;
+  /** 右上角刪除按鈕的 title 提示文字，依情境調整措辭（頁面內組件 vs 共用定義）。 */
+  removeTitle?: string;
+  /** 是否顯示 client:* directive 下拉選單。SharedBlockDefinition 本身不帶
+   *  clientDirective（見 page-model 的型別註解：hydration 是「引用它的那次」
+   *  才有意義的決定，不是共用內容的一部分），編輯共用定義時應隱藏，避免
+   *  誤以為可以在這裡設定「所有引用者共用的 hydration 策略」。 */
+  showClientDirective?: boolean;
+  /** 標題下方的補充說明列（例如共用區塊編輯模式的「修改會影響所有引用此區塊的頁面」提示）。 */
+  headerNote?: React.ReactNode;
 }) {
   const component = allComponents.find((c) => c.id === block.componentId);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -552,32 +568,34 @@ export function ComponentPropertiesPanel({
           gap: 6,
         }}
       >
-        <h2 style={{ ...panelTitleStyle, margin: 0 }}>組件屬性</h2>
+        <h2 style={{ ...panelTitleStyle, margin: 0 }}>{title}</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <select
-            value={block.clientDirective ?? ""}
-            onChange={(e) =>
-              onUpdateClientDirective(e.target.value === "" ? undefined : (e.target.value as ClientDirective))
-            }
-            title="Astro client directive（此組件實例在 Astro 產出時的 hydration 策略；不選則維持純靜態渲染，不會寫入組件 props，只影響 Astro codegen）"
-            style={{
-              background: "#0d0d0d",
-              color: "#eee",
-              border: "1px solid #333",
-              borderRadius: 4,
-              padding: "4px 6px",
-              fontSize: 11,
-              fontFamily: "monospace",
-              boxSizing: "border-box",
-            }}
-          >
-            <option value="">client:（無）</option>
-            <option value="only">client:only</option>
-            <option value="visible">client:visible</option>
-            <option value="idle">client:idle</option>
-            <option value="load">client:load</option>
-            <option value="media">client:media</option>
-          </select>
+          {showClientDirective && (
+            <select
+              value={block.clientDirective ?? ""}
+              onChange={(e) =>
+                onUpdateClientDirective(e.target.value === "" ? undefined : (e.target.value as ClientDirective))
+              }
+              title="Astro client directive（此組件實例在 Astro 產出時的 hydration 策略；不選則維持純靜態渲染，不會寫入組件 props，只影響 Astro codegen）"
+              style={{
+                background: "#0d0d0d",
+                color: "#eee",
+                border: "1px solid #333",
+                borderRadius: 4,
+                padding: "4px 6px",
+                fontSize: 11,
+                fontFamily: "monospace",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="">client:（無）</option>
+              <option value="only">client:only</option>
+              <option value="visible">client:visible</option>
+              <option value="idle">client:idle</option>
+              <option value="load">client:load</option>
+              <option value="media">client:media</option>
+            </select>
+          )}
           {onSaveAsSharedBlock && (
             <button
               style={iconBtnStyle}
@@ -587,11 +605,13 @@ export function ComponentPropertiesPanel({
               <Blocks size={14} />
             </button>
           )}
-          <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除此組件">
+          <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title={removeTitle}>
             <Trash2 size={14} />
           </button>
         </div>
       </div>
+
+      {headerNote}
 
       <div style={{ marginBottom: 12 }}>
         <span style={typeBadgeStyle} title={block.componentId}>
@@ -665,6 +685,104 @@ export function ComponentPropertiesPanel({
         })
       )}
     </section>
+  );
+}
+
+/**
+ * 「編輯共用區塊」：直接重用 ComponentPropertiesPanel 這份「組件屬性」樣版來編輯
+ * SharedBlockDefinition.props，而不是另外刻一份 UI——SharedBlockDefinition 跟
+ * PageBlock 本來就是同一套 props 形狀（見 page-model 的型別註解），差別只在
+ * SharedBlockDefinition 沒有 instanceId／clientDirective，也不屬於某個頁面的
+ * blocks 樹。這裡把 definition 包成一個「合成的」PageBlock（instanceId 借用
+ * definition.id，反正 ComponentPropertiesPanel 內部只把它當成 React key /
+ * 顯示用途，不會拿去查頁面樹），改動一律透過 onUpdateDefinitionProp 寫回
+ * wb.sharedBlocks（呼叫端 page-manager.tsx 的 updateSharedBlockDefinitionProp），
+ * 不會、也不需要碰任何頁面的 draft。
+ *
+ * 有意省略的部分：
+ *   - client:* directive 下拉選單（showClientDirective=false）——
+ *     hydration 策略是「引用它的那次」才有意義的決定，不是共用內容本身。
+ *   - 「另存為共用區塊」按鈕（不傳 onSaveAsSharedBlock）——共用定義本身
+ *     已經是「共用區塊」，沒有「把它再存成一份共用區塊」的操作意義。
+ *   - overridable slot（definition.props 裡刻意留白給各頁面覆寫的
+ *     SlotValue 佔位，見另存為共用區塊 modal）在這裡仍然可以編輯——
+ *     使用者可以直接在這裡填入「預設內容」，之後沒有覆寫的頁面就會顯示
+ *     這裡填的內容；已經在個別頁面覆寫的 slot 則完全不受影響（覆寫優先
+ *     於 definition.props，見 resolveSharedBlockRef 的合併規則）。
+ */
+export function SharedBlockDefinitionPropertiesPanel({
+  definition,
+  onUpdateDefinitionProp,
+  onDelete,
+  onClose,
+}: {
+  definition: SharedBlockDefinition;
+  onUpdateDefinitionProp: (key: string, value: unknown) => void;
+  /** 刪除這份共用定義本身（不是移除某個頁面上的引用）。 */
+  onDelete: () => void;
+  /** 關閉編輯畫面，回到原本選取的節點（通常是觸發編輯的 SharedBlockRef）。 */
+  onClose: () => void;
+}) {
+  // 合成一個等效的 PageBlock，餵給 ComponentPropertiesPanel——這是唯一需要的
+  // 轉接工作，其餘欄位編輯、slot 編輯、資料綁定邏輯完全沿用同一份樣版。
+  const syntheticBlock: PageBlock = useMemo(
+    () => ({
+      instanceId: definition.id,
+      componentId: definition.componentId,
+      componentName: definition.componentName,
+      props: definition.props,
+    }),
+    [definition]
+  );
+
+  return (
+    <ComponentPropertiesPanel
+      block={syntheticBlock}
+      onUpdateProp={onUpdateDefinitionProp}
+      onUpdateClientDirective={() => {
+        /* 共用定義本身不帶 clientDirective，showClientDirective=false 時
+           不會顯示下拉選單，這裡不會被呼叫；保留空實作只是滿足型別簽名。 */
+      }}
+      onRemove={() => {
+        if (
+          window.confirm(
+            `確定要刪除共用區塊「${definition.name}」嗎？仍引用它的頁面會顯示「共用區塊已遺失」，此動作無法復原。`
+          )
+        ) {
+          onDelete();
+        }
+      }}
+      removeTitle="刪除這份共用區塊定義（會影響所有仍引用它的頁面）"
+      showClientDirective={false}
+      title={`組件屬性（編輯共用區塊：${definition.name}）`}
+      headerNote={
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 12,
+            padding: "8px 10px",
+            borderRadius: 6,
+            border: "1px solid #2d9c74",
+            background: "#132420",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 11, color: "#7fdbca", lineHeight: 1.6 }}>
+            正在編輯共用定義本身，修改會影響所有引用此區塊的頁面（已被個別頁面覆寫的插槽不受影響）。
+          </p>
+          <button
+            type="button"
+            style={{ ...iconBtnStyle, flexShrink: 0 }}
+            onClick={onClose}
+            title="返回"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      }
+    />
   );
 }
 
@@ -1096,6 +1214,25 @@ function ReactNodeField({
     setQuery("");
   };
 
+  // 跟 addComponent 對稱：把選中的 SharedBlockDefinition 變成一個新的
+  // SharedBlockRef（不帶 slotOverrides，維持 definition.props 裡原本的
+  // 空白 slot 佔位，等使用者之後自行覆寫，跟 page-manager.tsx 的
+  // addSharedBlockRef／components-panel.tsx 左側面板「+」按鈕同一套語意），
+  // 加進這個 slot 陣列最後方。
+  const addSharedBlock = (definitionId: string) => {
+    onChange(makeSlotValue([...slot.blocks, makeSharedBlockRef(definitionId)]));
+    setPickerOpen(false);
+    setQuery("");
+  };
+
+  const filteredSharedBlocks = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sharedBlocks;
+    return sharedBlocks.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.componentName.toLowerCase().includes(q)
+    );
+  }, [sharedBlocks, query]);
+
   const removeAt = (index: number) => {
     const next = slot.blocks.filter((_, i) => i !== index);
     onChange(makeSlotValue(next));
@@ -1220,55 +1357,101 @@ function ReactNodeField({
                   <input
                     autoFocus
                     style={{ ...inputStyle, paddingLeft: 26, fontSize: 12 }}
-                    placeholder="篩選組件名稱或描述…"
+                    placeholder="篩選組件或共用區塊名稱…"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </div>
-                {filteredGroups.length === 0 ? (
-                  <p style={{ fontSize: 12, color: "#777", margin: 4 }}>找不到符合的組件。</p>
+                {filteredSharedBlocks.length === 0 && filteredGroups.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "#777", margin: 4 }}>找不到符合的組件或共用區塊。</p>
                 ) : (
-                  filteredGroups.map((group) => (
-                    <div key={group.label} style={{ marginBottom: 4 }}>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "#999",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.4,
-                          fontFamily: "monospace",
-                          padding: "6px 6px 2px",
-                        }}
-                      >
-                        {group.label}
-                      </div>
-                      {group.components.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => addComponent(c)}
+                  <>
+                    {filteredSharedBlocks.length > 0 && (
+                      <div style={{ marginBottom: 4 }}>
+                        <div
                           style={{
-                            display: "block",
-                            width: "100%",
-                            textAlign: "left",
-                            background: "transparent",
-                            border: "none",
-                            color: "#ccc",
-                            fontSize: 12,
-                            padding: "6px 6px",
-                            cursor: "pointer",
-                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "#7fdbca",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            fontFamily: "monospace",
+                            padding: "6px 6px 2px",
                           }}
-                          title={c.description}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         >
-                          {c.componentName}
-                        </button>
-                      ))}
-                    </div>
-                  ))
+                          共用區塊
+                        </div>
+                        {filteredSharedBlocks.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => addSharedBlock(d.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              width: "100%",
+                              textAlign: "left",
+                              background: "transparent",
+                              border: "none",
+                              color: "#ccc",
+                              fontSize: 12,
+                              padding: "6px 6px",
+                              cursor: "pointer",
+                              borderRadius: 4,
+                            }}
+                            title={`對應組件：${d.componentName}`}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            <Blocks size={11} style={{ color: "#7fdbca", flexShrink: 0 }} />
+                            {d.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {filteredGroups.map((group) => (
+                      <div key={group.label} style={{ marginBottom: 4 }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "#999",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            fontFamily: "monospace",
+                            padding: "6px 6px 2px",
+                          }}
+                        >
+                          {group.label}
+                        </div>
+                        {group.components.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => addComponent(c)}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              background: "transparent",
+                              border: "none",
+                              color: "#ccc",
+                              fontSize: 12,
+                              padding: "6px 6px",
+                              cursor: "pointer",
+                              borderRadius: 4,
+                            }}
+                            title={c.description}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#222")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            {c.componentName}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             )}

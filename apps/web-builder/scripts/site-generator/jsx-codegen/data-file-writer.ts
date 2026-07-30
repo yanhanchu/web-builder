@@ -17,7 +17,7 @@
 // ============================================================
 
 import { stringifyLiteralValue } from "./stringify-literal";
-import { ImportCollector } from "./import-collector";
+import { ImportCollector } from "../shared/import-collector";
 import type { DataExport } from "./render-block-tree-to-split-jsx";
 
 export interface DataFileGroup {

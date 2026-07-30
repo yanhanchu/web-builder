@@ -35,13 +35,33 @@ export function AdminLayout({
   children: React.ReactNode;
 }) {
   const location = useLocation();
+  const [collapsed, setCollapsed] = usePersistentState<boolean>("admin-sidebar-collapsed", false);
 
   return (
     <div style={shellStyle}>
-      <aside style={sidebarStyle}>
-        <div style={{ padding: "4px 12px 16px" }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>Web Builder</div>
-          <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>後台管理</div>
+      <aside style={collapsed ? sidebarStyleCollapsed : sidebarStyle}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed ? "center" : "space-between",
+            padding: collapsed ? "4px 4px 12px" : "4px 12px 16px",
+          }}
+        >
+          {!collapsed && (
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>Web Builder</div>
+              <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>後台管理</div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "展開側邊欄" : "收合側邊欄"}
+            style={collapseBtnStyle}
+          >
+            {collapsed ? "»" : "«"}
+          </button>
         </div>
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {ADMIN_NAV.map((item) => {
@@ -52,15 +72,26 @@ export function AdminLayout({
               <Link
                 key={item.to}
                 to={item.to}
+                title={collapsed ? item.label : undefined}
                 style={{
                   ...navLinkStyle,
                   background: active ? "#233" : "transparent",
                   color: active ? "#8fe" : "#ccc",
                   borderLeft: active ? "3px solid #2d9c74" : "3px solid transparent",
+                  alignItems: collapsed ? "center" : "flex-start",
+                  padding: collapsed ? "8px 4px" : "8px 10px",
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
-                <span style={{ fontSize: 11, color: "#777" }}>{item.desc}</span>
+                {collapsed ? (
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>
+                    {item.label.slice(0, 1)}
+                  </span>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
+                    <span style={{ fontSize: 11, color: "#777" }}>{item.desc}</span>
+                  </>
+                )}
               </Link>
             );
           })}
@@ -70,9 +101,9 @@ export function AdminLayout({
       <main style={mainStyle}>
         <header style={headerStyle}>
           <div>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{title}</h1>
+            <h1 style={{ fontSize: 15, margin: 0 }}>{title}</h1>
             {description && (
-              <p style={{ color: "#888", fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>
+              <p style={{ color: "#888", fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
                 {description}
               </p>
             )}
@@ -144,6 +175,28 @@ const sidebarStyle: React.CSSProperties = {
   top: 0,
   alignSelf: "flex-start",
   height: "100vh",
+  transition: "width 0.15s ease",
+  overflow: "hidden",
+};
+
+const sidebarStyleCollapsed: React.CSSProperties = {
+  ...sidebarStyle,
+  width: 52,
+  padding: "16px 4px",
+};
+
+const collapseBtnStyle: React.CSSProperties = {
+  background: "transparent",
+  color: "#aaa",
+  border: "1px solid #333",
+  borderRadius: 4,
+  width: 22,
+  height: 22,
+  lineHeight: "20px",
+  fontSize: 12,
+  cursor: "pointer",
+  flexShrink: 0,
+  padding: 0,
 };
 
 const navLinkStyle: React.CSSProperties = {
@@ -171,8 +224,8 @@ const headerStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: 16,
-  padding: "12px 0",
-  marginBottom: 20,
+  padding: "8px 0",
+  marginBottom: 14,
   flexWrap: "wrap",
   borderBottom: "1px solid #2a2a2a",
 };
