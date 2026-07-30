@@ -299,10 +299,11 @@ data/<workspace>/
   - `componentId`：必須完全等於 `data/components.json` 裡該組件的 `id`（`{檔案路徑}#{組件名稱}`）。
   - `componentName`：純顯示用途。
   - `props`：只放「這個實例要覆寫的欄位」，沒放的沿用組件 `default.ts` 值。
-- top-level 每個 prop 各自決定要不要綁定：
-  - 一般值：直接寫純值（string/number/boolean/plain object/array）。
-  - 要綁定：整個 prop 換成 ValueNode，且要逐欄位展開對齊該 prop 的型別（不能只給 `{ mode: "bound", sourceId: "typedData:xxx" }`，除非那筆 typedData 剛好整包就是該 prop 型別）。
-  - **絕大多數情況直接寫純值就夠了**，只有真的需要跟全站共用資料連動時才用 ValueNode。
+- top-level 每個 prop 各自決定要不要綁定，但**判斷準則是「這個值是不是會顯示給使用者看的文字/圖片/連結」，不是「省不省事」**：
+  - **會顯示的內容（文案、圖片/檔案來源、連結網址）→ 一定要綁定**，改成 ValueNode 引用 `i18n:` / `file:` / `typedData:`，且要逐欄位展開對齊該 prop 的型別（不能只給 `{ mode: "bound", sourceId: "typedData:xxx" }`，除非那筆 typedData 剛好整包就是該 prop 型別）。**不能因為「只有這個頁面用」就寫成純值字串**——就算現在只有一頁用，之後要在地化、要換文案、要給另一個 workspace 複用時，都得回頭補綁定，不如一開始就放對地方。
+  - **真正的純值只有兩種**：(1) 不是「內容」而是「結構/行為參數」的值，例如 `clientDirective` 旁的技術性欄位、`anchorId`、純粹的 boolean 開關；(2) 這個值在任何 workspace/locale 下都不該變、也不构成「文案」的固定字串，例如 route 路徑片段本身（但路徑對應的*連結文字*仍要走 i18n）。
+  - 反例（常見誤用）：`title: "We respect your privacy"`、`body: ["...長文字..."]`、`question`/`answer` 這類 FAQ 內容——這些全部是「顯示文字」，即使只有一個頁面用到，也要進 `i18n.en.json` 補一個 key 再綁定，不要直接寫死在 `pages/<id>.json` 裡。
+  - 同一段文字如果會出現在**兩個以上頁面**（例如 Cookie 同意橫幅、共用 CTA 文案），除了要進 i18n，也要檢查是否該連組件實例本身都抽成 `shared-blocks/`（見 2.5）——不是每個共用文字都需要抽共用區塊，但每個共用區塊裡的文字一定要先進 i18n。
 - slot 型欄位（prop 型別是 `ReactNode`）一律寫成 `{ "__slot": true, "blocks": [ /* 巢狀 PageBlock[] */ ] }`，可無限巢狀。
 - `clientDirective`（可選，跟 `props` 平行，不要塞進 `props`）：決定這個組件實例要不要 hydrate。未設定＝純靜態（預設、零 JS）。值：`"only" | "visible" | "idle" | "load" | "media"`。純展示組件不需要；有 `useState`/`onClick` 等互動邏輯的組件（如 `ThemeToggle`）才需考慮。
 
@@ -314,7 +315,8 @@ data/<workspace>/
 - [ ] 新頁面 `id`、檔名、`route.json` 的 `pageId` 三者一致
 - [ ] `blocks[].componentId` 完全對應 `data/components.json` 的 `id`
 - [ ] slot 型 prop 用 `{ "__slot": true, "blocks": [...] }` 包，不是純陣列
-- [ ] 需要綁定的 prop 才寫 ValueNode，其餘直接寫純值
+- [ ] **所有會顯示給使用者看的文字/圖片/連結都綁定到 `i18n:` / `file:` / `typedData:`**，不要以「只有這頁用」為由寫死純值字串；純值只留給非顯示性的結構/技術欄位
+- [ ] 同一段文字若出現在多個頁面，先確認是否也該把整個組件實例抽成 `shared-blocks/`（見 2.5 檢查清單）
 - [ ] 沒特別需要 hydrate 的組件不要加 `clientDirective`
 - [ ] CSS 內容改在 `style-sheets/<id>.css`，不要塞回 `style-sheets.json`
 - [ ] 引用 `shared-blocks/` 的節點要用 `SharedBlockRef`（`kind: "sharedBlockRef"`），不要把整包 `PageBlock` 複製貼上到多個頁面（見 2.5）
@@ -379,6 +381,13 @@ data/<workspace>/
 
 檢查清單：
 
+- [ ] **新增/修改任何頁面內容前，先掃一遍其他頁面**：這個組件實例（同 componentId
+      + 幾乎一樣的 props）是否已經出現在 ≥2 個頁面？例如 Cookie 同意橫幅
+      (`CookieConsent`)、共用 CTA 區塊——這類「每頁都放一份、內容完全一樣」的
+      實例，一律該抽成 `shared-blocks/`，不要放任它在各頁面裡以 `PageBlock` 複製
+      貼上（就算每一份各自的 props 已經正確綁定 i18n，複製貼上本身仍是要修的
+      問題：以後新增第 10 個頁面又會忘記帶上，或者共用文案要調整又得同步改 N
+      處）。
 - [ ] 存成共用定義前，先確認這個組件實例真的要被 ≥2 個頁面重複使用（單一頁面用
       的內容不需要抽出來）
 - [ ] `shared-blocks/<id>.json` 的檔名、`id` 一致，慣例前綴 `shb_`
@@ -386,6 +395,17 @@ data/<workspace>/
 - [ ] 頁面裡的引用節點用 `SharedBlockRef`（`kind: "sharedBlockRef"` + `ref` 指向存在
       的共用定義 id），不要複製整包 `PageBlock`
 - [ ] `slotOverrides` 只覆寫共用定義裡留白的 slot 欄位
+
+**已知限制**：`SharedBlockDefinition` / `SharedBlockRef` 目前都沒有 `clientDirective`
+欄位。`Layout` 之所以能透過共用定義帶到 `Header`/`Footer` 的 `clientDirective`，是因為
+`clientDirective` 存在 slot 裡巢狀的 `PageBlock`（`Header`）上，而不是共用定義本身的
+`componentId`（`Layout`）上。如果要抽成共用區塊的組件**本身就需要
+`clientDirective`（例如互動元件、且沒有 slot 可以把它塞進去當巢狀節點——如
+`CookieConsent`），現有型別接不住這個資訊，抽出來會悄悄遺失 hydration 設定。
+這種情況目前只能繼續讓它以 `PageBlock` 的形式各自出現在每個頁面（但**內容仍要透過
+i18n 綁定，不要因為型別限制就連文案也一起放棄綁定**）；要抽成真正的共用區塊，
+需要先擴充 `SharedBlockDefinition`/`SharedBlockRef` 型別本身，不要自行在資料裡加一個
+型別沒宣告的欄位。
 
 ---
 

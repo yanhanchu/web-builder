@@ -68,112 +68,112 @@
               "componentName": "QuickStartSteps",
               "props": {
                 "title": {
-                  "mode": "literal",
-                  "value": "Steps"
+                  "mode": "bound",
+                  "sourceId": "i18n:guide.title"
                 },
                 "subtitle": {
-                  "mode": "literal",
-                  "value": "Ten steps from a blank page to an exported mind map."
+                  "mode": "bound",
+                  "sourceId": "i18n:guide.subtitle"
                 },
                 "steps": [
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "1. Start with your central idea"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.0.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Open the editor and type your topic on the first line. This becomes the root node of your map — the centre that every branch connects back to."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.0.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "2. Indent to create branches"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.1.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Press Tab at the start of a line to indent it one level deeper, turning it into a child node. Press Shift+Tab to outdent and move it back up a level. Each level of indentation becomes a new layer in the map."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.1.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "3. Add siblings with Enter"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.2.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Press Enter to start a new line at the same indentation level as the one above it, creating a sibling node. This is the fastest way to list several related points under one branch."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.2.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "4. Reorder nodes without retyping"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.3.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Use Alt (Option on macOS) + Up or Down arrow to move the current line — and everything nested beneath it — up or down among its siblings, without cutting and pasting text."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.3.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "5. Enrich a node with quick commands"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.4.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Type your configured trigger key (`, @, #, or ~) at the start of a line to open the quick command menu. From there you can set the node's text or markdown, attach a URL, add a detail image, or apply a colour or tag — all without leaving the keyboard."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.4.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "6. Switch layouts to match your content"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.5.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Use the layout switcher above the map to try balanced, star, left, right, or tree diagram arrangements. A wide list of parallel ideas often reads better as a tree; a single central concept usually suits a balanced or star layout."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.5.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "7. Fine-tune the visual structure"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.6.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Drag any node to reposition it, click a node once to adjust its text or background colour, or double-click to open its full detail panel and add notes, a title, a URL, or tags. Use the collapse (>) control on a node to tidy away a large subtree while you focus elsewhere."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.6.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "8. Zoom, centre and organise your workspace"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.7.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Use the scroll wheel or the +/- controls to zoom, and the centre button to snap back to the middle of your map. Add more diagrams as tabs at the top of the editor panel, and double-click a tab to rename it."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.7.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "9. Export when you're ready"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.8.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Use the export button in the top navigation bar to save your finished map as a PNG, WebP, or PDF image, or export the underlying outline as plain text."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.8.body"
                     }
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "10. Back up with Google Drive (optional)"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.9.title"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Open the Google Drive sync menu next to the theme toggle and sign in to push a copy of your workspace to your own Drive storage. Pull it back down on another device, or turn on auto sync so backups happen on their own while you keep working."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.steps.9.body"
                     }
                   }
                 ]
@@ -187,53 +187,53 @@
                 "sections": [
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "Why write before you draw"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.sections.0.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "Most mind mapping tools start you on a blank canvas: you place a shape, connect it, place another, and repeat. That's fine for a finished diagram, but it's slow for the messy, fast-moving part of thinking — the part where ideas are still being sorted."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.0.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "Writing an outline lets you capture ideas at the speed of typing. Structure — what belongs under what — is expressed with a single keypress (Tab), not a drag-and-drop connection. The visual map becomes a by-product of organising your thoughts, rather than a separate task on top of it."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.0.body.1"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "Keyboard-first, mouse-optional"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.sections.1.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "Every core action in the editor — creating a node, nesting it, reordering it, tagging it — has a keyboard shortcut. That matters most when you're brainstorming: switching to the mouse to draw a connector breaks your train of thought in a way that pressing Tab does not."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.1.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "The mouse is still useful for the parts that benefit from direct manipulation: dragging a node to a new position, resizing the view, or picking a colour from a palette. The editor and the map stay in sync regardless of which one you use at any given moment."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.1.body.1"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "Local by default, backed up if you want"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.sections.2.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "Everything you write is stored locally in your browser first — there's no server round-trip while you work, and no account is required to get started. That makes the tool suitable for early-stage notes, private planning, or anything you'd rather keep on your own device."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.2.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "When you do want a backup or need to pick up a map on another device, sign in with Google through the sync menu next to the theme toggle. Push sends the current workspace to a private folder in your own Google Drive; pull brings the latest saved copy back down. Turning on auto sync repeats a push periodically in the background, so you don't have to remember to do it manually."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.2.body.1"
                       },
                       {
-                        "mode": "literal",
-                        "value": "Exporting still works the same way it always has — to an image for sharing, or to text or JSON as a portable copy — so Drive sync is an addition to that workflow, not a replacement for it."
+                        "mode": "bound",
+                        "sourceId": "i18n:guide.sections.2.body.2"
                       }
                     ]
                   }
@@ -246,68 +246,68 @@
               "componentName": "ProductFaq",
               "props": {
                 "title": {
-                  "mode": "literal",
-                  "value": "Frequently asked questions"
+                  "mode": "bound",
+                  "sourceId": "i18n:guide.title"
                 },
                 "items": [
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "What's the difference between Tab and Enter?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.0.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "Enter creates a new node at the same level as the current one (a sibling). Tab indents the current line to become a child of the node above it. Shift+Tab does the reverse, moving a node back up a level."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.0.answer"
                     }
                   },
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "Can I change the trigger key for quick commands?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.1.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "Yes. The trigger key that opens the quick command menu is configurable, with a choice of `, @, #, or ~, so you can pick one that doesn't collide with the characters you normally type."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.1.answer"
                     }
                   },
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "Do I need to plan the whole structure before I start?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.2.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "No. Because reordering nodes is a keyboard shortcut away (Alt/Option + Up or Down) and indentation is a single Tab press, it's usually faster to write ideas roughly as they occur to you and reorganise afterwards than to plan the full hierarchy up front."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.2.answer"
                     }
                   },
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "What can I attach to a single node?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.3.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "A node can carry a title, a URL, notes in plain text or markdown, tags, a custom colour, and a detail image. Double-click any node to open its detail panel and edit these."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.3.answer"
                     }
                   },
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "How do I share a finished map?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.4.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "Use the export option in the top navigation bar to save the current view as a PNG, WebP, or PDF image, or export the outline as plain text if you want to share or reuse the underlying structure."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.4.answer"
                     }
                   },
                   {
                     "question": {
-                      "mode": "literal",
-                      "value": "How do I keep a map in sync across devices?"
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.5.question"
                     },
                     "answer": {
-                      "mode": "literal",
-                      "value": "Sign in with Google through the sync menu next to the theme toggle, then use Push to back up your workspace and Pull to restore it on another device. Auto sync can push changes periodically without needing to trigger it manually each time."
+                      "mode": "bound",
+                      "sourceId": "i18n:guide.items.5.answer"
                     }
                   }
                 ]
@@ -338,20 +338,62 @@
               "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
               "componentName": "CookieConsent",
               "props": {
-                "storageKey": "txt2map:cookie-consent",
-                "title": "We respect your privacy",
-                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
-                "privacyLinkLabel": "Privacy Policy",
-                "privacyLinkHref": "/privacy",
-                "necessaryLabel": "Strictly necessary",
-                "necessaryDescription": "— required for the site to function. Always on.",
-                "analyticsLabel": "Anonymous analytics",
-                "analyticsDescription": "— helps us understand which pages are useful.",
-                "acceptAllLabel": "Accept all",
-                "rejectLabel": "Reject non-essential",
-                "customiseLabel": "Customise",
-                "saveLabel": "Save choices",
-                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+                "storageKey": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.storageKey"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.title"
+                },
+                "description": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.description"
+                },
+                "privacyLinkLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkLabel"
+                },
+                "privacyLinkHref": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkHref"
+                },
+                "necessaryLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryLabel"
+                },
+                "necessaryDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryDescription"
+                },
+                "analyticsLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsLabel"
+                },
+                "analyticsDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsDescription"
+                },
+                "acceptAllLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.acceptAllLabel"
+                },
+                "rejectLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.rejectLabel"
+                },
+                "customiseLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.customiseLabel"
+                },
+                "saveLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.saveLabel"
+                },
+                "dismissAriaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.dismissAriaLabel"
+                }
               },
               "clientDirective": "load"
             }

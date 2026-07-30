@@ -50,140 +50,140 @@
                 "sections": [
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "1. Information we collect"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.0.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "Account information you provide (such as name and email) when you sign up or contact us."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.0.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "Content you create or upload when using our products."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.0.body.1"
                       },
                       {
-                        "mode": "literal",
-                        "value": "Usage and device data (such as IP address, browser type, and basic analytics) to operate and improve the service."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.0.body.2"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "2. How we use information"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.1.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "To provide and maintain our products."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.1.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "To respond to support requests and communicate with you about your account."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.1.body.1"
                       },
                       {
-                        "mode": "literal",
-                        "value": "To improve performance, security and the user experience."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.1.body.2"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "3. Sharing"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.2.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "We don't sell your personal information."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.2.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "We use trusted infrastructure and service providers (for example hosting, email and analytics) who process data on our behalf under appropriate agreements."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.2.body.1"
                       },
                       {
-                        "mode": "literal",
-                        "value": "We may disclose information if required by law."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.2.body.2"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "4. Data location and transfers"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.3.heading"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "Text to Mind Map is operated from Australia and may use providers located in other regions. Where data is transferred internationally, we take reasonable steps to ensure it's handled with comparable protections."
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.3.body"
                     }
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "5. Security"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.4.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "We use industry-standard practices to protect your information, including encryption in transit and access controls."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.4.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "No system is perfectly secure, so we encourage you to use strong, unique passwords."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.4.body.1"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "6. Your rights"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.5.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "You can request access to, correction of, or deletion of personal information we hold about you by emailing support@txt2map.com."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.5.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "If you're in a region with specific data rights (such as the EU or UK), those rights apply where required by law."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.5.body.1"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "7. Cookies"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.6.heading"
                     },
                     "body": [
                       {
-                        "mode": "literal",
-                        "value": "We use a minimal set of cookies and similar technologies to keep the site working and understand high-level usage."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.6.body.0"
                       },
                       {
-                        "mode": "literal",
-                        "value": "You can control cookies in your browser settings."
+                        "mode": "bound",
+                        "sourceId": "i18n:privacy.sections.6.body.1"
                       }
                     ]
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "8. Changes"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.7.heading"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "We may update this policy from time to time. Significant changes will be noted on this page with a new \"updated\" date."
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.7.body"
                     }
                   },
                   {
                     "heading": {
-                      "mode": "literal",
-                      "value": "9. Contact"
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.8.heading"
                     },
                     "body": {
-                      "mode": "literal",
-                      "value": "For privacy questions or requests, email support@txt2map.com."
+                      "mode": "bound",
+                      "sourceId": "i18n:privacy.sections.8.body"
                     }
                   }
                 ]
@@ -194,20 +194,62 @@
               "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
               "componentName": "CookieConsent",
               "props": {
-                "storageKey": "txt2map:cookie-consent",
-                "title": "We respect your privacy",
-                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
-                "privacyLinkLabel": "Privacy Policy",
-                "privacyLinkHref": "/privacy",
-                "necessaryLabel": "Strictly necessary",
-                "necessaryDescription": "— required for the site to function. Always on.",
-                "analyticsLabel": "Anonymous analytics",
-                "analyticsDescription": "— helps us understand which pages are useful.",
-                "acceptAllLabel": "Accept all",
-                "rejectLabel": "Reject non-essential",
-                "customiseLabel": "Customise",
-                "saveLabel": "Save choices",
-                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+                "storageKey": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.storageKey"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.title"
+                },
+                "description": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.description"
+                },
+                "privacyLinkLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkLabel"
+                },
+                "privacyLinkHref": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkHref"
+                },
+                "necessaryLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryLabel"
+                },
+                "necessaryDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryDescription"
+                },
+                "analyticsLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsLabel"
+                },
+                "analyticsDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsDescription"
+                },
+                "acceptAllLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.acceptAllLabel"
+                },
+                "rejectLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.rejectLabel"
+                },
+                "customiseLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.customiseLabel"
+                },
+                "saveLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.saveLabel"
+                },
+                "dismissAriaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.dismissAriaLabel"
+                }
               },
               "clientDirective": "load"
             }

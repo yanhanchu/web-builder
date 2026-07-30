@@ -581,20 +581,62 @@
               "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
               "componentName": "CookieConsent",
               "props": {
-                "storageKey": "txt2map:cookie-consent",
-                "title": "We respect your privacy",
-                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
-                "privacyLinkLabel": "Privacy Policy",
-                "privacyLinkHref": "/privacy",
-                "necessaryLabel": "Strictly necessary",
-                "necessaryDescription": "— required for the site to function. Always on.",
-                "analyticsLabel": "Anonymous analytics",
-                "analyticsDescription": "— helps us understand which pages are useful.",
-                "acceptAllLabel": "Accept all",
-                "rejectLabel": "Reject non-essential",
-                "customiseLabel": "Customise",
-                "saveLabel": "Save choices",
-                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+                "storageKey": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.storageKey"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.title"
+                },
+                "description": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.description"
+                },
+                "privacyLinkLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkLabel"
+                },
+                "privacyLinkHref": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkHref"
+                },
+                "necessaryLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryLabel"
+                },
+                "necessaryDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryDescription"
+                },
+                "analyticsLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsLabel"
+                },
+                "analyticsDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsDescription"
+                },
+                "acceptAllLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.acceptAllLabel"
+                },
+                "rejectLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.rejectLabel"
+                },
+                "customiseLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.customiseLabel"
+                },
+                "saveLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.saveLabel"
+                },
+                "dismissAriaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.dismissAriaLabel"
+                }
               },
               "clientDirective": "load"
             }

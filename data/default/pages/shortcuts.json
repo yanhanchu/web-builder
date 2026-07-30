@@ -66,262 +66,262 @@
                 "groups": [
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "Editing the outline"
+                      "mode": "bound",
+                      "sourceId": "i18n:shortcuts.groups.0.title"
                     },
                     "rows": [
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Enter"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.0.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Create a new sibling node at the current indentation level"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.0.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Tab"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.1.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Indent the current line, turning it into a child of the node above"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.1.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Shift + Tab"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.2.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Outdent the current line, moving it up one level"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.2.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Alt/Option + ↑"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.3.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Move the current node (and its children) up among its siblings"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.3.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Alt/Option + ↓"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.4.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Move the current node (and its children) down among its siblings"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.4.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "` / @ / # / ~"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.5.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Open the quick command menu on the current line (configurable trigger key)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.5.action"
                         }
                       }
                     ]
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "Working with the map view"
+                      "mode": "bound",
+                      "sourceId": "i18n:shortcuts.groups.1.title"
                     },
                     "rows": [
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Scroll wheel"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.0.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Zoom the map in or out"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.0.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "+ / − (view controls)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.1.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Zoom in or out using the on-screen buttons"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.1.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Centre button"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.2.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Recentre the view on the current map"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.2.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Click a node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.3.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Show the quick toolbar for text colour and node background colour"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.3.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Double-click a node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.4.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Open the node's detail panel (title, URL, notes, tags)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.4.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Drag a node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.5.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Freely reposition the node within the map"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.5.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "+ button on a node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.6.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Add a new child node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.6.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "> button on a node"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.7.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Collapse or expand the node's subtree"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.1.rows.7.action"
                         }
                       }
                     ]
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "Diagrams & workspace"
+                      "mode": "bound",
+                      "sourceId": "i18n:shortcuts.groups.2.title"
                     },
                     "rows": [
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "New tab (top-right of editor)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.0.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Add another diagram alongside the current one"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.0.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Double-click a diagram tab"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.1.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Rename that diagram"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.1.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "× on a tab"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.2.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Delete a diagram (shown once more than one diagram exists)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.2.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Collapse-panel button"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.3.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Hide the left-hand code editor panel for a larger map view"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.2.rows.3.action"
                         }
                       }
                     ]
                   },
                   {
                     "title": {
-                      "mode": "literal",
-                      "value": "Sync & backup"
+                      "mode": "bound",
+                      "sourceId": "i18n:shortcuts.groups.3.title"
                     },
                     "rows": [
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Sync icon (left of theme toggle)"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.0.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Open the Google Drive sync menu"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.0.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Sign in with Google"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.1.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Connect your Google account to enable sync"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.1.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Push"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.2.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Save the current workspace to your private Google Drive app-data folder"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.2.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Pull"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.3.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Restore the most recently saved workspace from Google Drive"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.3.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "Auto sync toggle"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.4.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Automatically push changes in the background while signed in"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.3.rows.4.action"
                         }
                       }
                     ]
@@ -343,82 +343,82 @@
                     "rows": [
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "text"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.0.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Set the node's plain text label."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.0.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "markdown"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.1.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Set the node's text using markdown formatting."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.1.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "url"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.2.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Attach a URL to the node."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.2.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "image / img"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.3.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Set an image URL shown in the node's detail view."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.3.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "color"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.4.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Set the node's colour."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.4.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "tag"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.5.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Apply a colour-coded tag to the node."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.5.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "shining"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.6.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Toggle a shining/glow effect on the node."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.6.action"
                         }
                       },
                       {
                         "keys": {
-                          "mode": "literal",
-                          "value": "jump"
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.7.keys"
                         },
                         "action": {
-                          "mode": "literal",
-                          "value": "Toggle a jumping animation on the node."
+                          "mode": "bound",
+                          "sourceId": "i18n:shortcuts.groups.0.rows.7.action"
                         }
                       }
                     ]
@@ -451,20 +451,62 @@
               "componentId": "src/components/landing1/cookie-consent.tsx#CookieConsent",
               "componentName": "CookieConsent",
               "props": {
-                "storageKey": "txt2map:cookie-consent",
-                "title": "We respect your privacy",
-                "description": "We use strictly necessary cookies to make this site work. With your permission we'd also like to use anonymous analytics to understand how it's used. You can change your choice at any time. See our",
-                "privacyLinkLabel": "Privacy Policy",
-                "privacyLinkHref": "/privacy",
-                "necessaryLabel": "Strictly necessary",
-                "necessaryDescription": "— required for the site to function. Always on.",
-                "analyticsLabel": "Anonymous analytics",
-                "analyticsDescription": "— helps us understand which pages are useful.",
-                "acceptAllLabel": "Accept all",
-                "rejectLabel": "Reject non-essential",
-                "customiseLabel": "Customise",
-                "saveLabel": "Save choices",
-                "dismissAriaLabel": "Dismiss and reject non-essential cookies"
+                "storageKey": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.storageKey"
+                },
+                "title": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.title"
+                },
+                "description": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.description"
+                },
+                "privacyLinkLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkLabel"
+                },
+                "privacyLinkHref": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.privacyLinkHref"
+                },
+                "necessaryLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryLabel"
+                },
+                "necessaryDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.necessaryDescription"
+                },
+                "analyticsLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsLabel"
+                },
+                "analyticsDescription": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.analyticsDescription"
+                },
+                "acceptAllLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.acceptAllLabel"
+                },
+                "rejectLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.rejectLabel"
+                },
+                "customiseLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.customiseLabel"
+                },
+                "saveLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.saveLabel"
+                },
+                "dismissAriaLabel": {
+                  "mode": "bound",
+                  "sourceId": "i18n:cookieConsent.dismissAriaLabel"
+                }
               },
               "clientDirective": "load"
             }
