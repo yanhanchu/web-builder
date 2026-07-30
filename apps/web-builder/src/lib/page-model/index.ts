@@ -517,6 +517,40 @@ export function patchBlockPropsDeep(
 }
 
 /**
+ * 在整棵樹（含巢狀 slot）中找到 instanceId 對應的節點，原地替換成 `next`
+ * （保留在原本的位置、原本的 slot 巢狀深度，只是節點本身整個換掉）。
+ *
+ * Phase B「另存為共用區塊」用這個把畫布上原本的 PageBlock 換成
+ * SharedBlockRef——跟 removeBlockDeep + insertIntoSlotDeep 的組合比起來，
+ * replaceNodeDeep 不需要呼叫端自己算「原本在哪個 slot 的第幾個 index」，
+ * 也不會有「先移除、重新插入」中間短暫從樹上消失的問題。
+ *
+ * 找不到 instanceId 時回傳原陣列（no-op），不拋錯——呼叫端若傳入已經不在
+ * 樹上的 instanceId，通常代表使用者操作間有 race（例如另存為共用區塊的
+ * modal 開著時，這個節點被別的操作刪除了），靜默略過比丟例外更安全。
+ */
+export function replaceNodeDeep(
+  blocks: AnyPageNode[],
+  instanceId: string,
+  next: AnyPageNode
+): AnyPageNode[] {
+  return blocks.map((node) => {
+    if (node.instanceId === instanceId) return next;
+    let changedField: Record<string, SlotValue> | null = null;
+    for (const [key, children] of slotEntries(node)) {
+      const nextChildren = replaceNodeDeep(children, instanceId, next);
+      if (nextChildren.some((c, i) => c !== children[i])) {
+        changedField = { ...(changedField ?? {}), [key]: makeSlotValue(nextChildren) };
+      }
+    }
+    if (!changedField) return node;
+    return isSharedBlockRef(node)
+      ? { ...node, slotOverrides: { ...node.slotOverrides, ...changedField } }
+      : { ...node, props: { ...node.props, ...changedField } };
+  });
+}
+
+/**
  * 在整棵樹（含巢狀 slot）中找到 instanceId 對應的 block，設定（或清除）它的
  * `clientDirective`。跟 patchBlockPropsDeep 是同一套「遞迴找 instanceId、
  * 沿路重建有變動的節點」邏輯，差別只在改寫的是 clientDirective 這個獨立欄位

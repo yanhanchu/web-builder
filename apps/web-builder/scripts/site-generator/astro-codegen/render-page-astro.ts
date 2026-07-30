@@ -91,7 +91,7 @@
 // ============================================================
 
 import type { DataStore } from "../../../src/lib/data-model/schema";
-import type { PageItem } from "../../../src/lib/page-model";
+import type { PageItem, SharedBlockDefinition } from "../../../src/lib/page-model";
 import type { SeoData } from "../../../../../packages/ui/src/components/site/types";
 import { ImportCollector } from "../jsx-codegen/import-collector";
 import { VarNameAllocator } from "../jsx-codegen/var-naming";
@@ -122,6 +122,15 @@ export interface RenderPageAstroOptions {
    */
   siteDefaultSeo: SeoData;
   store: DataStore;
+  /**
+   * 共用區塊定義查表（key 為 SharedBlockDefinition.id，來自
+   * loadStaticData() 回傳的 sharedBlocks 陣列組成的 map），一路傳給
+   * walkBlockListToAstro() / renderPageDataFiles() 用來 resolve 樹裡的
+   * SharedBlockRef 節點——跟畫布渲染、另一套 codegen（jsx-codegen）共用
+   * 同一份 page-model 的 resolveSharedBlockRef 邏輯。沒有任何
+   * SharedBlockRef 的樹可以傳空物件 `{}`。
+   */
+  definitions: Record<string, SharedBlockDefinition>;
 }
 
 /**
@@ -249,7 +258,7 @@ function renderPageShape(options: RenderPageAstroOptions): {
   dataFilesByLocale: { locale: string; dataFile: RenderedDataFile }[];
   warnings: string[];
 } {
-  const { page, shapeLocale, locales, defaultLocale, store } = options;
+  const { page, shapeLocale, locales, defaultLocale, store, definitions } = options;
   const warnings: string[] = [];
 
   // ---- 頁面結構（用了哪些組件、client:* 指令、資料形狀）：只用
@@ -269,6 +278,7 @@ function renderPageShape(options: RenderPageAstroOptions): {
       locale: shapeLocale,
       defaultLocale: shapeLocale,
       store,
+      definitions,
       componentImports: shapeComponentImports,
       varNames: shapeVarNames,
       onWarning: (message) => warnings.push(`[${page.id}/${shapeLocale}] ${message}`),
@@ -286,7 +296,7 @@ function renderPageShape(options: RenderPageAstroOptions): {
   // 說明；現在直接不聲明，型別各自標注在具名 export 上）。----
   const dataFilesByLocale: { locale: string; dataFile: RenderedDataFile }[] = [];
   for (const locale of locales) {
-    const result = renderPageDataFiles({ page, locale, defaultLocale, store });
+    const result = renderPageDataFiles({ page, locale, defaultLocale, store, definitions });
     for (const w of result.warnings) warnings.push(w);
     // renderPageDataFiles() 固定用 groupAllInOneFile（見該函式說明），一個
     // (page, locale) 只會有一份資料檔案，固定檔名 "data.ts"。

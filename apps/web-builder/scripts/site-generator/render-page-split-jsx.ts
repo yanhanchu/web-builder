@@ -49,7 +49,7 @@
 // ============================================================
 
 import type { DataStore } from "../../src/lib/data-model/schema";
-import type { PageItem } from "../../src/lib/page-model";
+import type { PageItem, SharedBlockDefinition } from "../../src/lib/page-model";
 import { ImportCollector } from "./jsx-codegen/import-collector";
 import { walkBlockListToSplitJsx } from "./jsx-codegen/render-block-tree-to-split-jsx";
 import { VarNameAllocator } from "./jsx-codegen/var-naming";
@@ -72,6 +72,13 @@ export interface RenderPageSplitJsxOptions {
    */
   shapeLocale: string;
   store: DataStore;
+  /**
+   * 共用區塊定義查表（key 為 SharedBlockDefinition.id，來自
+   * loadStaticData() 回傳的 sharedBlocks 陣列組成的 map），一路傳給
+   * walkBlockListToSplitJsx() 用來 resolve 樹裡的 SharedBlockRef 節點。
+   * 沒有任何 SharedBlockRef 的樹可以傳空物件 `{}`。
+   */
+  definitions: Record<string, SharedBlockDefinition>;
   /**
    * 資料檔案怎麼分檔。預設 "all-in-one"（整頁一份 data.ts，是最接近
    * roadmap 需求範例的分法），也可以換成 "by-component"（每個組件名稱
@@ -120,6 +127,8 @@ export interface RenderPageDataFilesOptions {
    */
   defaultLocale: string;
   store: DataStore;
+  /** 共用區塊定義查表，見 RenderPageSplitJsxOptions.definitions 說明。沒有任何 SharedBlockRef 的樹可以傳空物件 `{}`。 */
+  definitions: Record<string, SharedBlockDefinition>;
   /** HomePageData 型別名稱（來自 renderPageSplitJsx() 的回傳值），用來幫 default export 標 `satisfies HomePageData`。省略時不標型別。 */
   dataTypeName?: string;
   /** HomePageData 型別所在模組的 import 路徑（頁面元件檔案，例如 "../../pages/HomePage"）。與 dataTypeName 同時提供或同時省略。 */
@@ -178,7 +187,7 @@ function pageIdToDataTypeName(pageId: string): string {
  * 整份頁面元件 + 型別的形狀。
  */
 export function renderPageSplitJsx(options: RenderPageSplitJsxOptions): RenderedPageSplitJsx {
-  const { page, shapeLocale, store } = options;
+  const { page, shapeLocale, store, definitions } = options;
   const dataFileGrouping = options.dataFileGrouping === "by-component" ? groupByComponentName : groupAllInOneFile;
   const warnings: string[] = [];
   const componentImports = new ImportCollector();
@@ -196,6 +205,7 @@ export function renderPageSplitJsx(options: RenderPageSplitJsxOptions): Rendered
       // RenderPageSplitJsxOptions.shapeLocale 的說明）。
       defaultLocale: shapeLocale,
       store,
+      definitions,
       componentImports,
       varNames,
       onWarning: (message) => warnings.push(`[${page.id}/${shapeLocale}] ${message}`),
@@ -290,7 +300,7 @@ export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
   dataFiles: RenderedDataFile[];
   warnings: string[];
 } {
-  const { page, locale, defaultLocale, store, dataTypeName, dataTypeImportPath } = options;
+  const { page, locale, defaultLocale, store, definitions, dataTypeName, dataTypeImportPath } = options;
   const warnings: string[] = [];
   const componentImports = new ImportCollector();
   const varNames = new VarNameAllocator();
@@ -301,6 +311,7 @@ export function renderPageDataFiles(options: RenderPageDataFilesOptions): {
       locale,
       defaultLocale,
       store,
+      definitions,
       componentImports,
       varNames,
       onWarning: (message) => warnings.push(`[${page.id}/${locale}] ${message}`),

@@ -4,19 +4,26 @@ import { defaultSeo, type SeoData } from "@/lib/data-model";
 import type { ComponentDoc } from "@/types/generator/component-types";
 import {
   usePagesState,
+  useSharedBlocksState,
   makePageId,
   makeBlockId,
   findBlockDeep,
   findNodeDeep,
   isSharedBlockRef,
+  isSlotValue,
   removeBlockDeep,
   insertIntoSlotDeep,
   insertAtRoot,
   patchBlockPropsDeep,
   patchBlockClientDirectiveDeep,
+  replaceNodeDeep,
+  makeSharedBlockRef,
+  makeSharedBlockId,
+  makeSlotValue,
   type PageItem,
   type PageBlock,
   type ClientDirective,
+  type SharedBlockDefinition,
 } from "../../lib/pages-store";
 import { BuilderToolbar, ResizeHandle, PageSwitcher } from "./page-manager/toolbar";
 import { ComponentsPanel } from "./page-manager/components-panel";
@@ -51,6 +58,7 @@ import { toast } from "sonner";
 
 export default function PageManagerPage() {
   const [pages, setPages] = usePagesState();
+  const [sharedBlocks, setSharedBlocks] = useSharedBlocksState();
   const [selectedId, setSelectedId] = useState<string | null>(pages[0]?.id ?? null);
   const [drafts, setDrafts] = useState<Record<string, PageItem>>({});
 
@@ -330,6 +338,59 @@ export default function PageManagerPage() {
     updateDraft({ blocks: patchBlockClientDirectiveDeep(base.blocks, instanceId, directive) });
   };
 
+  // Phase B——「另存為共用區塊」：把畫布上選取的 PageBlock 抽成獨立的
+  // SharedBlockDefinition（存進 wb.sharedBlocks），原本的節點原地換成
+  // SharedBlockRef（保留在原本的頁面位置／slot 巢狀深度）。
+  //
+  // overridableSlots 是使用者在 modal 裡勾選、要留給各頁面各自覆寫的 slot
+  // prop 名稱：這些 slot 在 SharedBlockDefinition.props 裡存成空白
+  // （makeSlotValue()）佔位，原本的內容原封不動地轉存到 SharedBlockRef.slotOverrides，
+  // 讓「這一頁」的畫面維持不變，同時讓「其他之後才引用的頁面」可以放自己的內容。
+  // 其餘 slot／一般值 props 一律存進 definition.props，對所有引用者共用。
+  const saveBlockAsSharedBlock = (instanceId: string, name: string, overridableSlots: string[]) => {
+    if (!selected) return;
+    const base = drafts[selected.id] ?? selected;
+    const block = findBlockDeep(base.blocks, instanceId);
+    if (!block) return;
+
+    const definitionProps: Record<string, unknown> = { ...block.props };
+    const slotOverrides: Record<string, ReturnType<typeof makeSlotValue>> = {};
+    for (const slotKey of overridableSlots) {
+      const current = block.props[slotKey];
+      slotOverrides[slotKey] = isSlotValue(current) ? current : makeSlotValue([]);
+      definitionProps[slotKey] = makeSlotValue([]);
+    }
+
+    const definition: SharedBlockDefinition = {
+      id: makeSharedBlockId(),
+      name,
+      componentId: block.componentId,
+      componentName: block.componentName,
+      props: definitionProps,
+    };
+    setSharedBlocks([...sharedBlocks, definition]);
+
+    const ref = makeSharedBlockRef(definition.id, slotOverrides);
+    updateDraft({ blocks: replaceNodeDeep(base.blocks, instanceId, ref) });
+    setSelectedBlockId(ref.instanceId);
+    toast.success(`已另存為共用區塊「${name}」`);
+  };
+
+  // Phase C——左側「共用區塊」Tab 用：把一份既有的 SharedBlockDefinition
+  // 加到目前頁面 root 最後方（跟 addBlock 的「加入此頁內容」按鈕語意一致，
+  // 只是插入的是 SharedBlockRef 而不是新的 PageBlock）。沒有初始
+  // slotOverrides——definition.props 裡本來就用空 SlotValue 佔位的 slot，
+  // 在使用者實際於畫布上編輯前維持空白，跟 SharedBlockRefPropertiesPanel
+  // 「此頁覆寫的插槽」清單一開始沒有項目是一致的狀態。
+  const addSharedBlockRef = (definitionId: string) => {
+    if (!selected) return;
+    const ref = makeSharedBlockRef(definitionId);
+    updateDraft((current) => ({ blocks: [...current.blocks, ref] }));
+    setSelectedBlockId(ref.instanceId);
+    setRightPanelView("component");
+    setPropertiesOpen(true);
+  };
+
   const saveSelected = () => {
     if (!selected || !dirty) return;
     const next = drafts[selected.id];
@@ -442,6 +503,8 @@ export default function PageManagerPage() {
               onClose={() => setComponentsOpen(false)}
               onAddBlock={addBlock}
               disabled={!draft}
+              sharedBlocks={sharedBlocks}
+              onAddSharedBlockRef={addSharedBlockRef}
             />
           )}
           {!componentsOpen && !fullscreen && (
@@ -495,6 +558,9 @@ export default function PageManagerPage() {
                   updateBlockClientDirective(selectedNode.instanceId, directive)
                 }
                 onRemove={() => removeBlock(selectedNode.instanceId)}
+                onSaveAsSharedBlock={(name, overridableSlots) =>
+                  saveBlockAsSharedBlock(selectedNode.instanceId, name, overridableSlots)
+                }
               />
             ) : (
               <PropertiesPanel

@@ -37,7 +37,7 @@ import {
   type S3UploadDest,
 } from "../../lib/upload-destinations";
 import { syncUploadSettings, DEFAULT_APP_NAME } from "../../lib/upload-client";
-import { usePagesState } from "../../lib/pages-store";
+import { usePagesState, useSharedBlocksState } from "../../lib/pages-store";
 import { STYLE_SHEETS_KEY, INITIAL_SHEETS, type StyleSheet } from "./style-manager";
 import { buildFlatDataFiles } from "../../lib/export-flat-data";
 import { downloadFlatDataZip } from "../../lib/download-flat-data-zip";
@@ -94,6 +94,7 @@ export default function AppSettingsPage() {
   );
   const [exportLocales] = usePersistentState<string[]>("wb.locales", ["zh-TW", "en"]);
   const [exportPages] = usePagesState();
+  const [exportSharedBlocks] = useSharedBlocksState();
   const [exportStyleSheets] = usePersistentState<StyleSheet[]>(STYLE_SHEETS_KEY, INITIAL_SHEETS);
 
   const [zipExportState, setZipExportState] = useState<"idle" | "exporting" | "error">("idle");
@@ -112,6 +113,7 @@ export default function AppSettingsPage() {
         sources: exportSources,
         locales: exportLocales,
         pages: exportPages,
+        sharedBlocks: exportSharedBlocks,
         styleSheets: exportStyleSheets,
       });
       await downloadFlatDataZip(files, "data.zip");
@@ -138,6 +140,7 @@ export default function AppSettingsPage() {
         sources: exportSources,
         locales: exportLocales,
         pages: exportPages,
+        sharedBlocks: exportSharedBlocks,
         styleSheets: exportStyleSheets,
       });
       const result = await exportFlatDataToServer(files, effectiveAppName);

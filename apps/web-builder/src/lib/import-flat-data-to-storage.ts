@@ -4,8 +4,9 @@
 // export-flat-data-to-server 是把 buildFlatDataFiles() 組出的攤平檔案
 // POST 給 dev server，寫到 data/{appName}/ 目錄；這裡則是相反方向：
 // 拿到一份「跟 buildFlatDataFiles() 輸出同樣結構」的攤平檔案（key 是相對
-// 路徑、value 是檔案內容字串），直接還原回 localStorage 的四個 key
-// （wb.dataSources / wb.locales / wb.pages / wb.styleSheets），整包蓋掉。
+// 路徑、value 是檔案內容字串），直接還原回 localStorage 的五個 key
+// （wb.dataSources / wb.locales / wb.pages / wb.sharedBlocks /
+// wb.styleSheets），整包蓋掉。
 //
 // 明確不考慮衝突問題：這裡是「用檔案整包取代」，不是「合併」。所以不會
 // 呼叫 flatKindToSources / flatI18nToSources 那套逐筆比對既有資料、記錄
@@ -23,7 +24,12 @@ import {
   type I18nPrimitiveValue,
   type PrimitiveType,
 } from "@/lib/data-model";
-import { PAGES_STORAGE_KEY, type PageItem } from "@/lib/page-model";
+import {
+  PAGES_STORAGE_KEY,
+  SHARED_BLOCKS_STORAGE_KEY,
+  type PageItem,
+  type SharedBlockDefinition,
+} from "@/lib/page-model";
 import type { StyleSheet } from "../pages/admin/style-manager";
 import { STYLE_SHEETS_KEY } from "../pages/admin/style-manager";
 
@@ -44,6 +50,7 @@ export interface ImportFlatDataToStorageResult {
 const FLAT_KINDS: FlatKind[] = ["route", "file", "typedData"];
 const I18N_FILE_PATTERN = /^sources\/i18n\.(.+)\.json$/;
 const PAGE_FILE_PATTERN = /^pages\/(.+)\.json$/;
+const SHARED_BLOCK_FILE_PATTERN = /^shared-blocks\/(.+)\.json$/;
 
 function toEntries(files: ImportFlatDataFiles): [string, string][] {
   return files instanceof Map ? Array.from(files.entries()) : Object.entries(files);
@@ -65,7 +72,7 @@ function inferPrimitiveType(value: I18nPrimitiveValue): PrimitiveType {
 
 /**
  * 把一份攤平檔案（buildFlatDataFiles() 輸出的同構格式）整包還原成
- * localStorage 的四個 key，直接覆蓋，不考慮跟現有 localStorage 內容的衝突。
+ * localStorage 的五個 key，直接覆蓋，不考慮跟現有 localStorage 內容的衝突。
  *
  * 呼叫端寫完之後通常需要重新整理頁面（或自行觸發 state 重新從
  * localStorage 讀取），這個函式本身只負責寫 localStorage，不處理 React state。
@@ -84,6 +91,8 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
 
   let pages: PageItem[] | undefined;
   const pagesById = new Map<string, PageItem>();
+  let sharedBlocks: SharedBlockDefinition[] | undefined;
+  const sharedBlocksById = new Map<string, SharedBlockDefinition>();
   let styleSheets: StyleSheet[] | undefined;
   let styleSheetRecordsRaw: { id: string; name: string; cssFile: string }[] | undefined;
 
@@ -161,6 +170,23 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
       continue;
     }
 
+    const sharedBlockMatch = path.match(SHARED_BLOCK_FILE_PATTERN);
+    if (sharedBlockMatch) {
+      const parsed = tryParseJson(content);
+      if (!parsed.ok) {
+        skipped.push({ path, reason: parsed.reason });
+        continue;
+      }
+      if (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+        skipped.push({ path, reason: "頂層必須是物件" });
+        continue;
+      }
+      // 跟 pages/{pageId}.json 同一套理由：用檔名而非內容裡的 id 當 key，
+      // 避免檔名跟內容 id 對不上時互相覆蓋、排序又改用檔名的不一致情況。
+      sharedBlocksById.set(sharedBlockMatch[1], parsed.value as SharedBlockDefinition);
+      continue;
+    }
+
     if (path === "locales.json") {
       const parsed = tryParseJson(content);
       if (!parsed.ok) {
@@ -209,6 +235,14 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
       .map((id) => pagesById.get(id)!);
   }
 
+  // shared-blocks/{id}.json 逐檔收集完成後，依檔名排序組回陣列——
+  // 跟 pages/{pageId}.json 同一套理由（見上方註解）。
+  if (sharedBlocksById.size > 0) {
+    sharedBlocks = Array.from(sharedBlocksById.keys())
+      .sort((a, b) => a.localeCompare(b))
+      .map((id) => sharedBlocksById.get(id)!);
+  }
+
   // style-sheets.json 只存 { id, name, cssFile } 指標（見 export-flat-data.ts），
   // 這裡用 entries 本身（同一批檔案裡的 style-sheets/{id}.css）反查回實際
   // CSS 內容，還原成 localStorage / 編輯器內部使用的 { id, name, css } 形狀。
@@ -239,6 +273,11 @@ export function importFlatDataToStorage(files: ImportFlatDataFiles): ImportFlatD
   if (pages !== undefined) {
     window.localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(pages));
     writtenKeys.push(PAGES_STORAGE_KEY);
+  }
+
+  if (sharedBlocks !== undefined) {
+    window.localStorage.setItem(SHARED_BLOCKS_STORAGE_KEY, JSON.stringify(sharedBlocks));
+    writtenKeys.push(SHARED_BLOCKS_STORAGE_KEY);
   }
 
   if (styleSheets !== undefined) {

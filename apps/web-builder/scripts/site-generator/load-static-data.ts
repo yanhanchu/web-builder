@@ -35,7 +35,12 @@ import {
   type FlatRouteRecord,
   type FlatTypedDataRecord,
 } from "../../src/lib/data-model/flat-export";
-import { normalizePage, type PageItem } from "../../src/lib/page-model";
+import {
+  normalizePage,
+  normalizeSharedBlockDefinition,
+  type PageItem,
+  type SharedBlockDefinition,
+} from "../../src/lib/page-model";
 
 export interface StyleSheet {
   id: string;
@@ -60,6 +65,8 @@ export interface StaticSiteData {
   sources: Record<string, DataSource>;
   /** 頁面清單（已用 normalizePage 補齊欄位）。 */
   pages: PageItem[];
+  /** 共用區塊定義清單（已用 normalizeSharedBlockDefinition 補齊欄位），供 SharedBlockRef 生成時 resolve。 */
+  sharedBlocks: SharedBlockDefinition[];
   /** 啟用的語系清單，例如 ["zh-TW", "en"]。 */
   locales: string[];
   /** 樣式表清單，供 render-page.ts 依 page.styleSheetIds 挑選要注入的 <style>。 */
@@ -135,6 +142,26 @@ async function findPageFiles(pagesDir: string): Promise<string[]> {
 }
 
 /**
+ * 掃描 `shared-blocks/` 目錄找出所有共用區塊定義檔案
+ * （`shared-blocks/{id}.json`），依檔名（不含副檔名）排序回傳完整路徑
+ * 清單——完全比照 findPageFiles()，跟 export-flat-data.ts 的
+ * buildFlatDataFiles() 一筆定義一份檔案的慣例對齊。
+ */
+async function findSharedBlockFiles(sharedBlocksDir: string): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(sharedBlocksDir);
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") return [];
+    throw err;
+  }
+  return entries
+    .filter((entry) => entry.endsWith(".json"))
+    .sort((a, b) => a.localeCompare(b))
+    .map((entry) => path.join(sharedBlocksDir, entry));
+}
+
+/**
  * 讀入 `data/` 目錄下所有攤平檔案，組回 StaticSiteData。
  *
  * 讀取順序刻意固定（i18n 先、其餘 kind 後）：i18n 各 locale 檔案彼此疊加
@@ -146,6 +173,7 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
   const { dataDir } = options;
   const sourcesDir = path.join(dataDir, "sources");
   const pagesDir = path.join(dataDir, "pages");
+  const sharedBlocksDir = path.join(dataDir, "shared-blocks");
   const issues: LoadIssue[] = [];
 
   let sources: Record<string, DataSource> = {};
@@ -192,6 +220,20 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
     pages.push(normalizePage(raw as Partial<PageItem>));
   }
 
+  // --- shared-blocks/：逐筆各自一份檔案，掃描目錄後依檔名排序讀取、
+  // 逐一 normalizeSharedBlockDefinition，完全比照上面 pages/ 的讀法。 ---
+  const sharedBlockFiles = await findSharedBlockFiles(sharedBlocksDir);
+  const sharedBlocks: SharedBlockDefinition[] = [];
+  for (const filePath of sharedBlockFiles) {
+    const raw = await readJsonIfExists(filePath);
+    if (raw === undefined) continue;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push({ file: filePath, message: "共用區塊定義檔案頂層必須是物件，已略過" });
+      continue;
+    }
+    sharedBlocks.push(normalizeSharedBlockDefinition(raw as Partial<SharedBlockDefinition>));
+  }
+
   const localesRaw = await readJsonIfExists(path.join(dataDir, "locales.json"));
   const resolvedLocales = Array.isArray(localesRaw) && localesRaw.every((l) => typeof l === "string")
     ? (localesRaw as string[])
@@ -206,7 +248,7 @@ export async function loadStaticData(options: LoadStaticDataOptions): Promise<St
     issues.push({ file: pagesDir, message: "頁面清單為空，將不會產生任何頁面" });
   }
 
-  return { sources, pages, locales: resolvedLocales, styleSheets, issues };
+  return { sources, pages, sharedBlocks, locales: resolvedLocales, styleSheets, issues };
 }
 
 /**

@@ -190,6 +190,12 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
 
     const store = new InMemoryDataStore(data.sources, typeRegistry);
 
+    // 共用區塊定義查表：把 loadStaticData() 回傳的 sharedBlocks 陣列組成
+    // key -> definition 的 map，一路傳給 renderPageSplitJsx() /
+    // renderPageDataFiles()，讓兩者能 resolve 頁面樹裡的 SharedBlockRef
+    // 節點（見 page-model 的 resolveSharedBlockRef()）。
+    const sharedBlockDefinitions = Object.fromEntries(data.sharedBlocks.map((d) => [d.id, d]));
+
     // defaultLocale 判斷邏輯跟 generate.ts / generate-jsx.ts 完全一致（同一個
     // 權威來源：typedData:siteInfo:main）。三個 generate* 進入點是平行、
     // 不互相依賴的產出路徑，各自保留一份短小的判斷邏輯，不硬拉共用模組。
@@ -247,6 +253,7 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
         page,
         shapeLocale: defaultLocale,
         store,
+        definitions: sharedBlockDefinitions,
         dataFileGrouping: groupingName,
       });
       for (const w of result.warnings) {
@@ -288,6 +295,7 @@ export async function generateSplitJsx(options: GenerateSplitJsxOptions): Promis
         locale,
         defaultLocale,
         store,
+        definitions: sharedBlockDefinitions,
         dataTypeName,
         dataTypeImportPath,
       });

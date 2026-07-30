@@ -65,6 +65,52 @@
       ]
     },
     {
+      "id": "src/components/landing1/command-list.tsx#CommandListProps",
+      "name": "CommandListProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading, e.g. \"Quick commands\""
+        },
+        {
+          "name": "description",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "commands",
+          "required": true,
+          "type": "CommandRow[]",
+          "description": "Commands, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/command-list.tsx#CommandRow",
+      "name": "CommandRow",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "command",
+          "required": true,
+          "type": "string",
+          "description": "Command trigger text, e.g. \"/table\""
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "What the command inserts or does"
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/contact-card.tsx#ContactCardProps",
       "name": "ContactCardProps",
       "kind": "interface",
@@ -103,6 +149,254 @@
       ]
     },
     {
+      "id": "src/components/landing1/contact-form.tsx#ContactFormProps",
+      "name": "ContactFormProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Card heading"
+        },
+        {
+          "name": "intro",
+          "required": true,
+          "type": "string",
+          "description": "Supporting intro paragraph"
+        },
+        {
+          "name": "email",
+          "required": true,
+          "type": "string",
+          "description": "Contact email shown as a fallback and in the topics card"
+        },
+        {
+          "name": "topicsTitle",
+          "required": true,
+          "type": "string",
+          "description": "Heading above the topics list"
+        },
+        {
+          "name": "topics",
+          "required": true,
+          "type": "string[]",
+          "description": "Bullet list of topics people can reach out about"
+        },
+        {
+          "name": "namePlaceholder",
+          "required": true,
+          "type": "string",
+          "description": "Placeholder text for the name field"
+        },
+        {
+          "name": "emailPlaceholder",
+          "required": true,
+          "type": "string",
+          "description": "Placeholder text for the email field"
+        },
+        {
+          "name": "messagePlaceholder",
+          "required": true,
+          "type": "string",
+          "description": "Placeholder text for the message field"
+        },
+        {
+          "name": "submitLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label on the submit button while idle"
+        },
+        {
+          "name": "submitPendingLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label on the submit button while the request is in flight"
+        },
+        {
+          "name": "successMessage",
+          "required": true,
+          "type": "string",
+          "description": "Message shown after a successful submission"
+        },
+        {
+          "name": "genericErrorMessage",
+          "required": true,
+          "type": "string",
+          "description": "Fallback error message shown when the request fails without a specific reason"
+        },
+        {
+          "name": "errorFallbackPrefix",
+          "required": true,
+          "type": "string",
+          "description": "Text shown before the fallback mailto link inside an error message"
+        },
+        {
+          "name": "apiKey",
+          "required": true,
+          "type": "string",
+          "description": "API key / endpoint token used to submit the form. If empty, submitting shows an error instead of calling the API."
+        },
+        {
+          "name": "submitSubject",
+          "required": true,
+          "type": "string",
+          "description": "Subject line sent with the form submission"
+        },
+        {
+          "name": "endpoint",
+          "required": true,
+          "type": "string",
+          "description": "Form submission endpoint"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/cookie-consent.tsx#CookieConsentProps",
+      "name": "CookieConsentProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "storageKey",
+          "required": true,
+          "type": "string",
+          "description": "Key used to persist the visitor's choice in localStorage"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Dialog heading, e.g. \"We respect your privacy\""
+        },
+        {
+          "name": "description",
+          "required": true,
+          "type": "string",
+          "description": "Explanatory copy shown before the privacy policy link"
+        },
+        {
+          "name": "privacyLinkLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label for the privacy policy link"
+        },
+        {
+          "name": "privacyLinkHref",
+          "required": true,
+          "type": "string",
+          "description": "href for the privacy policy link"
+        },
+        {
+          "name": "necessaryLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label for the \"necessary cookies\" row shown when customising"
+        },
+        {
+          "name": "necessaryDescription",
+          "required": true,
+          "type": "string",
+          "description": "Description for the \"necessary cookies\" row"
+        },
+        {
+          "name": "analyticsLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label for the \"analytics cookies\" row shown when customising"
+        },
+        {
+          "name": "analyticsDescription",
+          "required": true,
+          "type": "string",
+          "description": "Description for the \"analytics cookies\" row"
+        },
+        {
+          "name": "acceptAllLabel",
+          "required": true,
+          "type": "string",
+          "description": "\"Accept all\" button label"
+        },
+        {
+          "name": "rejectLabel",
+          "required": true,
+          "type": "string",
+          "description": "\"Reject non-essential\" button label"
+        },
+        {
+          "name": "customiseLabel",
+          "required": true,
+          "type": "string",
+          "description": "\"Customise\" button label"
+        },
+        {
+          "name": "saveLabel",
+          "required": true,
+          "type": "string",
+          "description": "\"Save choices\" button label, shown once customising"
+        },
+        {
+          "name": "dismissAriaLabel",
+          "required": true,
+          "type": "string",
+          "description": "aria-label for the dismiss (X) button"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/copy-button.tsx#CopyButtonProps",
+      "name": "CopyButtonProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "value",
+          "required": true,
+          "type": "string",
+          "description": "The text copied to the clipboard when clicked"
+        },
+        {
+          "name": "label",
+          "required": true,
+          "type": "string",
+          "description": "Button label while idle"
+        },
+        {
+          "name": "copiedLabel",
+          "required": true,
+          "type": "string",
+          "description": "Button label shown briefly after a successful copy"
+        },
+        {
+          "name": "resetAfterMs",
+          "required": false,
+          "type": "number",
+          "description": "How long (ms) to show `copiedLabel` before reverting. Defaults to 2000."
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/core-value-section.tsx#CoreValueSectionProps",
+      "name": "CoreValueSectionProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/cta-banner.tsx#CtaBannerProps",
       "name": "CtaBannerProps",
       "kind": "interface",
@@ -131,6 +425,78 @@
           "required": true,
           "type": "string",
           "description": "Button destination, e.g. \"mailto:hello@example.com\""
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/faq-section.tsx#FaqSectionProps",
+      "name": "FaqSectionProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading, e.g. \"Frequently asked questions\""
+        },
+        {
+          "name": "items",
+          "required": true,
+          "type": "FaqItem[]",
+          "description": "Questions and answers, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/feature-grid.tsx#FeatureGridProps",
+      "name": "FeatureGridProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "items",
+          "required": true,
+          "type": "FeatureItem[]",
+          "description": "Feature cards, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/feature-grid.tsx#FeatureItem",
+      "name": "FeatureItem",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Feature title"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Feature description"
+        },
+        {
+          "name": "icon",
+          "required": true,
+          "type": "\"Keyboard\" | \"FileText\" | \"LayoutGrid\" | \"MousePointer2\" | \"Palette\" | \"FolderKanban\" | \"Download\" | \"Upload\" | \"CloudSync\" | \"RotateCw\" | \"Ruler\" | \"SlidersHo…",
+          "description": "Icon shown above the title, by name"
         }
       ]
     },
@@ -359,6 +725,12 @@
           "description": ""
         },
         {
+          "name": "stats",
+          "required": false,
+          "type": "{ value: string; label: string; }[]",
+          "description": "Optional row of stat callouts shown under a divider at the bottom of the hero"
+        },
+        {
           "name": "defaultItems",
           "required": false,
           "type": "string[]",
@@ -411,6 +783,88 @@
       ]
     },
     {
+      "id": "src/components/landing1/outline-template-grid.tsx#OutlineTemplate",
+      "name": "OutlineTemplate",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "slug",
+          "required": true,
+          "type": "string",
+          "description": "Unique slug, used as the card's anchor id"
+        },
+        {
+          "name": "emoji",
+          "required": true,
+          "type": "string",
+          "description": "Decorative emoji shown next to the title"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Card title"
+        },
+        {
+          "name": "summary",
+          "required": true,
+          "type": "string",
+          "description": "One-line summary"
+        },
+        {
+          "name": "bestFor",
+          "required": true,
+          "type": "string",
+          "description": "\"Best for\" audience description"
+        },
+        {
+          "name": "outline",
+          "required": true,
+          "type": "string",
+          "description": "The plain-text outline shown in the preview and copied to the clipboard"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/outline-template-grid.tsx#OutlineTemplateGridProps",
+      "name": "OutlineTemplateGridProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "templates",
+          "required": true,
+          "type": "OutlineTemplate[]",
+          "description": "Templates, in display order"
+        },
+        {
+          "name": "bestForLabel",
+          "required": true,
+          "type": "string",
+          "description": "Label prefixing each card's \"best for\" line, e.g. \"Best for:\""
+        },
+        {
+          "name": "copyLabel",
+          "required": true,
+          "type": "string",
+          "description": "Copy button label"
+        },
+        {
+          "name": "copiedLabel",
+          "required": true,
+          "type": "string",
+          "description": "Copy button label shown briefly after copying"
+        },
+        {
+          "name": "pasteHint",
+          "required": true,
+          "type": "string",
+          "description": "Hint shown next to the copy button, e.g. \"then paste it into the editor\""
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/page-intro.tsx#PageIntroProps",
       "name": "PageIntroProps",
       "kind": "interface",
@@ -433,6 +887,378 @@
           "required": false,
           "type": "string",
           "description": "Optional small line above the title, e.g. \"Updated 1 July 2026\""
+        },
+        {
+          "name": "updated",
+          "required": false,
+          "type": "string",
+          "description": "Optional \"last updated\" line shown above the title, e.g. \"Updated 1 July 2026\" (used by legal documents)"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-closing.tsx#ProductClosingProps",
+      "name": "ProductClosingProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Closing heading"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "primaryCtaLabel",
+          "required": true,
+          "type": "string",
+          "description": "Primary CTA label"
+        },
+        {
+          "name": "primaryCtaHref",
+          "required": true,
+          "type": "string",
+          "description": "Primary CTA destination href"
+        },
+        {
+          "name": "secondaryCtaLabel",
+          "required": true,
+          "type": "string",
+          "description": "Secondary CTA label"
+        },
+        {
+          "name": "secondaryCtaHref",
+          "required": true,
+          "type": "string",
+          "description": "Secondary CTA destination href"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-faq.tsx#ProductFaqProps",
+      "name": "ProductFaqProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "items",
+          "required": true,
+          "type": "FaqItem[]",
+          "description": "Questions and answers, rendered as collapsible <details> items"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-hero.tsx#ProductHeroProps",
+      "name": "ProductHeroProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "eyebrow",
+          "required": true,
+          "type": "string",
+          "description": "Small pill of text above the headline"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "{ lead: string; accent: string; }",
+          "description": ""
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the headline"
+        },
+        {
+          "name": "primaryCtaLabel",
+          "required": true,
+          "type": "string",
+          "description": "Primary CTA label"
+        },
+        {
+          "name": "primaryCtaHref",
+          "required": true,
+          "type": "string",
+          "description": "Primary CTA destination href"
+        },
+        {
+          "name": "secondaryCtaLabel",
+          "required": true,
+          "type": "string",
+          "description": "Secondary CTA label"
+        },
+        {
+          "name": "secondaryCtaHref",
+          "required": true,
+          "type": "string",
+          "description": "Secondary CTA destination href"
+        },
+        {
+          "name": "note",
+          "required": true,
+          "type": "string",
+          "description": "Small note shown under the CTAs, e.g. pricing or platform note"
+        },
+        {
+          "name": "stats",
+          "required": true,
+          "type": "ProductHeroStat[]",
+          "description": "Row of stat callouts shown under a divider at the bottom of the hero"
+        },
+        {
+          "name": "image",
+          "required": true,
+          "type": "{ src: string; alt: string; width: number; height: number; }",
+          "description": "Screenshot rendered beside the copy"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-hero.tsx#ProductHeroStat",
+      "name": "ProductHeroStat",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "value",
+          "required": true,
+          "type": "string",
+          "description": "Stat value, e.g. \"10k+\""
+        },
+        {
+          "name": "label",
+          "required": true,
+          "type": "string",
+          "description": "Stat label under the value"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-use-cases.tsx#ProductUseCaseGroup",
+      "name": "ProductUseCaseGroup",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "emoji",
+          "required": true,
+          "type": "string",
+          "description": "Decorative emoji shown next to the audience heading"
+        },
+        {
+          "name": "audience",
+          "required": true,
+          "type": "string",
+          "description": "Audience heading, e.g. \"Students\""
+        },
+        {
+          "name": "items",
+          "required": true,
+          "type": "ProductUseCaseItem[]",
+          "description": "Items for this audience"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-use-cases.tsx#ProductUseCaseItem",
+      "name": "ProductUseCaseItem",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Item title"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Item description"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/product-use-cases.tsx#ProductUseCasesProps",
+      "name": "ProductUseCasesProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "groups",
+          "required": true,
+          "type": "ProductUseCaseGroup[]",
+          "description": "Audience groups, rendered as a 3-column grid on desktop"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/quick-start-steps.tsx#QuickStartStep",
+      "name": "QuickStartStep",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Step title"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Step description"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/quick-start-steps.tsx#QuickStartStepsProps",
+      "name": "QuickStartStepsProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "anchorId",
+          "required": false,
+          "type": "string",
+          "description": "Anchor id for this section, used by links elsewhere on the page (e.g. hero CTAs)"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "steps",
+          "required": true,
+          "type": "QuickStartStep[]",
+          "description": "Steps, in order; numbered automatically starting at 1"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/related-nav.tsx#RelatedNavProps",
+      "name": "RelatedNavProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "ariaLabel",
+          "required": true,
+          "type": "string",
+          "description": "Accessible label for the nav landmark, e.g. \"Text to Mind Map resources\""
+        },
+        {
+          "name": "links",
+          "required": true,
+          "type": "RelatedNavLink[]",
+          "description": "Sibling page links, in display order"
+        },
+        {
+          "name": "current",
+          "required": true,
+          "type": "string",
+          "description": "href of the currently active page, used to highlight the matching pill"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/resource-page-closing.tsx#ResourcePageClosingProps",
+      "name": "ResourcePageClosingProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Closing heading"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "ctaLabel",
+          "required": true,
+          "type": "string",
+          "description": "CTA button label"
+        },
+        {
+          "name": "ctaHref",
+          "required": true,
+          "type": "string",
+          "description": "CTA destination href"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/resource-page-hero.tsx#ResourcePageHeroProps",
+      "name": "ResourcePageHeroProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "eyebrow",
+          "required": true,
+          "type": "string",
+          "description": "Small label above the title, e.g. \"Guide\""
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Page heading"
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "intro",
+          "required": false,
+          "type": "string",
+          "description": "Optional longer intro paragraph rendered below the subtitle"
         }
       ]
     },
@@ -471,6 +1297,116 @@
       ]
     },
     {
+      "id": "src/components/landing1/shortcut-table.tsx#ShortcutGroup",
+      "name": "ShortcutGroup",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Group heading, e.g. \"Navigation\""
+        },
+        {
+          "name": "rows",
+          "required": true,
+          "type": "ShortcutRow[]",
+          "description": "Rows in this group, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/shortcut-table.tsx#ShortcutRow",
+      "name": "ShortcutRow",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "keys",
+          "required": true,
+          "type": "string",
+          "description": "Key combination, e.g. \"Cmd/Ctrl + K\""
+        },
+        {
+          "name": "action",
+          "required": true,
+          "type": "string",
+          "description": "What the shortcut does"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/shortcut-table.tsx#ShortcutTableProps",
+      "name": "ShortcutTableProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "groups",
+          "required": true,
+          "type": "ShortcutGroup[]",
+          "description": "Groups of keyboard shortcuts, rendered as a stack of cards"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/showcase-section.tsx#ShowcaseSectionProps",
+      "name": "ShowcaseSectionProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "subtitle",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "previewLabel",
+          "required": true,
+          "type": "string",
+          "description": "Small \"Preview\" label above the caption"
+        },
+        {
+          "name": "caption",
+          "required": true,
+          "type": "string",
+          "description": "Caption shown next to the screenshot"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the caption"
+        },
+        {
+          "name": "ctaLabel",
+          "required": true,
+          "type": "string",
+          "description": "CTA label"
+        },
+        {
+          "name": "ctaHref",
+          "required": true,
+          "type": "string",
+          "description": "CTA destination href"
+        },
+        {
+          "name": "image",
+          "required": true,
+          "type": "{ src: string; alt: string; width: number; height: number; }",
+          "description": "Screenshot rendered beside the copy"
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/theme-toggle.tsx#ThemeToggleProps",
       "name": "ThemeToggleProps",
       "kind": "interface",
@@ -487,6 +1423,64 @@
           "required": true,
           "type": "ThemeOption[]",
           "description": "Selectable theme options, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/trust-section.tsx#TrustPoint",
+      "name": "TrustPoint",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "icon",
+          "required": true,
+          "type": "\"Lock\" | \"CloudOff\" | \"ShieldCheck\" | \"UserRoundX\"",
+          "description": "Icon shown above the point, e.g. \"Lock\""
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Point title"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Point description"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/trust-section.tsx#TrustSectionProps",
+      "name": "TrustSectionProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "eyebrowLabel",
+          "required": true,
+          "type": "string",
+          "description": "Small \"Privacy\" label above the heading"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Section heading"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Supporting copy under the heading"
+        },
+        {
+          "name": "points",
+          "required": true,
+          "type": "TrustPoint[]",
+          "description": "Grid of trust/privacy points"
         }
       ]
     },
@@ -525,6 +1519,26 @@
           "required": true,
           "type": "{ lead: string; accent: string; }",
           "description": ""
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/types.ts#FaqItem",
+      "name": "FaqItem",
+      "kind": "interface",
+      "description": "A single question/answer pair, used by FAQ-style sections.",
+      "fields": [
+        {
+          "name": "question",
+          "required": true,
+          "type": "string",
+          "description": "The question text"
+        },
+        {
+          "name": "answer",
+          "required": true,
+          "type": "string",
+          "description": "The answer text"
         }
       ]
     },
@@ -569,6 +1583,26 @@
       ]
     },
     {
+      "id": "src/components/landing1/types.ts#RelatedNavLink",
+      "name": "RelatedNavLink",
+      "kind": "interface",
+      "description": "A related-page link, used by in-page tab-style navigation between sibling pages.",
+      "fields": [
+        {
+          "name": "href",
+          "required": true,
+          "type": "string",
+          "description": "Destination href"
+        },
+        {
+          "name": "label",
+          "required": true,
+          "type": "string",
+          "description": "Visible label"
+        }
+      ]
+    },
+    {
       "id": "src/components/landing1/types.ts#ThemeOption",
       "name": "ThemeOption",
       "kind": "interface",
@@ -585,6 +1619,72 @@
           "required": true,
           "type": "string",
           "description": "Accessible / tooltip label"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/use-case-groups.tsx#UseCaseAudienceGroup",
+      "name": "UseCaseAudienceGroup",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "emoji",
+          "required": true,
+          "type": "string",
+          "description": "Decorative emoji shown next to the audience heading"
+        },
+        {
+          "name": "audience",
+          "required": true,
+          "type": "string",
+          "description": "Audience heading, e.g. \"Students\""
+        },
+        {
+          "name": "summary",
+          "required": true,
+          "type": "string",
+          "description": "One-line summary of how this audience uses the product"
+        },
+        {
+          "name": "scenarios",
+          "required": true,
+          "type": "UseCaseScenario[]",
+          "description": "Concrete scenarios for this audience"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/use-case-groups.tsx#UseCaseGroupsProps",
+      "name": "UseCaseGroupsProps",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "groups",
+          "required": true,
+          "type": "UseCaseAudienceGroup[]",
+          "description": "Audience groups, in display order"
+        }
+      ]
+    },
+    {
+      "id": "src/components/landing1/use-case-groups.tsx#UseCaseScenario",
+      "name": "UseCaseScenario",
+      "kind": "interface",
+      "description": "",
+      "fields": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "string",
+          "description": "Scenario title"
+        },
+        {
+          "name": "body",
+          "required": true,
+          "type": "string",
+          "description": "Scenario description"
         }
       ]
     },

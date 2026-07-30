@@ -7,12 +7,14 @@ import {
   ChevronRight,
   X,
   Eye,
+  Blocks,
 } from "lucide-react";
 import { panelTitleStyle, inputStyle, labelStyle } from "../admin-ui";
 import { LivePreview } from "@/components/generator/live-preview";
 import { allComponents } from "@/lib/generator/component-registry";
 import type { ComponentDoc } from "@/types/generator/component-types";
-import { groupComponents, loadDefaultProps } from "./component-grouping";
+import type { SharedBlockDefinition } from "@/lib/pages-store";
+import { groupComponents, loadDefaultProps, slotPropsOf } from "./component-grouping";
 import { iconBtnStyle } from "./shared";
 
 // 左側「現有組件」面板：依目錄分組（攤平多層路徑）、可收合每個群組、
@@ -28,16 +30,39 @@ const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 560;
 
+function tabButtonStyle(active: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    padding: "6px 8px",
+    borderRadius: 4,
+    border: "1px solid " + (active ? "#2d9c74" : "#333"),
+    background: active ? "#18271f" : "transparent",
+    color: active ? "#8fe" : "#999",
+    cursor: "pointer",
+  };
+}
+
 export function ComponentsPanel({
   onClose,
   onAddBlock,
   disabled,
+  sharedBlocks,
+  onAddSharedBlockRef,
 }: {
   onClose: () => void;
   onAddBlock: (component: ComponentDoc) => void;
   disabled: boolean;
+  /** Phase C：共用區塊清單，供第二個 tab 瀏覽/搜尋/加入。未傳入時只顯示「現有組件」單一 tab。 */
+  sharedBlocks?: SharedBlockDefinition[];
+  onAddSharedBlockRef?: (definitionId: string) => void;
 }) {
+  const [tab, setTab] = useState<"components" | "sharedBlocks">("components");
   const [componentQuery, setComponentQuery] = useState("");
+  const [sharedBlockQuery, setSharedBlockQuery] = useState("");
   const [previewing, setPreviewing] = useState<ComponentDoc | null>(null);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const draggingRef = useRef(false);
@@ -74,6 +99,17 @@ export function ComponentsPanel({
 
   const groups = useMemo(() => groupComponents(filteredComponents), [filteredComponents]);
 
+  const filteredSharedBlocks = useMemo(() => {
+    const list = sharedBlocks ?? [];
+    const q = sharedBlockQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.componentName.toLowerCase().includes(q)
+    );
+  }, [sharedBlocks, sharedBlockQuery]);
+
+  const showTabs = sharedBlocks != null;
+
   return (
     <section
       style={{
@@ -95,54 +131,128 @@ export function ComponentsPanel({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 12,
+          marginBottom: showTabs ? 8 : 12,
         }}
       >
-        <h2 style={{ ...panelTitleStyle, margin: 0 }}>現有組件（{allComponents.length}）</h2>
+        <h2 style={{ ...panelTitleStyle, margin: 0 }}>
+          {tab === "components" ? `現有組件（${allComponents.length}）` : `共用區塊（${(sharedBlocks ?? []).length}）`}
+        </h2>
         <button style={iconBtnStyle} onClick={onClose} title="收合面板">
           <PanelLeft size={14} />
         </button>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 12 }}>
-        <Search
-          size={14}
-          style={{ position: "absolute", left: 10, top: 10, color: "#777" }}
-        />
-        <input
-          style={{ ...inputStyle, paddingLeft: 30 }}
-          placeholder="搜尋組件名稱或描述…"
-          value={componentQuery}
-          onChange={(e) => setComponentQuery(e.target.value)}
-        />
-      </div>
+      {showTabs && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+          <button
+            type="button"
+            onClick={() => setTab("components")}
+            style={tabButtonStyle(tab === "components")}
+          >
+            現有組件
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("sharedBlocks")}
+            style={tabButtonStyle(tab === "sharedBlocks")}
+          >
+            <Blocks size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
+            共用區塊
+          </button>
+        </div>
+      )}
 
-      <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
-        點卡片可預覽組件。拖拉卡片到中間視圖可直接加入畫面最後方，也可以用{" "}
-        <Plus size={10} style={{ verticalAlign: -1 }} /> 加到目前選中的頁面。
-      </p>
+      {tab === "components" ? (
+        <>
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <Search
+              size={14}
+              style={{ position: "absolute", left: 10, top: 10, color: "#777" }}
+            />
+            <input
+              style={{ ...inputStyle, paddingLeft: 30 }}
+              placeholder="搜尋組件名稱或描述…"
+              value={componentQuery}
+              onChange={(e) => setComponentQuery(e.target.value)}
+            />
+          </div>
 
-      <div
-        style={{
-          overflowY: "auto",
-          flex: 1,
-          paddingRight: 4,
-        }}
-      >
-        {groups.length === 0 && (
-          <p style={{ color: "#777", fontSize: 13 }}>找不到符合的組件。</p>
-        )}
-        {groups.map((group) => (
-          <ComponentGroupSection
-            key={group.label}
-            label={group.label}
-            components={group.components}
-            disabled={disabled}
-            onAddBlock={onAddBlock}
-            onPreview={setPreviewing}
-          />
-        ))}
-      </div>
+          <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
+            點卡片可預覽組件。拖拉卡片到中間視圖可直接加入畫面最後方，也可以用{" "}
+            <Plus size={10} style={{ verticalAlign: -1 }} /> 加到目前選中的頁面。
+          </p>
+
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              paddingRight: 4,
+            }}
+          >
+            {groups.length === 0 && (
+              <p style={{ color: "#777", fontSize: 13 }}>找不到符合的組件。</p>
+            )}
+            {groups.map((group) => (
+              <ComponentGroupSection
+                key={group.label}
+                label={group.label}
+                components={group.components}
+                disabled={disabled}
+                onAddBlock={onAddBlock}
+                onPreview={setPreviewing}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <Search
+              size={14}
+              style={{ position: "absolute", left: 10, top: 10, color: "#777" }}
+            />
+            <input
+              style={{ ...inputStyle, paddingLeft: 30 }}
+              placeholder="搜尋共用區塊名稱…"
+              value={sharedBlockQuery}
+              onChange={(e) => setSharedBlockQuery(e.target.value)}
+            />
+          </div>
+
+          <p style={{ fontSize: 11, color: "#666", margin: "0 0 10px" }}>
+            共用區塊是抽出來、可被多個頁面共用的組件實例（例如全站 Layout）。點{" "}
+            <Plus size={10} style={{ verticalAlign: -1 }} /> 把它加到目前選中的頁面最後方，
+            加入後可在右側面板查看摘要、或到畫布上覆寫個別插槽。
+          </p>
+
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              paddingRight: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {filteredSharedBlocks.length === 0 && (
+              <p style={{ color: "#777", fontSize: 13 }}>
+                {(sharedBlocks ?? []).length === 0
+                  ? "目前還沒有共用區塊。在畫布上選取一個組件，右側面板可以「另存為共用區塊」。"
+                  : "找不到符合的共用區塊。"}
+              </p>
+            )}
+            {filteredSharedBlocks.map((d) => (
+              <SharedBlockCard
+                key={d.id}
+                definition={d}
+                disabled={disabled}
+                onAdd={() => onAddSharedBlockRef?.(d.id)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* 右邊界拖拉手把：不佔版位（絕對定位疊在邊界上），拖曳調整面板寬度 */}
       <div
@@ -290,6 +400,73 @@ function ComponentCard({
           onAddBlock(c);
         }}
         title="加入此頁內容"
+        disabled={disabled}
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 共用區塊卡片：卡片預覽直接吃 SharedBlockDefinition.props（依 roadmap Phase C
+ * 描述），但不像 ComponentCard 那樣真的動態載入組件本體去 render——共用定義的
+ * props 裡本來就有留給頁面覆寫的空 SlotValue 佔位（見另存為共用區塊 modal），
+ * 直接塞進 LivePreview 常常會因為缺必要的 children/slot 內容而顯示空白或報錯，
+ * 不會比純文字摘要更有參考價值。這裡改用「對應組件名稱 + props 欄位數 +
+ * 幾個插槽是空的（等待頁面覆寫）」的摘要，足夠讓使用者判斷要不要用它。
+ */
+function SharedBlockCard({
+  definition,
+  disabled,
+  onAdd,
+}: {
+  definition: SharedBlockDefinition;
+  disabled: boolean;
+  onAdd: () => void;
+}) {
+  const slotKeys = useMemo(() => slotPropsOf(definition.componentId), [definition.componentId]);
+  const propCount = Object.keys(definition.props).length;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 6,
+        border: "1px solid #333",
+        background: "#151515",
+      }}
+      title={`對應組件：${definition.componentName}`}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          <Blocks size={12} style={{ color: "#7fdbca", flexShrink: 0 }} />
+          {definition.name}
+        </div>
+        <div style={{ fontSize: 11, color: "#777", marginTop: 2, fontFamily: "monospace" }}>
+          {definition.componentName} · {propCount} props
+          {slotKeys.length > 0 ? ` · ${slotKeys.length} 個插槽` : ""}
+        </div>
+      </div>
+      <button
+        style={{ ...iconBtnStyle, border: "1px solid #444", flexShrink: 0, padding: 2 }}
+        onClick={onAdd}
+        title="加到目前選中的頁面"
         disabled={disabled}
       >
         <Plus size={12} />

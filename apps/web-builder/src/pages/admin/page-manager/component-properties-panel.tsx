@@ -332,7 +332,7 @@ export function SharedBlockRefPropertiesPanel({
             style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
             onClick={() =>
               toast.info("編輯共用區塊", {
-                description: "獨立編輯介面尚未實作（roadmap Phase B），目前僅能在此查看摘要。",
+                description: "獨立編輯介面尚未實作，目前僅能在此查看摘要。",
               })
             }
           >
@@ -373,18 +373,131 @@ export function SharedBlockRefPropertiesPanel({
   );
 }
 
+/**
+ * Phase B——「另存為共用區塊」modal：讓使用者命名，並勾選這個組件實例裡
+ * 哪些 slot prop 要保留給「引用它的頁面」個別覆寫（例如 Layout 的
+ * `children`），其餘 slot／一般 props 一律存進 SharedBlockDefinition.props、
+ * 對所有引用者共用。
+ *
+ * 只列出 slotPropsOf（ReactNode 型別）的 prop 可勾選——一般值 props 不能
+ * 被覆寫（見 page-model.ts 的 SharedBlockRef.slotOverrides 型別註解），沒有
+ * slot prop 的組件仍可存成共用區塊，只是沒有可勾選的覆寫選項。
+ */
+function SaveAsSharedBlockModal({
+  block,
+  onCancel,
+  onConfirm,
+}: {
+  block: PageBlock;
+  onCancel: () => void;
+  onConfirm: (name: string, overridableSlots: string[]) => void;
+}) {
+  const [name, setName] = useState(block.componentName);
+  const slotKeys = useMemo(() => slotPropsOf(block.componentId), [block.componentId]);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+
+  const toggle = (key: string) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 200,
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          width: 380,
+          maxWidth: "90vw",
+          background: "#171717",
+          border: "1px solid #333",
+          borderRadius: 8,
+          padding: 16,
+          boxSizing: "border-box",
+        }}
+      >
+        <h3 style={{ ...panelTitleStyle, margin: "0 0 12px" }}>另存為共用區塊</h3>
+
+        <label style={labelStyle}>名稱</label>
+        <input
+          style={{ ...inputStyle, marginBottom: 12 }}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="例如：全站 Layout"
+        />
+
+        {slotKeys.length > 0 && (
+          <>
+            <label style={labelStyle}>哪些插槽要留給各頁面自己填內容？</label>
+            <p style={{ fontSize: 11, color: "#888", margin: "2px 0 8px" }}>
+              勾選的插槽在這裡存成空白，實際內容由引用它的頁面各自決定（例如 Layout 的
+              children）；未勾選的插槽會把目前的內容存進共用定義，所有引用者一起共用。
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+              {slotKeys.map((key) => (
+                <label
+                  key={key}
+                  style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#ccc" }}
+                >
+                  <input type="checkbox" checked={!!checked[key]} onChange={() => toggle(key)} />
+                  <span style={{ fontFamily: "monospace" }}>{key}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button type="button" style={inputStyle} onClick={onCancel}>
+            取消
+          </button>
+          <button
+            type="button"
+            style={{ ...inputStyle, background: "#2d9c74", color: "#fff", borderColor: "#2d9c74" }}
+            onClick={() => {
+              const trimmed = name.trim();
+              if (!trimmed) {
+                toast.error("請先輸入名稱");
+                return;
+              }
+              const overridableSlots = Object.entries(checked)
+                .filter(([, v]) => v)
+                .map(([k]) => k);
+              onConfirm(trimmed, overridableSlots);
+            }}
+          >
+            存成共用區塊
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ComponentPropertiesPanel({
   block,
   onUpdateProp,
   onUpdateClientDirective,
   onRemove,
+  onSaveAsSharedBlock,
 }: {
   block: PageBlock;
   onUpdateProp: (key: string, value: unknown) => void;
   onUpdateClientDirective: (directive: ClientDirective | undefined) => void;
   onRemove: () => void;
+  /** Phase B：把這個組件實例另存為共用區塊。未傳入時不顯示按鈕（保持向下相容）。 */
+  onSaveAsSharedBlock?: (name: string, overridableSlots: string[]) => void;
 }) {
   const component = allComponents.find((c) => c.id === block.componentId);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   // 唯讀取用「資料管理」頁面維護的 DataSource 清單（key 與 data-manager.tsx 完全一致），
   // 只用來給複雜型別 prop 篩選對應的 typedData 候選項目；這裡不呼叫對應的 setter，
@@ -465,6 +578,15 @@ export function ComponentPropertiesPanel({
             <option value="load">client:load</option>
             <option value="media">client:media</option>
           </select>
+          {onSaveAsSharedBlock && (
+            <button
+              style={iconBtnStyle}
+              onClick={() => setSaveModalOpen(true)}
+              title="另存為共用區塊：抽出成獨立定義，可被多個頁面引用"
+            >
+              <Blocks size={14} />
+            </button>
+          )}
           <button style={{ ...iconBtnStyle, color: "#e75454" }} onClick={onRemove} title="從此頁移除此組件">
             <Trash2 size={14} />
           </button>
@@ -476,6 +598,17 @@ export function ComponentPropertiesPanel({
           {block.componentName}
         </span>
       </div>
+
+      {saveModalOpen && (
+        <SaveAsSharedBlockModal
+          block={block}
+          onCancel={() => setSaveModalOpen(false)}
+          onConfirm={(name, overridableSlots) => {
+            onSaveAsSharedBlock?.(name, overridableSlots);
+            setSaveModalOpen(false);
+          }}
+        />
+      )}
 
       {!component ? (
         <p style={{ color: "#e77", fontSize: 12 }}>

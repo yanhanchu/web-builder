@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentType,
   type ErrorInfo,
   type ReactNode,
 } from "react";
@@ -24,10 +25,10 @@ import {
   ghostBtnStyle,
   usePersistentState,
 } from "../admin-ui";
-import { allComponents } from "@/lib/generator/component-registry";
+import { allComponents, loadComponentModule } from "@/lib/generator/component-registry";
 import type { ComponentDoc } from "@/types/generator/component-types";
 import { InMemoryDataStore, typeRegistry, componentPropsRegistry, type DataSource } from "@/lib/data-model";
-import { resolvePlainProps, useComponentModule } from "@/lib/site-renderer";
+import { resolvePlainProps } from "@/lib/site-renderer";
 import {
   findBlockDeep,
   isSharedBlockRef,
@@ -364,6 +365,55 @@ function primarySlotKey(componentId: string): string | null {
   const slots = slotPropsOf(componentId);
   if (slots.length === 0) return null;
   return slots.includes("children") ? "children" : slots[0]!;
+}
+
+type ComponentModuleLoadState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; Component: ComponentType<Record<string, unknown>> };
+
+/**
+ * 依 ComponentDoc 的 importPath async 載入模組，回傳目前的載入狀態。
+ *
+ * 原本抽在 @/lib/site-renderer/render-block-tree.tsx（打算給畫布、靜態產生器、
+ * 之後的 Astro 整合三處共用），但實際上生成器兩套 codegen
+ * （render-page-split-jsx.ts / render-page-astro.ts）走的是各自的
+ * walkNode 直接組字串輸出，never 用到這支 React hook——它從頭到尾只有
+ * canvas-panel.tsx 這一個呼叫端，是屬於畫布自己的邏輯，因此把它搬回來當
+ * 這個檔案的本地函式，不再透過 @/lib/site-renderer 這層共用（該檔案已整支
+ * 移除，見 @/lib/site-renderer/index.ts 只剩 resolve-props 的匯出）。
+ */
+function useComponentModule(component: ComponentDoc | undefined): ComponentModuleLoadState {
+  const [state, setState] = useState<ComponentModuleLoadState>({ status: "loading" });
+
+  useEffect(() => {
+    if (!component) return;
+    let cancelled = false;
+    setState({ status: "loading" });
+
+    loadComponentModule(component.importPath)
+      .then((mod) => {
+        if (cancelled) return;
+        const Component = mod[component.componentName] as
+          | ComponentType<Record<string, unknown>>
+          | undefined;
+        if (!Component) {
+          setState({ status: "error", message: `找不到具名 export "${component.componentName}"` });
+          return;
+        }
+        setState({ status: "ready", Component });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [component]);
+
+  return state;
 }
 
 type SlotTarget = { parentId: string; slotKey: string } | null;
@@ -990,6 +1040,20 @@ function SharedBlockRefRenderer({
   );
   const resolved = resolveSharedBlockRef(block, definitions);
 
+  // 外層虛線框本身也要能當拖曳來源：跟 CanvasPageBlockRenderer 用同一個
+  // useDragState + block.instanceId（這裡的 block 是 SharedBlockRef 本身，
+  // instanceId 等同 resolved.instanceId，見 resolveSharedBlockRef 的合併
+  // 規則），所以 moveBlockToSlot（page-manager.tsx）沿用既有邏輯
+  // （removeBlockDeep / insertIntoSlotDeep / insertAtRoot，三者都已經是
+  // AnyPageNode 通用實作，不特別區分 PageBlock／SharedBlockRef）就能正確
+  // 搬移整個 ref 節點，不需要新增任何分支。在此之前只有 resolved 內容本身
+  // （CanvasPageBlockRenderer 渲染的那層 div）可拖曳，虛線框標籤本身（含
+  // padding 區域）不吃拖曳事件，等於「共用區塊」這個視覺標記所在的區域
+  // 反而抓不動——這裡補上之後，整張卡片（含標籤）都能當拖曳握把。
+  const { current: dragCurrent, setCurrent: setDragCurrent } = useDragState();
+  const isDraggingSelf =
+    dragCurrent?.kind === "existing-node" && dragCurrent.instanceId === block.instanceId;
+
   if (!resolved) {
     return (
       <div
@@ -1022,11 +1086,31 @@ function SharedBlockRefRenderer({
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        // 跟 CanvasPageBlockRenderer 的 onDragStart 完全同一套做法：只帶
+        // instanceId，真正的來源判斷靠 setDragCurrent（dataTransfer 只是
+        // 盡力而為，setData 失敗也不影響拖曳來源判斷）。
+        e.stopPropagation();
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", block.instanceId);
+        } catch {
+          // 部分環境 setData 會拋錯，忽略即可。
+        }
+        setDragCurrent({ kind: "existing-node", instanceId: block.instanceId });
+      }}
+      onDragEnd={(e) => {
+        e.stopPropagation();
+        setDragCurrent(null);
+      }}
       style={{
         border: "1px dashed var(--border-strong, #7fdbca)",
         borderRadius: 6,
         position: "relative",
         padding: "18px 2px 2px",
+        cursor: "grab",
+        opacity: isDraggingSelf ? 0.4 : 1,
       }}
     >
       <span

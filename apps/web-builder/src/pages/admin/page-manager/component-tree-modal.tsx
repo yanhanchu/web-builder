@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { ListTree, ChevronDown, ChevronRight, X, GripVertical, Search } from "lucide-react";
 import { panelTitleStyle, inputStyle } from "../admin-ui";
-import type { PageItem, PageBlock } from "@/lib/pages-store";
-import { isSlotValue } from "@/lib/pages-store";
+import type { PageItem, PageBlock, SharedBlockRef, AnyPageNode } from "@/lib/pages-store";
+import { isSlotValue, isSharedBlockRef } from "@/lib/pages-store";
 import { slotPropsOf } from "./component-grouping";
 import { iconBtnStyle } from "./shared";
 
@@ -17,12 +17,28 @@ import { iconBtnStyle } from "./shared";
 // 某個 slot prop 列會反白作為插入目標，放開後透過
 // onMoveBlock(instanceId, targetParentId, targetSlotKey, toIndex) 通知父層，
 // targetParentId 為 null 代表放到頁面最頂層。
+//
+// SharedBlockRef 節點：這個面板顯示的是「頁面實際組合方式」，而 SharedBlockRef
+// 只是一個引用，它自己沒有 componentName／props，實際內容屬於它引用的
+// SharedBlockDefinition（跟畫布 canvas-panel.tsx 的 SharedBlockRefRenderer
+// 一樣，要先 resolve 才知道要顯示什麼）。這裡的樹狀結構刻意不展開 ref 節點
+// 底下的內容——slotOverrides 是「頁面對共用定義的覆寫」，跟這個面板呈現的
+// 「頁面實際組合方式」是兩個不同層次的東西，展開容易讓使用者誤以為在編輯
+// 共用定義本身（那必須透過 Phase B 的「編輯共用區塊」做，目前尚未實作，見
+// SharedBlockRefPropertiesPanel 的 toast 提示）。ref 節點僅顯示「共用區塊」
+// 標籤 + 引用的 id，可搜尋（比對 ref id）、可選取、可拖曳搬移（沿用跟
+// PageBlock 相同的 instanceId 機制），但不可展開。
 
-/** 判斷 block 自己或其任一巢狀子孫的組件名稱是否符合篩選字串。 */
-function matchesQuery(block: PageBlock, q: string): boolean {
-  if (block.componentName.toLowerCase().includes(q)) return true;
-  for (const slotKey of slotPropsOf(block.componentId)) {
-    const value = block.props[slotKey];
+/** 判斷節點自己（或其任一巢狀子孫，僅限 PageBlock 分支）的名稱是否符合篩選字串。
+ *  SharedBlockRef 沒有 componentName，改比對它引用的 ref id；ref 底下的
+ *  slotOverrides 不遞迴（見上方檔案開頭說明），視為到此為止的葉節點。 */
+function matchesQuery(node: AnyPageNode, q: string): boolean {
+  if (isSharedBlockRef(node)) {
+    return node.ref.toLowerCase().includes(q);
+  }
+  if (node.componentName.toLowerCase().includes(q)) return true;
+  for (const slotKey of slotPropsOf(node.componentId)) {
+    const value = node.props[slotKey];
     const children = isSlotValue(value) ? value.blocks : [];
     if (children.some((child) => matchesQuery(child, q))) return true;
   }
@@ -196,24 +212,8 @@ export function ComponentTreeModal({
   );
 }
 
-/** 一個組件實例節點：顯示自己，並依 slotPropsOf 遞迴展開每個 slot prop 底下的子組件。 */
-function BlockNode({
-  block,
-  index,
-  depth,
-  parentId,
-  slotKey: ownSlotKey,
-  selectedBlockId,
-  draggingId,
-  dragOverKey,
-  dropKey,
-  setDraggingId,
-  setDragOverKey,
-  onSelectBlock,
-  onDrop,
-  query,
-}: {
-  block: PageBlock;
+/** 共用的節點 props 形狀：BlockNode 分流入口與底下兩種實際渲染節點都吃同一組。 */
+type BlockNodeSharedProps = {
   index: number;
   depth: number;
   /** 這個節點自己所在的容器：parentId=null 代表頂層；否則是父節點 instanceId。 */
@@ -230,7 +230,38 @@ function BlockNode({
   onDrop: (parentId: string | null, slotKey: string | null, toIndex: number) => void;
   /** 目前搜尋樹狀結構用的關鍵字（已 trim + 轉小寫），空字串代表未篩選。 */
   query: string;
-}) {
+};
+
+/**
+ * 分流入口：畫面上（跟 draft.blocks / slot children 一樣）拿到的都是
+ * AnyPageNode，PageBlock 走原本會遞迴展開 slot 的 PageBlockNode，
+ * SharedBlockRef 走不可展開的 SharedBlockRefNode（見檔案開頭「SharedBlockRef
+ * 節點」說明）。跟 canvas-panel.tsx 的 CanvasBlockRenderer 分流方式一致。
+ */
+function BlockNode(props: BlockNodeSharedProps & { block: AnyPageNode }) {
+  if (isSharedBlockRef(props.block)) {
+    return <SharedBlockRefNode {...props} block={props.block} />;
+  }
+  return <PageBlockNode {...props} block={props.block} />;
+}
+
+/** 一個組件實例節點：顯示自己，並依 slotPropsOf 遞迴展開每個 slot prop 底下的子組件。 */
+function PageBlockNode({
+  block,
+  index,
+  depth,
+  parentId,
+  slotKey: ownSlotKey,
+  selectedBlockId,
+  draggingId,
+  dragOverKey,
+  dropKey,
+  setDraggingId,
+  setDragOverKey,
+  onSelectBlock,
+  onDrop,
+  query,
+}: BlockNodeSharedProps & { block: PageBlock }) {
   const hasQuery = query.length > 0;
   const [expanded, setExpanded] = useState(true);
   const slots = slotPropsOf(block.componentId);
@@ -388,6 +419,125 @@ function BlockNode({
             </div>
           );
         })}
+    </div>
+  );
+}
+
+/**
+ * SharedBlockRef 的簡化列：跟 PageBlockNode 共用同一套選取／拖曳握把／
+ * 「此節點之前」插入點機制，但沒有 slots 可展開——ref 節點自己沒有
+ * componentName／props，實際內容要 resolve 對應的 SharedBlockDefinition
+ * 才拿得到，而這個面板顯示的是「頁面實際組合方式」，不是「共用定義內容」，
+ * 所以固定顯示「共用區塊」標籤 + 引用的 definition id，不遞迴展開
+ * slotOverrides（見檔案開頭「SharedBlockRef 節點」說明）。
+ */
+function SharedBlockRefNode({
+  block,
+  index,
+  depth,
+  parentId,
+  slotKey: ownSlotKey,
+  selectedBlockId,
+  draggingId,
+  dragOverKey,
+  dropKey,
+  setDraggingId,
+  setDragOverKey,
+  onSelectBlock,
+  onDrop,
+}: BlockNodeSharedProps & { block: SharedBlockRef }) {
+  const isSelected = block.instanceId === selectedBlockId;
+  const isDragging = draggingId === block.instanceId;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: `4px 4px 4px ${depth * 14}px`,
+          borderRadius: 4,
+          background: isSelected ? "#18271f" : "transparent",
+          opacity: isDragging ? 0.4 : 1,
+        }}
+      >
+        {/* 沒有 slots 可展開，維持跟 PageBlockNode 一致的縮排寬度即可（不需要 chevron）。 */}
+        <span style={{ width: 12, flexShrink: 0 }} />
+        {/* 拖曳握把：跟 PageBlockNode 完全同一套寫法，共用同一個 instanceId 機制。 */}
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.stopPropagation();
+            e.dataTransfer.effectAllowed = "move";
+            try {
+              e.dataTransfer.setData("text/plain", block.instanceId);
+            } catch {
+              // 部分環境 setData 會拋錯，忽略即可。
+            }
+            setDraggingId(block.instanceId);
+          }}
+          onDragEnd={(e) => {
+            e.stopPropagation();
+            setDraggingId(null);
+            setDragOverKey(null);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            cursor: "grab",
+            flexShrink: 0,
+            touchAction: "none",
+          }}
+          title="拖曳搬移此共用區塊引用"
+        >
+          <GripVertical size={12} style={{ color: "#555" }} />
+        </span>
+        <button
+          onClick={() => onSelectBlock(block.instanceId)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flex: 1,
+            minWidth: 0,
+            textAlign: "left",
+            background: "transparent",
+            border: "none",
+            color: isSelected ? "#8fe" : "#ccc",
+            fontSize: 12,
+            cursor: "pointer",
+            padding: "4px 0",
+          }}
+          title="點擊選取此共用區塊引用（開啟組件屬性面板）"
+        >
+          <span style={{ color: "#555", flexShrink: 0 }}>#{index + 1}</span>
+          <span
+            style={{
+              flexShrink: 0,
+              fontSize: 9,
+              padding: "1px 5px",
+              borderRadius: 3,
+              border: "1px dashed #555",
+              color: "#999",
+            }}
+          >
+            共用區塊
+          </span>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {block.ref}
+          </span>
+        </button>
+      </div>
+
+      {/* 這個節點正上方的放置區：跟 PageBlockNode 一致，拖曳中的組件放這裡會插到「此節點之前」（同一層）。 */}
+      <DropRow
+        active={dragOverKey === dropKey(parentId, "__before__" + block.instanceId)}
+        visible={draggingId != null && draggingId !== block.instanceId}
+        depth={depth}
+        onDragEnter={() => setDragOverKey(dropKey(parentId, "__before__" + block.instanceId))}
+        onDrop={() => onDrop(parentId, ownSlotKey, index)}
+      />
     </div>
   );
 }

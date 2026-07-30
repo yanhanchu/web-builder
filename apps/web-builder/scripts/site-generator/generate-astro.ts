@@ -184,6 +184,13 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
 
     const store = new InMemoryDataStore(data.sources, typeRegistry);
 
+    // 共用區塊定義查表：把 loadStaticData() 回傳的 sharedBlocks 陣列組成
+    // key -> definition 的 map，一路傳給 renderPageAstro() /
+    // renderPageAstroRoot()，讓兩者能 resolve 頁面樹裡的 SharedBlockRef
+    // 節點（見 page-model 的 resolveSharedBlockRef()），跟 generate-split-jsx.ts
+    // 同一份 sharedBlocks 來源、同一種組法。
+    const sharedBlockDefinitions = Object.fromEntries(data.sharedBlocks.map((d) => [d.id, d]));
+
     // defaultLocale 判斷邏輯跟 generate-split-jsx.ts 一致（同一個權威來源：
     // typedData:siteInfo:main）。各 generate* 進入點是平行、不互相依賴的
     // 產出路徑，各自保留一份短小的判斷邏輯，不硬拉共用模組。
@@ -298,6 +305,7 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
         shapeLocale: defaultLocale,
         defaultLocale,
         store,
+        definitions: sharedBlockDefinitions,
         dataImportPath: rootDataImportPath(defaultLocale),
         layoutImportPath: rootLayoutImportPath,
         siteDefaultSeo,
@@ -320,6 +328,7 @@ export async function generateAstro(options: GenerateAstroOptions): Promise<Gene
         locales: data.locales,
         defaultLocale,
         store,
+        definitions: sharedBlockDefinitions,
         dataI18nImportPath,
         getStaticPathsImportPath,
         layoutImportPath: langLayoutImportPath,

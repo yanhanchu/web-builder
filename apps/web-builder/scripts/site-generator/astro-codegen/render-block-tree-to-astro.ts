@@ -32,7 +32,15 @@
 import type { DataStore } from "../../../src/lib/data-model/schema";
 import { componentPropsRegistry } from "../../../src/lib/data-model/from-generated";
 import { getComponentById } from "../../../src/lib/generator/component-registry";
-import { isSlotPropType, splitSlotProps, type ClientDirective, type PageBlock } from "../../../src/lib/page-model";
+import {
+  isSharedBlockRef,
+  isSlotPropType,
+  resolveSharedBlockRef,
+  splitSlotProps,
+  type AnyPageNode,
+  type ClientDirective,
+  type SharedBlockDefinition,
+} from "../../../src/lib/page-model";
 import { resolvePlainProps } from "../../../src/lib/site-renderer/resolve-props";
 import { ImportCollector, toWorkspaceImportPath } from "../jsx-codegen/import-collector";
 import { VarNameAllocator } from "../jsx-codegen/var-naming";
@@ -43,6 +51,15 @@ export interface RenderBlockTreeToAstroOptions {
   /** 站台預設語系，見 render-block-tree-to-split-jsx.ts 同名欄位說明。 */
   defaultLocale: string;
   store: DataStore;
+  /**
+   * 共用區塊定義查表（key 為 SharedBlockDefinition.id，來自
+   * loadStaticData() 回傳的 sharedBlocks 陣列組成的 map），用來把樹裡的
+   * SharedBlockRef 節點 resolve 成等效的 PageBlock——跟畫布渲染
+   * （site-renderer/render-block-tree.tsx）、另一套 codegen
+   * （jsx-codegen）共用同一份 page-model 的 resolveSharedBlockRef 邏輯。
+   * 沒有任何 SharedBlockRef 的樹可以傳空物件 `{}`。
+   */
+  definitions: Record<string, SharedBlockDefinition>;
   /** 收集這個 block 樹用到的所有「組件」import（`@workspace/ui/...`）。 */
   componentImports: ImportCollector;
   /** 幫每個 block 配一個資料變數名稱，同一份 allocator 內保證唯一。 */
@@ -123,8 +140,24 @@ export interface AstroWalkResult extends AstroNodeResult {
 /**
  * 遞迴把單一 block 轉成「Astro template 片段 + 資料 export 清單」。
  * indentLevel：這個節點的起始縮排層級。
+ *
+ * SharedBlockRef 節點會先用 resolveSharedBlockRef() 展開成等效的
+ * PageBlock 再繼續走原本邏輯（跟畫布渲染共用同一份 page-model 邏輯，不在
+ * 這裡另外發明一套）。找不到對應的 SharedBlockDefinition 時直接拋出明確
+ * 錯誤中止整個生成——生成器產出的是最終網站，引用失效不該悄悄漏產出一塊
+ * 內容，不像畫布渲染那樣可以顯示錯誤狀態後讓使用者繼續編輯。
  */
-function walkNode(block: PageBlock, options: RenderBlockTreeToAstroOptions, indentLevel: number): AstroNodeResult {
+function walkNode(node: AnyPageNode, options: RenderBlockTreeToAstroOptions, indentLevel: number): AstroNodeResult {
+  const block = isSharedBlockRef(node) ? resolveSharedBlockRef(node, options.definitions) : node;
+  if (!block) {
+    // block 為 null 只會發生在 node 是 SharedBlockRef 但 resolve 失敗的情況
+    // （node 是 PageBlock 時 block 一定等於 node 本身，不可能落到這裡）。
+    const ref = node as Extract<AnyPageNode, { kind: "sharedBlockRef" }>;
+    throw new Error(
+      `共用區塊已遺失：找不到 id 為 "${ref.ref}" 的 SharedBlockDefinition（引用它的節點 instanceId: ${ref.instanceId}）`,
+    );
+  }
+
   const pad = INDENT_UNIT.repeat(indentLevel);
   const component = getComponentById(block.componentId);
 
@@ -264,7 +297,7 @@ function walkNode(block: PageBlock, options: RenderBlockTreeToAstroOptions, inde
 
 /** 把整個 blocks 陣列（頁面內容區的頂層組件清單）走訪成「Astro template 片段 + 資料 export 清單」。 */
 export function walkBlockListToAstro(
-  blocks: PageBlock[],
+  blocks: AnyPageNode[],
   options: RenderBlockTreeToAstroOptions,
   indentLevel: number,
 ): AstroWalkResult {

@@ -17,13 +17,14 @@ import {
   sourcesToFlatI18n,
   type DataSource,
 } from "@/lib/data-model";
-import type { PageItem } from "@/lib/page-model";
+import type { PageItem, SharedBlockDefinition } from "@/lib/page-model";
 import type { StyleSheet } from "../pages/admin/style-manager";
 
 export interface ExportFlatDataInput {
   sources: Record<string, DataSource>;
   locales: string[];
   pages: PageItem[];
+  sharedBlocks: SharedBlockDefinition[];
   styleSheets: StyleSheet[];
 }
 
@@ -38,7 +39,7 @@ export type ExportedFiles = Map<string, string>;
  * downloadZip，之後若要接 CLI／server 也能直接重用這個函式）。
  */
 export function buildFlatDataFiles(input: ExportFlatDataInput): ExportedFiles {
-  const { sources, locales, pages, styleSheets } = input;
+  const { sources, locales, pages, sharedBlocks, styleSheets } = input;
   const files: ExportedFiles = new Map();
 
   // --- sources/i18n.<locale>.json：每個語系各自攤平一份 ---
@@ -63,6 +64,13 @@ export function buildFlatDataFiles(input: ExportFlatDataInput): ExportedFiles {
   // 個別頁面各自比對／版控。
   for (const page of pages) {
     files.set(`pages/${page.id}.json`, stringify(page));
+  }
+
+  // --- shared-blocks/{id}.json：每個共用區塊定義各自一份純值檔案，
+  // 跟 pages/{pageId}.json 同一套理由（逐筆拆檔，改一筆只動一個檔案，
+  // diff／版控都比單一大檔案好）——直接照抄那段寫法。
+  for (const definition of sharedBlocks) {
+    files.set(`shared-blocks/${definition.id}.json`, stringify(definition));
   }
 
   // --- locales.json：直接存純值，不需要攤平轉換

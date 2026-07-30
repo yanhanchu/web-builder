@@ -81,6 +81,40 @@
     ]
   },
   {
+    "id": "src/components/landing1/command-list.tsx#CommandList",
+    "componentName": "CommandList",
+    "filePath": "src/components/landing1/command-list.tsx",
+    "importPath": "components/landing1/command-list",
+    "description": "Single card listing quick/slash commands as a code trigger next to its\ndescription. Visually matches `ShortcutTable`'s row style. All content\nis supplied by the caller.",
+    "props": [
+      {
+        "name": "commands",
+        "required": true,
+        "type": "CommandRow[]",
+        "defaultValue": null,
+        "description": "Commands, in display order"
+      },
+      {
+        "name": "description",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading, e.g. \"Quick commands\""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/command-list.tsx#CommandListProps",
+      "src/components/landing1/command-list.tsx#CommandRow"
+    ]
+  },
+  {
     "id": "src/components/landing1/contact-card.tsx#ContactCard",
     "componentName": "ContactCard",
     "filePath": "src/components/landing1/contact-card.tsx",
@@ -128,6 +162,315 @@
     ]
   },
   {
+    "id": "src/components/landing1/contact-form.tsx#ContactForm",
+    "componentName": "ContactForm",
+    "filePath": "src/components/landing1/contact-form.tsx",
+    "importPath": "components/landing1/contact-form",
+    "description": "Contact page's primary card: heading, intro, a message form that submits\nto a configurable endpoint, and a bulleted list of suggested topics.\n\nThe form submission itself (an outbound fetch triggered by the visitor\nclicking \"Send\") is a user-triggered action, not something that decides\nwhat the page displays — all copy, labels and the submit target are\nstill supplied entirely by the caller via props.",
+    "props": [
+      {
+        "name": "apiKey",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "API key / endpoint token used to submit the form. If empty, submitting shows an error instead of calling the API."
+      },
+      {
+        "name": "email",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Contact email shown as a fallback and in the topics card"
+      },
+      {
+        "name": "emailPlaceholder",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Placeholder text for the email field"
+      },
+      {
+        "name": "endpoint",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Form submission endpoint"
+      },
+      {
+        "name": "errorFallbackPrefix",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Text shown before the fallback mailto link inside an error message"
+      },
+      {
+        "name": "genericErrorMessage",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Fallback error message shown when the request fails without a specific reason"
+      },
+      {
+        "name": "intro",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting intro paragraph"
+      },
+      {
+        "name": "messagePlaceholder",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Placeholder text for the message field"
+      },
+      {
+        "name": "namePlaceholder",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Placeholder text for the name field"
+      },
+      {
+        "name": "submitLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label on the submit button while idle"
+      },
+      {
+        "name": "submitPendingLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label on the submit button while the request is in flight"
+      },
+      {
+        "name": "submitSubject",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Subject line sent with the form submission"
+      },
+      {
+        "name": "successMessage",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Message shown after a successful submission"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Card heading"
+      },
+      {
+        "name": "topics",
+        "required": true,
+        "type": "string[]",
+        "defaultValue": null,
+        "description": "Bullet list of topics people can reach out about"
+      },
+      {
+        "name": "topicsTitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Heading above the topics list"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/contact-form.tsx#ContactFormProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/contact-form.tsx#Mail",
+    "componentName": "Mail",
+    "filePath": "src/components/landing1/contact-form.tsx",
+    "importPath": "components/landing1/contact-form",
+    "description": "",
+    "props": [],
+    "relatedTypeNames": []
+  },
+  {
+    "id": "src/components/landing1/cookie-consent.tsx#CookieConsent",
+    "componentName": "CookieConsent",
+    "filePath": "src/components/landing1/cookie-consent.tsx",
+    "importPath": "components/landing1/cookie-consent",
+    "description": "GDPR-aligned cookie consent banner.\n\nHidden until the visitor has made a choice; offers \"Accept all\",\n\"Reject non-essential\" and \"Customise\" on equal footing. The choice is\npersisted to `localStorage` under `storageKey` — this read/write is a\nuser-triggered side effect (saving the visitor's own decision), not\nsomething that decides what copy the banner displays; all text here\ncomes from props.",
+    "props": [
+      {
+        "name": "acceptAllLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "\"Accept all\" button label"
+      },
+      {
+        "name": "analyticsDescription",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Description for the \"analytics cookies\" row"
+      },
+      {
+        "name": "analyticsLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label for the \"analytics cookies\" row shown when customising"
+      },
+      {
+        "name": "customiseLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "\"Customise\" button label"
+      },
+      {
+        "name": "description",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Explanatory copy shown before the privacy policy link"
+      },
+      {
+        "name": "dismissAriaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "aria-label for the dismiss (X) button"
+      },
+      {
+        "name": "necessaryDescription",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Description for the \"necessary cookies\" row"
+      },
+      {
+        "name": "necessaryLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label for the \"necessary cookies\" row shown when customising"
+      },
+      {
+        "name": "privacyLinkHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "href for the privacy policy link"
+      },
+      {
+        "name": "privacyLinkLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label for the privacy policy link"
+      },
+      {
+        "name": "rejectLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "\"Reject non-essential\" button label"
+      },
+      {
+        "name": "saveLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "\"Save choices\" button label, shown once customising"
+      },
+      {
+        "name": "storageKey",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Key used to persist the visitor's choice in localStorage"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Dialog heading, e.g. \"We respect your privacy\""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/cookie-consent.tsx#CookieConsentProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/copy-button.tsx#CopyButton",
+    "componentName": "CopyButton",
+    "filePath": "src/components/landing1/copy-button.tsx",
+    "importPath": "components/landing1/copy-button",
+    "description": "Small pill button that copies `value` to the clipboard and briefly\nshows a confirmation state. The copy action is a user-triggered\nside effect (clicking the button), not something that decides what\nthe page displays — the text being copied and both labels come from\nprops.",
+    "props": [
+      {
+        "name": "copiedLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button label shown briefly after a successful copy"
+      },
+      {
+        "name": "label",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Button label while idle"
+      },
+      {
+        "name": "value",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "The text copied to the clipboard when clicked"
+      },
+      {
+        "name": "resetAfterMs",
+        "required": false,
+        "type": "number",
+        "defaultValue": "2000",
+        "description": "How long (ms) to show `copiedLabel` before reverting. Defaults to 2000."
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/copy-button.tsx#CopyButtonProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/core-value-section.tsx#CoreValueSection",
+    "componentName": "CoreValueSection",
+    "filePath": "src/components/landing1/core-value-section.tsx",
+    "importPath": "components/landing1/core-value-section",
+    "description": "Single centered card stating the product's core value proposition.\nAll content is supplied by the caller.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/core-value-section.tsx#CoreValueSectionProps"
+    ]
+  },
+  {
     "id": "src/components/landing1/cta-banner.tsx#CtaBanner",
     "componentName": "CtaBanner",
     "filePath": "src/components/landing1/cta-banner.tsx",
@@ -165,6 +508,67 @@
     ],
     "relatedTypeNames": [
       "src/components/landing1/cta-banner.tsx#CtaBannerProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/faq-section.tsx#FaqSection",
+    "componentName": "FaqSection",
+    "filePath": "src/components/landing1/faq-section.tsx",
+    "importPath": "components/landing1/faq-section",
+    "description": "Simple stacked FAQ list inside a glass card: a heading followed by\nquestion/answer pairs. All content is supplied by the caller.",
+    "props": [
+      {
+        "name": "items",
+        "required": true,
+        "type": "FaqItem[]",
+        "defaultValue": null,
+        "description": "Questions and answers, in display order"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading, e.g. \"Frequently asked questions\""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/faq-section.tsx#FaqSectionProps",
+      "src/components/landing1/types.ts#FaqItem"
+    ]
+  },
+  {
+    "id": "src/components/landing1/feature-grid.tsx#FeatureGrid",
+    "componentName": "FeatureGrid",
+    "filePath": "src/components/landing1/feature-grid.tsx",
+    "importPath": "components/landing1/feature-grid",
+    "description": "Responsive grid of feature cards: icon, title and description. All\ncontent is supplied by the caller; each item picks its own icon by\nname so the mapping doesn't depend on array order.",
+    "props": [
+      {
+        "name": "items",
+        "required": true,
+        "type": "FeatureItem[]",
+        "defaultValue": null,
+        "description": "Feature cards, in display order"
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/feature-grid.tsx#FeatureGridProps",
+      "src/components/landing1/feature-grid.tsx#FeatureItem"
     ]
   },
   {
@@ -408,7 +812,7 @@
     "componentName": "Hero",
     "filePath": "src/components/landing1/hero.tsx",
     "importPath": "components/landing1/hero",
-    "description": "Full-width hero banner: eyebrow, headline, subtitle and a pair of CTAs.\nAll copy and links are supplied by the caller.",
+    "description": "Full-width hero banner: eyebrow, headline, subtitle, a pair of CTAs and\nan optional row of stat callouts. All copy and links are supplied by\nthe caller.",
     "props": [
       {
         "name": "eyebrow",
@@ -472,6 +876,13 @@
         "type": "number[]",
         "defaultValue": null,
         "description": ""
+      },
+      {
+        "name": "stats",
+        "required": false,
+        "type": "{ value: string; label: string; }[]",
+        "defaultValue": null,
+        "description": "Optional row of stat callouts shown under a divider at the bottom of the hero"
       }
     ],
     "relatedTypeNames": [
@@ -518,11 +929,59 @@
     ]
   },
   {
+    "id": "src/components/landing1/outline-template-grid.tsx#OutlineTemplateGrid",
+    "componentName": "OutlineTemplateGrid",
+    "filePath": "src/components/landing1/outline-template-grid.tsx",
+    "importPath": "components/landing1/outline-template-grid",
+    "description": "Responsive grid of outline template cards: emoji + title + summary,\na preformatted outline preview, and a copy-to-clipboard button. All\ncontent is supplied by the caller.",
+    "props": [
+      {
+        "name": "bestForLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Label prefixing each card's \"best for\" line, e.g. \"Best for:\""
+      },
+      {
+        "name": "copiedLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Copy button label shown briefly after copying"
+      },
+      {
+        "name": "copyLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Copy button label"
+      },
+      {
+        "name": "pasteHint",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Hint shown next to the copy button, e.g. \"then paste it into the editor\""
+      },
+      {
+        "name": "templates",
+        "required": true,
+        "type": "OutlineTemplate[]",
+        "defaultValue": null,
+        "description": "Templates, in display order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/outline-template-grid.tsx#OutlineTemplateGridProps",
+      "src/components/landing1/outline-template-grid.tsx#OutlineTemplate"
+    ]
+  },
+  {
     "id": "src/components/landing1/page-intro.tsx#PageIntro",
     "componentName": "PageIntro",
     "filePath": "src/components/landing1/page-intro.tsx",
     "importPath": "components/landing1/page-intro",
-    "description": "Simple centered page header used on content pages (About, legal\ndocuments, etc.): an optional eyebrow line, a large title and an\nintro paragraph inside a glass panel.",
+    "description": "Simple centered page header used on content pages (About, legal\ndocuments, etc.): an optional eyebrow line or \"updated\" date, a large\ntitle and an intro paragraph inside a glass panel.",
     "props": [
       {
         "name": "intro",
@@ -544,10 +1003,371 @@
         "type": "string",
         "defaultValue": null,
         "description": "Optional small line above the title, e.g. \"Updated 1 July 2026\""
+      },
+      {
+        "name": "updated",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Optional \"last updated\" line shown above the title, e.g. \"Updated 1 July 2026\" (used by legal documents)"
       }
     ],
     "relatedTypeNames": [
       "src/components/landing1/page-intro.tsx#PageIntroProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/product-closing.tsx#ProductClosing",
+    "componentName": "ProductClosing",
+    "filePath": "src/components/landing1/product-closing.tsx",
+    "importPath": "components/landing1/product-closing",
+    "description": "Centered closing panel with a decorative aurora background and a pair\nof CTAs (primary gradient button + secondary glass button). All copy\nand links are supplied by the caller.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "primaryCtaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Primary CTA destination href"
+      },
+      {
+        "name": "primaryCtaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Primary CTA label"
+      },
+      {
+        "name": "secondaryCtaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary CTA destination href"
+      },
+      {
+        "name": "secondaryCtaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary CTA label"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Closing heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/product-closing.tsx#ProductClosingProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/product-faq.tsx#ProductFaq",
+    "componentName": "ProductFaq",
+    "filePath": "src/components/landing1/product-faq.tsx",
+    "importPath": "components/landing1/product-faq",
+    "description": "Collapsible FAQ list using native `<details>`/`<summary>` — no JS state\nneeded, the browser handles open/closed. All content is supplied by\nthe caller.",
+    "props": [
+      {
+        "name": "items",
+        "required": true,
+        "type": "FaqItem[]",
+        "defaultValue": null,
+        "description": "Questions and answers, rendered as collapsible <details> items"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/product-faq.tsx#ProductFaqProps",
+      "src/components/landing1/types.ts#FaqItem"
+    ]
+  },
+  {
+    "id": "src/components/landing1/product-hero.tsx#ProductHero",
+    "componentName": "ProductHero",
+    "filePath": "src/components/landing1/product-hero.tsx",
+    "importPath": "components/landing1/product-hero",
+    "description": "Product landing page hero: eyebrow, headline, subtitle, primary/secondary\nCTAs, a note, a screenshot and a row of stat callouts. All copy, links\nand the image are supplied by the caller.",
+    "props": [
+      {
+        "name": "eyebrow",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small pill of text above the headline"
+      },
+      {
+        "name": "image",
+        "required": true,
+        "type": "{ src: string; alt: string; width: number; height: number; }",
+        "defaultValue": null,
+        "description": "Screenshot rendered beside the copy"
+      },
+      {
+        "name": "note",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small note shown under the CTAs, e.g. pricing or platform note"
+      },
+      {
+        "name": "primaryCtaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Primary CTA destination href"
+      },
+      {
+        "name": "primaryCtaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Primary CTA label"
+      },
+      {
+        "name": "secondaryCtaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary CTA destination href"
+      },
+      {
+        "name": "secondaryCtaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Secondary CTA label"
+      },
+      {
+        "name": "stats",
+        "required": true,
+        "type": "ProductHeroStat[]",
+        "defaultValue": null,
+        "description": "Row of stat callouts shown under a divider at the bottom of the hero"
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the headline"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "{ lead: string; accent: string; }",
+        "defaultValue": null,
+        "description": ""
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/product-hero.tsx#ProductHeroProps",
+      "src/components/landing1/product-hero.tsx#ProductHeroStat"
+    ]
+  },
+  {
+    "id": "src/components/landing1/product-use-cases.tsx#ProductUseCases",
+    "componentName": "ProductUseCases",
+    "filePath": "src/components/landing1/product-use-cases.tsx",
+    "importPath": "components/landing1/product-use-cases",
+    "description": "Three-column grid of audience-grouped use case cards. Distinct from\n`UseCaseGroups` (used on the standalone use-cases resource page), which\nhas a different layout with per-scenario sub-cards. All content is\nsupplied by the caller.",
+    "props": [
+      {
+        "name": "groups",
+        "required": true,
+        "type": "ProductUseCaseGroup[]",
+        "defaultValue": null,
+        "description": "Audience groups, rendered as a 3-column grid on desktop"
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/product-use-cases.tsx#ProductUseCasesProps",
+      "src/components/landing1/product-use-cases.tsx#ProductUseCaseGroup",
+      "src/components/landing1/product-use-cases.tsx#ProductUseCaseItem"
+    ]
+  },
+  {
+    "id": "src/components/landing1/quick-start-steps.tsx#QuickStartSteps",
+    "componentName": "QuickStartSteps",
+    "filePath": "src/components/landing1/quick-start-steps.tsx",
+    "importPath": "components/landing1/quick-start-steps",
+    "description": "Numbered row of quick-start step cards. All content is supplied by\nthe caller; step numbers are derived from array order.",
+    "props": [
+      {
+        "name": "steps",
+        "required": true,
+        "type": "QuickStartStep[]",
+        "defaultValue": null,
+        "description": "Steps, in order; numbered automatically starting at 1"
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      },
+      {
+        "name": "anchorId",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Anchor id for this section, used by links elsewhere on the page (e.g. hero CTAs)"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/quick-start-steps.tsx#QuickStartStepsProps",
+      "src/components/landing1/quick-start-steps.tsx#QuickStartStep"
+    ]
+  },
+  {
+    "id": "src/components/landing1/related-nav.tsx#RelatedNav",
+    "componentName": "RelatedNav",
+    "filePath": "src/components/landing1/related-nav.tsx",
+    "importPath": "components/landing1/related-nav",
+    "description": "Row of pill links for moving between a group of sibling pages (e.g. a\nproduct's Overview / Guide / Templates / Use cases / Shortcuts pages),\nwith the current page highlighted. All links and the active state are\nsupplied by the caller.",
+    "props": [
+      {
+        "name": "ariaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Accessible label for the nav landmark, e.g. \"Text to Mind Map resources\""
+      },
+      {
+        "name": "current",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "href of the currently active page, used to highlight the matching pill"
+      },
+      {
+        "name": "links",
+        "required": true,
+        "type": "RelatedNavLink[]",
+        "defaultValue": null,
+        "description": "Sibling page links, in display order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/related-nav.tsx#RelatedNavProps",
+      "src/components/landing1/types.ts#RelatedNavLink"
+    ]
+  },
+  {
+    "id": "src/components/landing1/resource-page-closing.tsx#ResourcePageClosing",
+    "componentName": "ResourcePageClosing",
+    "filePath": "src/components/landing1/resource-page-closing.tsx",
+    "importPath": "components/landing1/resource-page-closing",
+    "description": "Centered closing call-to-action panel used at the bottom of\nresource-style pages (guide, shortcuts, templates, use-cases, ...).\n\nRenders the CTA as a styled link (rather than `<Button asChild>`, which\nthis package's `Button` does not support) using the same visual style\nas the primary button variant.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "ctaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "CTA destination href"
+      },
+      {
+        "name": "ctaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "CTA button label"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Closing heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/resource-page-closing.tsx#ResourcePageClosingProps"
+    ]
+  },
+  {
+    "id": "src/components/landing1/resource-page-hero.tsx#ResourcePageHero",
+    "componentName": "ResourcePageHero",
+    "filePath": "src/components/landing1/resource-page-hero.tsx",
+    "importPath": "components/landing1/resource-page-hero",
+    "description": "Header panel used at the top of resource-style pages (guide, shortcuts,\ntemplates, use-cases, ...): eyebrow label, title, subtitle and an\noptional intro paragraph inside a glass card.",
+    "props": [
+      {
+        "name": "eyebrow",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small label above the title, e.g. \"Guide\""
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Page heading"
+      },
+      {
+        "name": "intro",
+        "required": false,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Optional longer intro paragraph rendered below the subtitle"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/resource-page-hero.tsx#ResourcePageHeroProps"
     ]
   },
   {
@@ -568,6 +1388,95 @@
     "relatedTypeNames": [
       "src/components/landing1/section-list.tsx#SectionListProps",
       "src/components/landing1/section-list.tsx#Section"
+    ]
+  },
+  {
+    "id": "src/components/landing1/shortcut-table.tsx#ShortcutTable",
+    "componentName": "ShortcutTable",
+    "filePath": "src/components/landing1/shortcut-table.tsx",
+    "importPath": "components/landing1/shortcut-table",
+    "description": "Stack of titled cards listing keyboard shortcuts, grouped by category\n(e.g. Navigation, Editing). All content is supplied by the caller.",
+    "props": [
+      {
+        "name": "groups",
+        "required": true,
+        "type": "ShortcutGroup[]",
+        "defaultValue": null,
+        "description": "Groups of keyboard shortcuts, rendered as a stack of cards"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/shortcut-table.tsx#ShortcutTableProps",
+      "src/components/landing1/shortcut-table.tsx#ShortcutGroup",
+      "src/components/landing1/shortcut-table.tsx#ShortcutRow"
+    ]
+  },
+  {
+    "id": "src/components/landing1/showcase-section.tsx#ShowcaseSection",
+    "componentName": "ShowcaseSection",
+    "filePath": "src/components/landing1/showcase-section.tsx",
+    "importPath": "components/landing1/showcase-section",
+    "description": "Single-screenshot showcase section: heading, a large screenshot, a\ncaption with supporting copy, and a CTA. All content and the image\nare supplied by the caller.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the caption"
+      },
+      {
+        "name": "caption",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Caption shown next to the screenshot"
+      },
+      {
+        "name": "ctaHref",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "CTA destination href"
+      },
+      {
+        "name": "ctaLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "CTA label"
+      },
+      {
+        "name": "image",
+        "required": true,
+        "type": "{ src: string; alt: string; width: number; height: number; }",
+        "defaultValue": null,
+        "description": "Screenshot rendered beside the copy"
+      },
+      {
+        "name": "previewLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small \"Preview\" label above the caption"
+      },
+      {
+        "name": "subtitle",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/showcase-section.tsx#ShowcaseSectionProps"
     ]
   },
   {
@@ -595,6 +1504,68 @@
     "relatedTypeNames": [
       "src/components/landing1/theme-toggle.tsx#ThemeToggleProps",
       "src/components/landing1/types.ts#ThemeOption"
+    ]
+  },
+  {
+    "id": "src/components/landing1/trust-section.tsx#TrustSection",
+    "componentName": "TrustSection",
+    "filePath": "src/components/landing1/trust-section.tsx",
+    "importPath": "components/landing1/trust-section",
+    "description": "Two-column trust/privacy section: heading + copy on one side, a grid of\nicon + title + body cards on the other. All content is supplied by the\ncaller; each point picks its own icon by name so the mapping doesn't\ndepend on array order.",
+    "props": [
+      {
+        "name": "body",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Supporting copy under the heading"
+      },
+      {
+        "name": "eyebrowLabel",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Small \"Privacy\" label above the heading"
+      },
+      {
+        "name": "points",
+        "required": true,
+        "type": "TrustPoint[]",
+        "defaultValue": null,
+        "description": "Grid of trust/privacy points"
+      },
+      {
+        "name": "title",
+        "required": true,
+        "type": "string",
+        "defaultValue": null,
+        "description": "Section heading"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/trust-section.tsx#TrustSectionProps",
+      "src/components/landing1/trust-section.tsx#TrustPoint"
+    ]
+  },
+  {
+    "id": "src/components/landing1/use-case-groups.tsx#UseCaseGroups",
+    "componentName": "UseCaseGroups",
+    "filePath": "src/components/landing1/use-case-groups.tsx",
+    "importPath": "components/landing1/use-case-groups",
+    "description": "Stack of cards, one per audience, each listing a short summary and a\ngrid of concrete usage scenarios. All content is supplied by the caller.",
+    "props": [
+      {
+        "name": "groups",
+        "required": true,
+        "type": "UseCaseAudienceGroup[]",
+        "defaultValue": null,
+        "description": "Audience groups, in display order"
+      }
+    ],
+    "relatedTypeNames": [
+      "src/components/landing1/use-case-groups.tsx#UseCaseGroupsProps",
+      "src/components/landing1/use-case-groups.tsx#UseCaseAudienceGroup",
+      "src/components/landing1/use-case-groups.tsx#UseCaseScenario"
     ]
   },
   {
